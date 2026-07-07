@@ -1,24 +1,28 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from youtube_core import build_analysis_bundle, download_video, generate_timestamp
+from youtube_core import (
+    build_analysis_bundle,
+    download_video,
+    generate_timestamp,
+    import_local_video,
+    save_detection_run,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DOWNLOADS_DIR = BASE_DIR / "downloads"
 ANALYSIS_DIR = BASE_DIR / "analysis"
 
 app = FastAPI(title="Climb Video Analyzer")
 
 
-class DownloadRequest(BaseModel):
-    url: str = Field(..., min_length=5)
-    resolution: int = Field(default=720, ge=144, le=4320)
+class AnalysisMetadata(BaseModel):
     route_folder: str = Field(..., min_length=1)
     route_orientation: str = Field(default="unknown")
     camera_angle: str = Field(default="unknown")
@@ -31,12 +35,28 @@ class DownloadRequest(BaseModel):
     notes: str = Field(default="")
 
 
+class DownloadRequest(AnalysisMetadata):
+    url: str = Field(..., min_length=5)
+    resolution: int = Field(default=720, ge=144, le=4320)
+
+
+class ImportRequest(AnalysisMetadata):
+    local_path: str = Field(..., min_length=1)
+
+
+class DetectionRequest(BaseModel):
+    # Path to the video the detector ran on, e.g.
+    # "analysis/<route>/<video_key>/<video_key>.mp4". Route and video_key are derived
+    # from the folder structure: video_key is the parent folder, route its grandparent.
+    video_path: str = Field(..., min_length=1)
+    pose: Any = Field(...)
+    orb: Any = Field(...)
+
+
 def list_route_folders() -> list[str]:
     routes: set[str] = set()
-    for base_dir in (DOWNLOADS_DIR, ANALYSIS_DIR):
-        if not base_dir.exists():
-            continue
-        for child in base_dir.iterdir():
+    if ANALYSIS_DIR.exists():
+        for child in ANALYSIS_DIR.iterdir():
             if child.is_dir() and child.name.strip():
                 routes.add(child.name)
     return sorted(routes)
@@ -116,12 +136,26 @@ def render_homepage() -> str:
   <h1>Video Upload</h1>
 
   <form id="download-form">
-    <label>
-      URL
-      <input id="url" name="url" placeholder="https://youtu.be/..." required />
-    </label>
-
     <div class="row">
+      <label>
+        Source
+        <select id="source_type" name="source_type">
+          <option value="youtube" selected>YouTube URL</option>
+          <option value="local">Local file</option>
+        </select>
+      </label>
+      <label>
+        Route folder
+        <input id="route_folder" name="route_folder" list="route-options" required />
+        <datalist id="route-options"></datalist>
+      </label>
+    </div>
+
+    <div class="row youtube-only">
+      <label>
+        URL
+        <input id="url" name="url" placeholder="https://youtu.be/..." />
+      </label>
       <label>
         Resolution
         <select id="resolution" name="resolution">
@@ -131,10 +165,13 @@ def render_homepage() -> str:
           <option value="1440">1440</option>
         </select>
       </label>
+    </div>
+
+    <div class="local-only" hidden>
       <label>
-        Route folder
-        <input id="route_folder" name="route_folder" list="route-options" required />
-        <datalist id="route-options"></datalist>
+        Local file path
+        <input id="local_path" name="local_path"
+               placeholder="downloads/Midnight_Lightning_V8.mp4" />
       </label>
     </div>
 
@@ -241,6 +278,18 @@ def render_homepage() -> str:
     const resultJson = document.getElementById('result-json');
     const routeFolderInput = document.getElementById('route_folder');
     const routeOptions = document.getElementById('route-options');
+    const sourceType = document.getElementById('source_type');
+    const youtubeOnly = document.querySelector('.youtube-only');
+    const localOnly = document.querySelector('.local-only');
+
+    function syncSourceFields() {
+      const isLocal = sourceType.value === 'local';
+      youtubeOnly.hidden = isLocal;
+      localOnly.hidden = !isLocal;
+    }
+
+    sourceType.addEventListener('change', syncSourceFields);
+    syncSourceFields();
 
     async function loadRouteOptions() {
       try {
@@ -267,7 +316,6 @@ def render_homepage() -> str:
       event.preventDefault();
 
       const payload = Object.fromEntries(new FormData(form).entries());
-      payload.resolution = Number(payload.resolution);
       payload.route_folder = String(payload.route_folder || '').trim();
 
       if (!payload.route_folder) {
@@ -276,11 +324,33 @@ def render_homepage() -> str:
         return;
       }
 
+      const isLocal = payload.source_type === 'local';
+      const endpoint = isLocal ? '/api/import' : '/api/download';
+
+      if (isLocal) {
+        payload.local_path = String(payload.local_path || '').trim();
+        if (!payload.local_path) {
+          status.textContent = 'Local file path is required.';
+          return;
+        }
+        delete payload.url;
+        delete payload.resolution;
+      } else {
+        payload.url = String(payload.url || '').trim();
+        if (!payload.url) {
+          status.textContent = 'URL is required.';
+          return;
+        }
+        payload.resolution = Number(payload.resolution);
+        delete payload.local_path;
+      }
+      delete payload.source_type;
+
       submitBtn.disabled = true;
       status.textContent = 'Working...';
 
       try {
-        const response = await fetch('/api/download', {
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -317,45 +387,102 @@ def get_routes() -> dict[str, list[str]]:
   return {"routes": list_route_folders()}
 
 
+def _analysis_inputs(payload: AnalysisMetadata, **extra: object) -> dict[str, object]:
+    return {
+        "route_folder": payload.route_folder,
+        "route_orientation": payload.route_orientation,
+        "camera_angle": payload.camera_angle,
+        "shadows": payload.shadows,
+        "climber_contrast": payload.climber_contrast,
+        "wall_contrast": payload.wall_contrast,
+        "motion_blur": payload.motion_blur,
+        "occlusion": payload.occlusion,
+        "camera_stability": payload.camera_stability,
+        "notes": payload.notes,
+        **extra,
+    }
+
+
+def _bundle_response(download_result, user_metadata: dict[str, object]) -> dict[str, object]:
+    bundle = build_analysis_bundle(download_result, ANALYSIS_DIR, user_metadata)
+    source_video = bundle["metadata"]["source_video"]
+    return {
+        "timestamp": download_result.timestamp,
+        "route_folder": download_result.route_folder,
+        "source_type": download_result.source_type,
+        "video_key": bundle["video_key"],
+        "video_path": str(download_result.video_path),
+        "analysis_video_dir": str(bundle["video_dir"]),
+        "metadata_path": str(bundle["metadata_path"]),
+        "frame_path": str(bundle["frame_path"]),
+        "detections_dir": str(bundle["detections_dir"]),
+        "source_title": source_video.get("title"),
+        "source_video_id": source_video.get("video_id"),
+        "analysis_inputs": bundle["metadata"]["analysis_inputs"],
+    }
+
+
 @app.post("/api/download")
 def create_download_bundle(payload: DownloadRequest) -> dict[str, object]:
     try:
-        timestamp = generate_timestamp()
         download_result = download_video(
             payload.url,
-            DOWNLOADS_DIR,
+            ANALYSIS_DIR,
             payload.resolution,
             route_folder=payload.route_folder,
-            timestamp=timestamp,
+            timestamp=generate_timestamp(),
         )
-        bundle = build_analysis_bundle(
+        return _bundle_response(
             download_result,
-            ANALYSIS_DIR,
-            {
-                "route_folder": payload.route_folder,
-                "route_orientation": payload.route_orientation,
-                "camera_angle": payload.camera_angle,
-                "shadows": payload.shadows,
-                "climber_contrast": payload.climber_contrast,
-                "wall_contrast": payload.wall_contrast,
-                "motion_blur": payload.motion_blur,
-                "occlusion": payload.occlusion,
-                "camera_stability": payload.camera_stability,
-                "notes": payload.notes,
-                "requested_resolution": payload.resolution,
-            },
+            _analysis_inputs(payload, requested_resolution=payload.resolution),
         )
-
-        return {
-            "timestamp": download_result.timestamp,
-            "route_folder": download_result.route_folder,
-            "download_path": str(download_result.video_path),
-            "analysis_dir": str(bundle["route_dir"]),
-            "metadata_path": str(bundle["metadata_path"]),
-            "frame_path": str(bundle["frame_path"]),
-            "source_title": bundle["metadata"]["source_video"].get("title"),
-            "source_video_id": bundle["metadata"]["source_video"].get("video_id"),
-            "analysis_inputs": bundle["metadata"]["analysis_inputs"],
-        }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/import")
+def create_import_bundle(payload: ImportRequest) -> dict[str, object]:
+    try:
+        download_result = import_local_video(
+            Path(payload.local_path),
+            ANALYSIS_DIR,
+            route_folder=payload.route_folder,
+            timestamp=generate_timestamp(),
+        )
+        return _bundle_response(
+            download_result,
+            _analysis_inputs(payload, imported_from=payload.local_path),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/detections")
+def push_detections(payload: DetectionRequest) -> dict[str, object]:
+    video_path = Path(payload.video_path)
+    video_key = video_path.parent.name
+    route_folder = video_path.parent.parent.name
+
+    if not video_key or not route_folder:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Could not derive route/video_key from video_path; expected "
+                ".../<route>/<video_key>/<file>."
+            ),
+        )
+
+    try:
+        result = save_detection_run(
+            ANALYSIS_DIR,
+            route_folder,
+            video_key,
+            payload.pose,
+            payload.orb,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return result
