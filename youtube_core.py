@@ -341,6 +341,25 @@ def import_local_video(
     )
 
 
+# Write every decoded frame to the same file, so whatever remains is the *last*
+# frame in the window. No -frames:v cap: that would keep the first frame instead.
+_FRAME_OUTPUT_ARGS = ["-update", "1"]
+
+
+def _run_frame_extraction(ffmpeg: str, video_path: Path, frame_path: Path, args: list[str]) -> bool:
+    """Run one ffmpeg frame grab; return True only if a non-empty PNG lands.
+
+    ffmpeg exits 0 even when a seek overshoots the last frame and nothing is
+    encoded, so a clean return code is not proof of success — the file check is.
+    """
+    command = [ffmpeg, "-y", *args, "-i", str(video_path), *_FRAME_OUTPUT_ARGS, str(frame_path)]
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError:
+        return False
+    return frame_path.exists() and frame_path.stat().st_size > 0
+
+
 def extract_last_frame(video_path: Path, frame_path: Path) -> Path:
     ffmpeg = _find_ffmpeg_executable()
     if not ffmpeg:
@@ -348,23 +367,16 @@ def extract_last_frame(video_path: Path, frame_path: Path) -> Path:
 
     frame_path.parent.mkdir(parents=True, exist_ok=True)
 
-    command = [
-        ffmpeg,
-        "-y",
-        "-sseof",
-        "-0.1",
-        "-i",
-        str(video_path),
-        "-frames:v",
-        "1",
-        str(frame_path),
-    ]
-    subprocess.run(command, check=True, capture_output=True, text=True)
+    # Seek near the end for a cheap grab, widening the window on each miss: a tight
+    # window can overshoot the last decodable frame (given the file's keyframe
+    # spacing) and encode nothing. The final, seek-free pass decodes the whole file
+    # and keeps the last frame — reliable but the most expensive, so it's the last
+    # resort.
+    for attempt in (["-sseof", "-1"], ["-sseof", "-3"], ["-sseof", "-10"], []):
+        if _run_frame_extraction(ffmpeg, video_path, frame_path, attempt):
+            return frame_path
 
-    if not frame_path.exists() or frame_path.stat().st_size == 0:
-        raise RuntimeError("Could not extract the final frame from the video.")
-
-    return frame_path
+    raise RuntimeError("Could not extract the final frame from the video.")
 
 
 def _paired_detection_paths(detections_dir: Path, run_ts: str) -> tuple[Path, str]:
