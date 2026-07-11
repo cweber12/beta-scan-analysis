@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 downloads/
 
+# Derived analysis outputs (report.html + features CSVs).
+reports/
+
 # Video binaries live inside the analysis bundle, but stay out of git; the
 # metadata.json / final_frame.png / detections/ record is still tracked.
 analysis/**/*.mp4
