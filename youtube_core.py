@@ -17,6 +17,14 @@ import yt_dlp
 
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
 
+# The video_key (a sanitized filename stem) is used twice in the canonical path
+# — once as the folder name and again as the copied file's name — so a long
+# source filename is effectively doubled. Windows enforces MAX_PATH (260 chars)
+# unless long-path support is enabled, and a raw source title can easily push the
+# destination past that limit, surfacing as "[WinError 3] The system cannot find
+# the path specified". Cap the stem so canonical paths stay comfortably short.
+MAX_KEY_STEM_LENGTH = 48
+
 
 @dataclass(frozen=True)
 class DownloadResult:
@@ -35,6 +43,16 @@ def sanitize_filename(name: str) -> str:
 def sanitize_route_folder(route_folder: str) -> str:
     cleaned = sanitize_filename(route_folder.strip())
     return cleaned or "uncategorized"
+
+
+def _truncate_stem(stem: str, limit: int = MAX_KEY_STEM_LENGTH) -> str:
+    """Trim a sanitized filename stem so canonical paths stay under MAX_PATH.
+
+    Trailing separators left by the cut are stripped so keys don't end in "_" or ".".
+    """
+    if len(stem) <= limit:
+        return stem
+    return stem[:limit].rstrip("._-") or stem[:limit]
 
 
 def generate_timestamp() -> str:
@@ -286,13 +304,22 @@ def import_local_video(
     safe_route_folder = sanitize_route_folder(route_folder)
     effective_timestamp = timestamp or generate_timestamp()
 
-    stem = sanitize_filename(local_path.stem) or "video"
+    stem = _truncate_stem(sanitize_filename(local_path.stem)) or "video"
     video_key = f"{stem}_{effective_timestamp}"
     video_dir = analysis_root / safe_route_folder / video_key
     video_dir.mkdir(parents=True, exist_ok=True)
 
     canonical_path = _next_available_path(video_dir / f"{video_key}{suffix}")
-    shutil.copy2(local_path, canonical_path)
+    try:
+        shutil.copy2(local_path, canonical_path)
+    except OSError as exc:
+        # On Windows a destination over MAX_PATH (260) surfaces as WinError 3
+        # ("cannot find the path specified"), which reads like a missing source
+        # file. Point at the real culprit: the copy target we couldn't create.
+        raise OSError(
+            f"Failed to write imported video to {canonical_path} "
+            f"({len(str(canonical_path))} chars): {exc}"
+        ) from exc
 
     if not canonical_path.exists() or canonical_path.stat().st_size < 100_000:
         raise RuntimeError("Imported file appears invalid: missing or too small.")
