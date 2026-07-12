@@ -1,9 +1,17 @@
-"""Per-frame table: decode the video at sampled timestamps and join image-quality
-predictors to the post-processed keypoint PROXY outcome.
+"""Per-frame table: join per-frame image-quality predictors to per-frame pose
+outcomes.
 
-Per-frame detector provenance is not exported (every frame is post-processed and
-filled), so ``kp_count`` and ``mean_score`` are an explicit quality *proxy*, not the
-detector's raw output. See the report banner and the plan's cross-repo follow-ups.
+Two sources of per-frame conditions, in priority order:
+
+1. **Scanner export (preferred).** When the pose export carries per-frame
+   ``source`` provenance and ``climber``/``wall`` region stats (the Phase 2 data
+   contract), use them directly — no video decode, so the committed record is
+   self-sufficient — and expose ``raw_detected`` (source == "raw") as a *real*
+   outcome instead of the proxy.
+2. **cv2 decode (fallback).** For older bundles without exported per-frame stats,
+   decode the video at sampled timestamps and compute the crop stats here. In this
+   path ``kp_count`` / ``mean_score`` are an explicit quality *proxy* (the exported
+   frames are already post-processed and filled), not raw detector output.
 """
 
 from __future__ import annotations
@@ -32,14 +40,62 @@ def _sample_interval_sec(config: dict[str, Any]) -> float:
     return frame_step * frame_interval_ms / 1000.0
 
 
-def _frames_by_timestamp(pose: dict[str, Any]) -> dict[float, list[dict[str, Any]]]:
-    """Index exported frames by timestamp rounded to the 0.1s grid."""
+def _frames_by_timestamp(pose: dict[str, Any]) -> dict[float, dict[str, Any]]:
+    """Index exported frames (whole dict) by timestamp rounded to the 0.1s grid."""
 
-    out: dict[float, list[dict[str, Any]]] = {}
+    out: dict[float, dict[str, Any]] = {}
     for fr in pose.get("frames", []) or []:
         ts = round(float(fr.get("timestamp", 0.0)), 1)
-        out[ts] = fr.get("keypoints", []) or []
+        out[ts] = fr
     return out
+
+
+# Map the scanner's per-frame region stat keys to the decode-path column suffixes
+# (so exported stats and cv2-computed stats land in the same columns).
+_REGION_STAT_KEYS = {"mean": "luma_mean", "stdDev": "luma_std", "sharpness": "sharpness"}
+
+
+def _exported_region_stats(frame: dict[str, Any]) -> dict[str, Any]:
+    """Per-frame climber/wall stats from the scanner export, keyed to the
+    decode-path column names. Returns {} when the frame carries none."""
+
+    out: dict[str, Any] = {}
+    present = False
+    for region in ("climber", "wall"):
+        block = frame.get(region) if isinstance(frame, dict) else None
+        for src_key, col_suffix in _REGION_STAT_KEYS.items():
+            val = block.get(src_key) if isinstance(block, dict) else None
+            if isinstance(val, (int, float)):
+                present = True
+                out[f"{region}_{col_suffix}"] = float(val)
+            else:
+                out[f"{region}_{col_suffix}"] = None
+    return out if present else {}
+
+
+def _pose_export_flags(pose: dict[str, Any]) -> tuple[bool, bool]:
+    """(has_frame_stats, has_provenance) for a pose export.
+
+    ``has_frame_stats`` gates skipping the video decode; ``has_provenance`` lets a
+    sampled timestamp absent from ``frames[]`` be read as an undetected frame.
+    """
+
+    has_stats = False
+    has_provenance = False
+    for fr in pose.get("frames", []) or []:
+        if not has_provenance and fr.get("source"):
+            has_provenance = True
+        if not has_stats:
+            for region in ("climber", "wall"):
+                block = fr.get(region)
+                if isinstance(block, dict) and any(
+                    isinstance(block.get(k), (int, float)) for k in ("mean", "stdDev", "sharpness")
+                ):
+                    has_stats = True
+                    break
+        if has_stats and has_provenance:
+            break
+    return has_stats, has_provenance
 
 
 def _proxy_and_kinematics(keypoints: list[dict[str, Any]]) -> dict[str, Any]:
@@ -99,10 +155,15 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
             or 0.0
         )
         frame_index = _frames_by_timestamp(rec.pose)
+        has_frame_stats, has_provenance = _pose_export_flags(rec.pose)
 
         cap = None
         vh = vw = 0
-        can_decode = decode and cv2 is not None and rec.video_path is not None
+        # Exported per-frame stats make the video decode unnecessary (and let the
+        # committed record be analysed without the git-ignored binary).
+        can_decode = (
+            decode and cv2 is not None and rec.video_path is not None and not has_frame_stats
+        )
         if can_decode:
             cap = cv2.VideoCapture(str(rec.video_path))
             if not cap.isOpened():
@@ -120,7 +181,8 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
 
         for k in range(n_samples):
             t = round(k * interval, 1)
-            keypoints = frame_index.get(t, [])
+            fr = frame_index.get(t)
+            keypoints = (fr.get("keypoints") if isinstance(fr, dict) else None) or []
             kin = _proxy_and_kinematics(keypoints)
 
             velocity = None
@@ -130,15 +192,27 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
             if cx is not None:
                 prev_c = (cx, cy)
 
+            # Provenance -> real per-frame outcome. A sampled timestamp with no
+            # exported frame is an undetected frame *only* when this run carries
+            # provenance at all (else it's an old bundle and we can't tell).
+            source = fr.get("source") if isinstance(fr, dict) else None
+            if source is None and has_provenance:
+                source = "missing"
+            raw_detected = None if source is None else (1.0 if source == "raw" else 0.0)
+
             row: dict[str, Any] = {
                 "video_key": rec.video_key,
                 "run_ts": rec.run_ts,
                 "t": t,
                 "velocity": velocity,
+                "source": source,
+                "raw_detected": raw_detected,
                 **kin,
             }
 
-            if can_decode:
+            if has_frame_stats and isinstance(fr, dict):
+                row.update(_exported_region_stats(fr))
+            elif can_decode:
                 cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
                 ok, frame = cap.read()
                 if ok and frame is not None:

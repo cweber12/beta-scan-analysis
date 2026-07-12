@@ -19,15 +19,31 @@ from analysis_pipeline.runs import build_run_table
 
 
 def _write_run(video_dir: Path, stem: str, *, video_hash: str, setup_hash: str,
-               config: dict, labels: dict, det_rate: float, written_at: str) -> None:
+               config: dict, labels: dict, det_rate: float, written_at: str,
+               overlay_quality: float | None = None, bad_stretches: list | None = None,
+               provenance: bool = False) -> None:
     det = video_dir / "detections"
     det.mkdir(parents=True, exist_ok=True)
-    frames = [
-        {"timestamp": round(i * 1.0, 1),
-         "keypoints": [{"name": "nose", "x": 0.5, "y": 0.5, "score": 0.9},
-                       {"name": "left_shoulder", "x": 0.4, "y": 0.6, "score": 0.8}]}
-        for i in range(4)
-    ]
+    # When provenance is requested, tag frames with a source + per-frame region
+    # stats (the Phase 2 export contract) so the exported-stats path is exercised.
+    sources = ["raw", "raw", "interpolated", "flipDiscarded"]
+    frames = []
+    for i in range(4):
+        fr = {"timestamp": round(i * 1.0, 1),
+              "keypoints": [{"name": "nose", "x": 0.5, "y": 0.5, "score": 0.9},
+                            {"name": "left_shoulder", "x": 0.4, "y": 0.6, "score": 0.8}]}
+        if provenance:
+            fr["source"] = sources[i]
+            fr["climber"] = {"mean": 70.0 + i, "stdDev": 25.0, "sharpness": 90.0 + i}
+            fr["wall"] = {"mean": 80.0, "stdDev": 20.0, "sharpness": 100.0 + i}
+        frames.append(fr)
+    result_pose = {"sampledFrames": 4, "detectedFrames": int(det_rate * 4),
+                   "detectionRate": det_rate, "flippedFrames": 0,
+                   "goodFrames": 3, "confidence": {"avg": 0.88, "min": 0.7},
+                   "avgKeypointCount": 20.0}
+    result: dict = {"pose": result_pose, "badStretches": bad_stretches or []}
+    if overlay_quality is not None:
+        result["overlayQuality"] = overlay_quality
     pose = {
         "video_key": video_dir.name, "route_folder": video_dir.parent.name,
         "run_ts": stem, "written_at": written_at, "type": "pose",
@@ -39,10 +55,7 @@ def _write_run(video_dir: Path, stem: str, *, video_hash: str, setup_hash: str,
                           "referenceFrame": {"wall": {"sharpness": 100.0, "mean": 80.0, "stdDev": 20.0}},
                           "motionMagnitude": 0.03,
                           "climberFrameCoverage": {"avg": 0.05, "min": 0.01}},
-                "result": {"pose": {"sampledFrames": 4, "detectedFrames": int(det_rate * 4),
-                                    "detectionRate": det_rate, "flippedFrames": 0,
-                                    "goodFrames": 3, "confidence": {"avg": 0.88, "min": 0.7},
-                                    "avgKeypointCount": 20.0}, "badStretches": []},
+                "result": result,
             },
             "frames": frames,
         },
@@ -72,10 +85,13 @@ def _build_corpus(root: Path) -> None:
         _write_run(a, ts, video_hash="ha", setup_hash="sa", config=cfg,
                    labels={**base_labels, "route_orientation": "left"},
                    det_rate=0.66, written_at=f"2026-01-01T00:0{i}:00")
-    # video B, C: distinct
+    # video B, C: distinct. vidB exercises the Phase 2 export contract
+    # (overlayQuality + badStretches + per-frame provenance/region stats).
     _write_run(root / "routeB" / "vidB", "20260102-000001", video_hash="hb", setup_hash="sb",
                config=cfg, labels={**base_labels, "route_orientation": "head-on"},
-               det_rate=1.0, written_at="2026-01-02T00:00:00")
+               det_rate=1.0, written_at="2026-01-02T00:00:00",
+               overlay_quality=0.82, bad_stretches=[{"startSec": 1.0, "endSec": 1.5, "reason": "flip"}],
+               provenance=True)
     _write_run(root / "routeC" / "vidC", "20260103-000001", video_hash="hc", setup_hash="sc",
                config=cfg, labels={**base_labels, "route_orientation": "right",
                                    "camera_stability": "moving"},
@@ -96,6 +112,15 @@ def test_discovery_dedup_prune_and_stats():
         assert len(run_df) == 3
         assert run_df["orb_refKeypointCount"].notna().all()
 
+        # New pose-outcome columns (ADR 0001), populated only for vidB.
+        assert "out_overlayQuality" in run_df.columns
+        assert "out_badStretchSeconds" in run_df.columns
+        vidb = run_df.set_index("video_key").loc["vidB"]
+        assert abs(float(vidb["out_overlayQuality"]) - 0.82) < 1e-9
+        assert abs(float(vidb["out_badStretchSeconds"]) - 0.5) < 1e-9
+        assert run_df.set_index("video_key").loc["vidA"]["out_overlayQuality"] is None \
+            or pd.isna(run_df.set_index("video_key").loc["vidA"]["out_overlayQuality"])
+
         kept, dropped = stats.prune_labels(run_df)
         dropped_names = {c for c, _ in dropped}
         # camera_angle constant, occlusion 100% unknown -> dropped
@@ -108,6 +133,14 @@ def test_discovery_dedup_prune_and_stats():
         # 4 samples per run (duration 3.0s, 1.0s interval -> t=0,1,2,3)
         assert len(frame_df) == 3 * 4
         assert frame_df["kp_count"].eq(2).all()
+
+        # Per-frame provenance columns exist; vidB carries real source tags and the
+        # exported region stats (so raw_detected is a real 0/1 outcome there).
+        assert {"source", "raw_detected"}.issubset(frame_df.columns)
+        vidb_frames = frame_df[frame_df["video_key"] == "vidB"]
+        assert set(vidb_frames["source"]) == {"raw", "interpolated", "flipDiscarded"}
+        assert vidb_frames["raw_detected"].sum() == 2  # two "raw" frames
+        assert vidb_frames["wall_sharpness"].notna().all()  # from the export, not decode
 
         corr = stats.within_run_correlations(frame_df)
         assert set(["predictor", "outcome", "mean_r", "n_runs"]).issubset(corr.columns) or corr.empty
@@ -122,8 +155,73 @@ def test_cliffs_delta_bounds():
     assert stats.cliffs_delta([], [1]) is None
 
 
+def _write_matrix(path: Path, keys_routes: dict[str, str], same_hi=0.7, cross_lo=0.03) -> None:
+    """Fabricate an orb_match_matrix.json over the given {key: route} videos."""
+
+    pairs = []
+    for rk, rr in keys_routes.items():
+        for qk, qr in keys_routes.items():
+            same = rr == qr
+            ratio = 1.0 if rk == qk else (same_hi if same else cross_lo)
+            pairs.append({
+                "trainKey": rk, "trainRoute": rr, "queryKey": qk, "queryRoute": qr,
+                "sameRoute": same, "matches": 100, "inliers": int(round(ratio * 100)),
+                "inlierRatio": ratio, "homographyValid": same, "reprojErrorPx": 3.0 if same else None,
+            })
+    path.write_text(json.dumps({"pairs": pairs}), encoding="utf-8")
+
+
+def test_crossmatch_reducers():
+    from analysis_pipeline import crossmatch
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        mpath = root / "orb_match_matrix.json"
+        # two routes, two videos each -> off-diagonal same-route pairs exist
+        _write_matrix(mpath, {"r1a": "route1", "r1b": "route1",
+                              "r2a": "route2", "r2b": "route2"})
+        df = crossmatch.load_match_matrix(mpath)
+        assert len(df) == 16
+
+        sep = crossmatch.separation_stats(df)
+        assert sep["available"]
+        assert sep["same_mean"] > sep["cross_mean"]
+        assert sep["auc"] == 1.0  # perfectly separable
+        assert sep["n_same"] == 4 and sep["n_cross"] == 8
+
+        thr = crossmatch.best_threshold(df)
+        assert thr["available"] and thr["f1"] == 1.0
+
+        mtx = crossmatch.ordered_matrix(df)
+        assert mtx["available"] and len(mtx["keys"]) == 4
+        assert len(mtx["values"]) == 4 and len(mtx["values"][0]) == 4
+
+        # missing / malformed file -> empty, no crash
+        assert crossmatch.load_match_matrix(root / "nope.json").empty
+        assert not crossmatch.separation_stats(crossmatch.load_match_matrix(root / "nope.json"))["available"]
+
+
+def test_pipeline_end_to_end_renders_report():
+    from analysis_pipeline import cli
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        out = Path(tmp) / "reports"
+        out.mkdir(parents=True, exist_ok=True)
+        _build_corpus(root)
+        _write_matrix(out / "orb_match_matrix.json",
+                      {"vidA": "routeA", "vidB": "routeB", "vidC": "routeC"})
+
+        outputs = cli.run(root, out, decode=False, matrix=out / "orb_match_matrix.json")
+        html_text = outputs["html"].read_text(encoding="utf-8")
+        for header in ("Corpus quality overview", "Per-video failure cards",
+                       "ORB cross-match", "Per-frame failure timeline"):
+            assert header in html_text, f"missing report section: {header}"
+
+
 def _run_all():
-    fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds]
+    fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
+           test_crossmatch_reducers, test_pipeline_end_to_end_renders_report]
     for fn in fns:
         fn()
         print(f"PASS {fn.__name__}")

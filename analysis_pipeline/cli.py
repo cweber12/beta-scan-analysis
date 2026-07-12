@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import report, stats
+from . import crossmatch, report, stats
 from .discovery import discover_runs
 from .frames import build_frame_table
 from .runs import build_run_table
@@ -20,7 +20,8 @@ def _display_run_table(run_df: pd.DataFrame) -> pd.DataFrame:
     return slim.round(3)
 
 
-def run(analysis_root: Path, out_dir: Path, decode: bool = True) -> dict[str, Path]:
+def run(analysis_root: Path, out_dir: Path, decode: bool = True,
+        matrix: Path | None = None) -> dict[str, Path]:
     records = discover_runs(analysis_root)
     if not records:
         raise SystemExit(f"No detection runs found under {analysis_root}")
@@ -38,11 +39,23 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True) -> dict[str, Pa
     cat_effects = stats.categorical_effects(run_df, kept_labels)
     orb_corr = stats.orb_correlations(run_df)
 
+    # ORB cross-match matrix (produced by the scanner repo; absent -> graceful).
+    matrix_path = matrix or (out_dir / "orb_match_matrix.json")
+    match_df = crossmatch.load_match_matrix(matrix_path)
+    orb_matrix = crossmatch.ordered_matrix(match_df)
+    orb_separation = crossmatch.separation_stats(match_df)
+    orb_threshold = crossmatch.best_threshold(match_df)
+    final_frames = {rec.video_key: rec.video_dir / "final_frame.png" for rec in records}
+
     print(f"discovered {len(records)} runs "
           f"({n_pose_files - len(records)} re-runs collapsed) across "
           f"{run_df['video_key'].nunique()} videos; {len(frame_df)} per-frame samples")
     if dropped_labels:
         print("pruned labels: " + ", ".join(f"{c.replace('label_','')} ({r})" for c, r in dropped_labels))
+    if orb_matrix.get("available"):
+        print(f"loaded ORB cross-match matrix: {len(match_df)} pairs from {matrix_path}")
+    else:
+        print(f"no ORB cross-match matrix at {matrix_path} (ORB cross-match section will be empty)")
 
     ctx = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -54,9 +67,14 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True) -> dict[str, Pa
         "dropped_labels": dropped_labels,
         "frame_corr": frame_corr,
         "frame_df": frame_df,
+        "run_df": run_df,
+        "final_frames": final_frames,
         "run_corr": run_corr,
         "cat_effects": cat_effects,
         "orb_corr": orb_corr,
+        "orb_matrix": orb_matrix,
+        "orb_separation": orb_separation,
+        "orb_threshold": orb_threshold,
         "run_table_display": _display_run_table(run_df),
     }
 
@@ -77,8 +95,12 @@ def main(argv: list[str] | None = None) -> None:
                         help="output directory for report + CSVs (default: reports)")
     parser.add_argument("--no-decode", action="store_true",
                         help="skip cv2 video decoding (pose-derived predictors only)")
+    parser.add_argument("--matrix", default=None, type=Path,
+                        help="path to the scanner's orb_match_matrix.json "
+                             "(default: <out>/orb_match_matrix.json)")
     args = parser.parse_args(argv)
-    run(args.analysis_root.resolve(), args.out.resolve(), decode=not args.no_decode)
+    matrix = args.matrix.resolve() if args.matrix else None
+    run(args.analysis_root.resolve(), args.out.resolve(), decode=not args.no_decode, matrix=matrix)
 
 
 if __name__ == "__main__":

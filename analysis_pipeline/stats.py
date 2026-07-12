@@ -15,7 +15,10 @@ import pandas as pd
 UNKNOWN = "unknown"
 
 # Column groups ---------------------------------------------------------------
-FRAME_PROXY_OUTCOMES = ["kp_count", "mean_score"]
+# raw_detected (from per-frame provenance) is the *real* per-frame outcome when
+# present; kp_count / mean_score remain a proxy for older bundles. All are skipped
+# automatically when absent or constant within every run.
+FRAME_PROXY_OUTCOMES = ["raw_detected", "kp_count", "mean_score"]
 FRAME_PREDICTORS = [
     "climber_sharpness",
     "climber_luma_mean",
@@ -28,6 +31,10 @@ FRAME_PREDICTORS = [
 ]
 
 RUN_OUTCOMES = [
+    # Primary, non-circular outcome (ADR 0001) — null until the scanner ships it.
+    "out_overlayQuality",
+    "out_badStretchSeconds",
+    # Secondary / symptom metrics, kept as descriptive outcomes.
     "out_detectionRate",
     "out_flipRate",
     "out_confidence_avg",
@@ -213,6 +220,8 @@ def orb_correlations(run_df: pd.DataFrame) -> pd.DataFrame:
             rows.append(
                 {"predictor": pred, "outcome": "orb_refKeypointCount", "r": float(r), "n": len(pair)}
             )
+    if not rows:
+        return pd.DataFrame(columns=["predictor", "outcome", "r", "n"])
     return pd.DataFrame(rows).sort_values("r", key=lambda s: s.abs(), ascending=False)
 
 

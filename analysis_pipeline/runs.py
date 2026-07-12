@@ -91,8 +91,17 @@ def build_run_table(records: list[RunRecord]) -> pd.DataFrame:
         row["out_avgKeypointCount"] = result_pose.get("avgKeypointCount")
         row["out_limbExpandedFrames"] = result_pose.get("limbExpandedFrames")
         row["out_gapsRefined"] = _get(result_pose, "refinement", "gapsRefined")
+
+        # --- primary pose outcome: the scanner's end-to-end verdict (ADR 0001) ---
+        # Currently null across the corpus; populated once the scanner ships it.
+        row["out_overlayQuality"] = _get(diag, "result", "overlayQuality")
         badstretches = _get(diag, "result", "badStretches", default=[]) or []
         row["out_badStretchCount"] = len(badstretches)
+        row["out_badStretchSeconds"] = sum(
+            max(0.0, float(s.get("endSec", 0.0)) - float(s.get("startSec", 0.0)))
+            for s in badstretches
+            if isinstance(s, dict)
+        )
 
         # --- outcomes: orb (reference feature richness only) ---
         orb_meta = rec.orb.get("referenceFrameMeta", {})
