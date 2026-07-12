@@ -21,9 +21,11 @@ not a spec — it carries no implementation detail.
 
 - **Predictor** — a *condition* of the video that might drive detection quality:
   a computed image stat (reference/per-frame luma mean, stdDev, Laplacian
-  **sharpness**), motion magnitude, climber coverage, or a **hand label** the
-  scanner can't compute (route orientation, camera angle, occlusion, camera
-  stability).
+  **sharpness**), motion magnitude, climber coverage, or a **hand label**
+  (route orientation, camera angle, occlusion, camera stability, …). Hand labels
+  are written by the scanner at calibration into `setup.json.analysisInputs`
+  (snake_case keys matching `runs.LABEL_KEYS`); the harness upload no longer
+  collects them.
 - **Outcome** — a measure of *how good detection actually was*. The trusted pose
   Outcome is **`overlayQuality`** (the scanner's end-to-end 0..1 verdict) plus
   **`badStretches`** (spans the overlay was visibly wrong). The ORB Outcome is

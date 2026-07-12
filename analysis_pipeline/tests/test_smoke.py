@@ -65,13 +65,15 @@ def _write_run(video_dir: Path, stem: str, *, video_hash: str, setup_hash: str,
                                            "wall": {"sharpness": 100.0}}, "summary": {}}}
     (det / f"{stem}_pose.json").write_text(json.dumps(pose), encoding="utf-8")
     (det / f"{stem}_orb.json").write_text(json.dumps(orb), encoding="utf-8")
-    md = {"route_folder": video_dir.parent.name, "video_key": video_dir.name,
-          "analysis_inputs": labels}
+    # metadata.json now carries only source/structural facts; the condition labels
+    # live in setup.json.analysisInputs (scanner-written at calibration).
+    md = {"route_folder": video_dir.parent.name, "video_key": video_dir.name}
     (video_dir / "metadata.json").write_text(json.dumps(md), encoding="utf-8")
     (video_dir / "setup.json").write_text(
         json.dumps({"climberCrop": {"x": 0.4, "y": 0.5, "w": 0.1, "h": 0.4},
                     "wallCrop": {"x": 0.3, "y": 0.2, "w": 0.3, "h": 0.6},
-                    "setupHash": setup_hash}), encoding="utf-8")
+                    "setupHash": setup_hash,
+                    "analysisInputs": labels}), encoding="utf-8")
 
 
 def _build_corpus(root: Path) -> None:

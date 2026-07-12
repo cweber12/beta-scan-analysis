@@ -57,20 +57,20 @@ def _stub_download_result(source_type: str) -> SimpleNamespace:
     )
 
 
-def _fake_build_bundle(download_result, analysis_root, user_metadata):
-    # Echo user_metadata back through analysis_inputs so the test can assert that
-    # _analysis_inputs (and the per-endpoint extras) flow through _bundle_response.
+def _fake_build_bundle(download_result, analysis_root, source_extras=None):
+    # Echo source_extras into source_video so a test can assert they flow through
+    # (e.g. requested_resolution on download). Labels are no longer handled here.
     video_dir = download_result.video_path.parent
+    source_video = {"title": "The Mandala", "video_id": "abc123"}
+    if source_extras:
+        source_video.update(source_extras)
     return {
         "video_key": download_result.video_key,
         "video_dir": video_dir,
         "metadata_path": video_dir / "metadata.json",
         "frame_path": video_dir / "final_frame.png",
         "detections_dir": video_dir / "detections",
-        "metadata": {
-            "source_video": {"title": "The Mandala", "video_id": "abc123"},
-            "analysis_inputs": user_metadata,
-        },
+        "metadata": {"source_video": source_video},
     }
 
 
@@ -115,7 +115,7 @@ def test_get_routes_lists_directories():
 
 def test_create_download_bundle_shapes_response():
     payload = DownloadRequest(url="https://youtu.be/abc123", route_folder="routeA",
-                              resolution=1080, shadows="high")
+                              resolution=1080)
     with patch.object(app_module, "download_video",
                       lambda *a, **k: _stub_download_result("youtube")), \
          patch.object(app_module, "build_analysis_bundle", _fake_build_bundle):
@@ -125,9 +125,8 @@ def test_create_download_bundle_shapes_response():
     assert resp["source_type"] == "youtube"
     assert resp["source_title"] == "The Mandala"
     assert resp["source_video_id"] == "abc123"
-    # _analysis_inputs projection + the download-only extra flow through.
-    assert resp["analysis_inputs"]["shadows"] == "high"
-    assert resp["analysis_inputs"]["requested_resolution"] == 1080
+    # Condition labels are no longer collected or returned by the harness.
+    assert "analysis_inputs" not in resp
 
 
 def test_create_import_bundle_shapes_response():
@@ -139,8 +138,8 @@ def test_create_import_bundle_shapes_response():
         resp = create_import_bundle(payload)
 
     assert resp["source_type"] == "local"
-    assert resp["analysis_inputs"]["imported_from"] == \
-        "downloads/Midnight_Lightning_V8.mp4"
+    assert resp["video_key"] == "vid_20260101-000001"
+    assert "analysis_inputs" not in resp
 
 
 def test_create_download_bundle_maps_core_error_to_400():

@@ -46,6 +46,49 @@ iff they share `route_folder`. **This is the cross-match ground truth.**
 
 ---
 
+## Calibration: write the condition labels into setup.json (do this now)
+
+The harness upload page no longer collects the manual "analysis inputs" (route
+orientation, contrast, shadows, blur, occlusion, notes, …). The harness now only files
+the bundle by `route_folder`; **the scanner owns these labels and writes them at
+calibration**, alongside the crops it already writes to `setup.json`.
+
+Add an `analysisInputs` block to the `setup.json` the scanner writes:
+
+```json
+setup.json  (scanner-written, at calibration):
+{
+  "climberCrop": {...}, "wallCrop": {...}, "climberPoint": {...},
+  "panning": false, "qualityTier": "balanced", "setupHash": "...", "updatedAt": "...",
+  "analysisInputs": {
+    "route_orientation": "left|right|head-on|unknown",
+    "camera_angle":      "low|level|high|unknown",
+    "shadows":           "none|low|medium|high|unknown",
+    "climber_contrast":  "low|medium|high|unknown",
+    "wall_contrast":     "low|medium|high|unknown",
+    "motion_blur":       "none|low|medium|high|unknown",
+    "occlusion":         "none|some|heavy|unknown",
+    "camera_stability":  "steady|some-shake|moving|unknown",
+    "notes":             ""
+  }
+}
+```
+
+Rules:
+
+- **Keys are snake_case** (they map 1:1 to the pipeline's `LABEL_KEYS`); the wrapping
+  `analysisInputs` key is camelCase to match the rest of `setup.json`. Do **not** send
+  camelCase inner keys.
+- Do **not** include `route_folder` here — it is structural (the harness owns it).
+- Any missing/undecided field may be `"unknown"`; the pipeline prunes labels that are
+  mostly-unknown or constant.
+- The harness pipeline reads labels **only** from `setup.json.analysisInputs`. The
+  existing corpus was backfilled from the old `metadata.json` location by a one-off
+  migration (`scripts/backfill_analysis_inputs.py`), so no action is needed for old
+  bundles.
+
+---
+
 ## Phase 1 — all-pairs ORB cross-match (do this first)
 
 ### Goal

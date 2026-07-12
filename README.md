@@ -32,7 +32,11 @@ Open `http://127.0.0.1:8000`. Pick a **Source**:
   `downloads/Midnight_Lightning_V8.mp4`); the app **copies** it in, leaving the original
   untouched.
 
-Fill in the route folder + climbing metadata and submit.
+Enter the **route folder** and submit. That's the only field the harness collects — it
+files the bundle at `analysis/<route_folder>/<video_key>/`. The climbing-condition
+labels (route orientation, contrast, shadows, blur, occlusion, notes, …) are no longer
+entered here; the Beta Scanner captures them during **calibration** and writes them into
+`setup.json` as `analysisInputs`.
 
 ## Output folders
 
@@ -46,7 +50,8 @@ Each video is a **self-contained bundle** — the video lives right next to its 
 analysis/<route>/<video_key>/
     <video_key>.mp4        # canonical video; run detection on this
     final_frame.png        # last frame, extracted via ffmpeg
-    metadata.json          # source info + climbing metadata + video path
+    metadata.json          # source/technical info + video path (no condition labels)
+    setup.json             # scanner calibration: crops + analysisInputs (condition labels)
     detections/            # created empty at ingest time
         <run_ts>_pose.json
         <run_ts>_orb.json
@@ -78,8 +83,11 @@ first. Re-running detection appends a new timestamped pair; nothing is overwritt
 
 ## Notes
 
-- The metadata form is tuned for climbing footage: route orientation, camera angle,
-  shadows, climber contrast, wall contrast, motion blur, occlusion, stability, and notes.
+- The upload page takes only a **YouTube URL / local path** and a **route folder**. The
+  climbing-condition labels (route orientation, camera angle, shadows, climber/wall
+  contrast, motion blur, occlusion, stability, notes) are captured by the Beta Scanner at
+  calibration and land in `setup.json` as `analysisInputs`; the correlation pipeline reads
+  them from there.
 - `ffmpeg` merges best video + audio for YouTube downloads and extracts the final frame;
   `ffprobe` reads width/height/fps/duration for local imports.
 - Use only for content you are authorized to download, and comply with local laws and

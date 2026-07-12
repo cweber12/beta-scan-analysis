@@ -32,16 +32,12 @@ app = FastAPI(title="Climb Video Analyzer")
 # --------------------------------------------------------------------------- #
 
 class AnalysisMetadata(BaseModel):
+    # route_folder is the one manual field the harness still owns: it's structural
+    # (it files the bundle at analysis/<route_folder>/<video_key>/). The descriptive
+    # condition labels (orientation, contrast, blur, occlusion, notes, ...) are no
+    # longer collected here — the scanner writes them into setup.json.analysisInputs
+    # at calibration.
     route_folder: str = Field(..., min_length=1)
-    route_orientation: str = Field(default="unknown")
-    camera_angle: str = Field(default="unknown")
-    shadows: str = Field(default="unknown")
-    climber_contrast: str = Field(default="unknown")
-    wall_contrast: str = Field(default="unknown")
-    motion_blur: str = Field(default="unknown")
-    occlusion: str = Field(default="unknown")
-    camera_stability: str = Field(default="unknown")
-    notes: str = Field(default="")
 
 
 class DownloadRequest(AnalysisMetadata):
@@ -79,24 +75,10 @@ def list_route_folders() -> list[str]:
 # Response shaping
 # --------------------------------------------------------------------------- #
 
-def _analysis_inputs(payload: AnalysisMetadata, **extra: object) -> dict[str, object]:
-    return {
-        "route_folder": payload.route_folder,
-        "route_orientation": payload.route_orientation,
-        "camera_angle": payload.camera_angle,
-        "shadows": payload.shadows,
-        "climber_contrast": payload.climber_contrast,
-        "wall_contrast": payload.wall_contrast,
-        "motion_blur": payload.motion_blur,
-        "occlusion": payload.occlusion,
-        "camera_stability": payload.camera_stability,
-        "notes": payload.notes,
-        **extra,
-    }
-
-
-def _bundle_response(download_result, user_metadata: dict[str, object]) -> dict[str, object]:
-    bundle = build_analysis_bundle(download_result, ANALYSIS_DIR, user_metadata)
+def _bundle_response(
+    download_result, source_extras: dict[str, object] | None = None
+) -> dict[str, object]:
+    bundle = build_analysis_bundle(download_result, ANALYSIS_DIR, source_extras)
     source_video = bundle["metadata"]["source_video"]
     return {
         "timestamp": download_result.timestamp,
@@ -110,7 +92,6 @@ def _bundle_response(download_result, user_metadata: dict[str, object]) -> dict[
         "detections_dir": str(bundle["detections_dir"]),
         "source_title": source_video.get("title"),
         "source_video_id": source_video.get("video_id"),
-        "analysis_inputs": bundle["metadata"]["analysis_inputs"],
     }
 
 
@@ -140,7 +121,7 @@ def create_download_bundle(payload: DownloadRequest) -> dict[str, object]:
         )
         return _bundle_response(
             download_result,
-            _analysis_inputs(payload, requested_resolution=payload.resolution),
+            {"requested_resolution": payload.resolution},
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -155,10 +136,8 @@ def create_import_bundle(payload: ImportRequest) -> dict[str, object]:
             route_folder=payload.route_folder,
             timestamp=generate_timestamp(),
         )
-        return _bundle_response(
-            download_result,
-            _analysis_inputs(payload, imported_from=payload.local_path),
-        )
+        # imported_from is already recorded in the source_video block by the core.
+        return _bundle_response(download_result)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -8,7 +8,7 @@ import pandas as pd
 
 from .discovery import RunRecord
 
-# Hand labels carried in metadata.json -> analysis_inputs. Prefixed ``label_``.
+# Hand labels carried in setup.json -> analysisInputs. Prefixed ``label_``.
 LABEL_KEYS = [
     "route_orientation",
     "camera_angle",
@@ -57,7 +57,10 @@ def build_run_table(records: list[RunRecord]) -> pd.DataFrame:
         result_pose = _get(diag, "result", "pose", default={}) or {}
         ref = inp.get("referenceFrame", {})
 
-        labels = rec.metadata.get("analysis_inputs", {})
+        # Condition labels now live in setup.json.analysisInputs (written by the
+        # scanner at calibration). Older bundles are backfilled by the one-off
+        # migration, so this is the single source of truth.
+        labels = rec.setup.get("analysisInputs", {}) or {}
         row: dict[str, Any] = {
             "route_folder": rec.route_folder,
             "video_key": rec.video_key,

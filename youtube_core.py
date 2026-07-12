@@ -504,7 +504,7 @@ def _build_source_video_block(download_result: DownloadResult) -> dict[str, Any]
 def build_analysis_bundle(
     download_result: DownloadResult,
     analysis_root: Path,
-    user_metadata: dict[str, Any],
+    source_extras: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     # The video already lives canonically at analysis/<route>/<video_key>/<video_key><ext>.
     # We build the rest of the bundle (frame + metadata + detections dir) around it.
@@ -519,6 +519,14 @@ def build_analysis_bundle(
     frame_path = video_dir / "final_frame.png"
     extract_last_frame(download_result.video_path, frame_path)
 
+    # Human condition labels are no longer collected here — they arrive in
+    # setup.json.analysisInputs from the scanner at calibration. metadata.json now
+    # carries only source/technical facts the harness legitimately knows at upload.
+    # Any source_extras (e.g. requested_resolution) fold into the source_video block.
+    source_video = _build_source_video_block(download_result)
+    if source_extras:
+        source_video.update(source_extras)
+
     metadata = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "video_key": video_key,
@@ -528,8 +536,7 @@ def build_analysis_bundle(
         "source_video_path": str(download_result.video_path),
         "final_frame": str(frame_path),
         "detections_dir": str(detections_dir),
-        "source_video": _build_source_video_block(download_result),
-        "analysis_inputs": user_metadata,
+        "source_video": source_video,
     }
 
     metadata_path = video_dir / "metadata.json"
