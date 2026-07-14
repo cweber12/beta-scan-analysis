@@ -21,6 +21,7 @@ collaborators — needs none of it. The two seams:
 from __future__ import annotations
 
 import json
+import sys
 import traceback
 import uuid
 from dataclasses import dataclass
@@ -317,6 +318,12 @@ def build_artifact(
     return {"version": ARTIFACT_VERSION, "frames": frames_out}
 
 
+def _log(message: str) -> None:
+    # The job runs on a background thread that is otherwise silent; a line to stderr
+    # (which uvicorn surfaces) lets a manual run see it start and finish.
+    print(f"[vitpose] {message}", file=sys.stderr, flush=True)
+
+
 def _write_status(bundle_dir: Path, job_id: str, status: str, *, error: str | None = None) -> None:
     payload = {
         "jobId": job_id,
@@ -351,6 +358,10 @@ def run_vitpose_job(
         )
 
     _write_status(bundle_dir, job_id, "running")
+    _log(
+        f"job {job_id[:8]} started: {request.route_folder}/{request.video_key} "
+        f"({len(request.frames)} frames requested)"
+    )
     try:
         video_path = resolve_video_path(analysis_root, request.video_path)
         if not video_path.is_file():
@@ -364,12 +375,18 @@ def run_vitpose_job(
             json.dumps(artifact, indent=2, ensure_ascii=False), encoding="utf-8"
         )
         _write_status(bundle_dir, job_id, "done")
+        posed = sum(1 for f in artifact["frames"] if f["keypoints"])
+        _log(
+            f"job {job_id[:8]} done: {posed}/{len(artifact['frames'])} frames posed "
+            f"-> {artifact_path}"
+        )
         return artifact_path
     except Exception as exc:  # noqa: BLE001 — surface every failure via the sidecar
         _write_status(
             bundle_dir, job_id, "error",
             error=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}",
         )
+        _log(f"job {job_id[:8]} FAILED: {type(exc).__name__}: {exc}")
         raise
 
 
