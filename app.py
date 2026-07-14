@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import threading
+import uuid
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+import vitpose_job
 from youtube_core import (
     build_analysis_bundle,
     download_video,
@@ -56,6 +59,35 @@ class DetectionRequest(BaseModel):
     video_path: str = Field(..., min_length=1)
     pose: Any = Field(...)
     orb: Any = Field(...)
+
+
+class NormPoint(BaseModel):
+    x: float
+    y: float
+
+
+class NormCrop(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class VitPoseFrame(BaseModel):
+    timestamp: float = Field(..., ge=0)
+
+
+class VitPoseJobRequest(BaseModel):
+    # Cross-program contract with beta-scanner (its HARNESS_API_BASE points here).
+    # See docs/adr/0003. Coordinates are full-frame-normalized [0, 1].
+    video_path: str = Field(..., min_length=1)
+    route_folder: str = Field(..., min_length=1)
+    video_key: str = Field(..., min_length=1)
+    climber_point: NormPoint | None = None
+    climber_crop: NormCrop | None = None
+    wall_crop: NormCrop | None = None  # accepted for contract parity; ignored for pose
+    panning: bool = False
+    frames: list[VitPoseFrame] = Field(..., min_length=1)
 
 
 # --------------------------------------------------------------------------- #
@@ -171,3 +203,85 @@ def push_detections(payload: DetectionRequest) -> dict[str, object]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return result
+
+
+# --------------------------------------------------------------------------- #
+# ViTPose++ Ground Truth scaffold (see docs/adr/0003)
+# --------------------------------------------------------------------------- #
+
+def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseRequest:
+    point = (
+        vitpose_job.Point(payload.climber_point.x, payload.climber_point.y)
+        if payload.climber_point is not None
+        else None
+    )
+    crop = (
+        vitpose_job.Box(
+            payload.climber_crop.x, payload.climber_crop.y,
+            payload.climber_crop.w, payload.climber_crop.h,
+        )
+        if payload.climber_crop is not None
+        else None
+    )
+    return vitpose_job.VitPoseRequest(
+        video_path=payload.video_path,
+        route_folder=payload.route_folder,
+        video_key=payload.video_key,
+        frames=tuple(f.timestamp for f in payload.frames),
+        climber_point=point,
+        climber_crop=crop,
+        panning=payload.panning,
+    )
+
+
+def _run_vitpose_safely(request: vitpose_job.VitPoseRequest, job_id: str) -> None:
+    # Failures are already recorded to the status sidecar inside run_vitpose_job; the
+    # thread just needs to not crash the interpreter on an unhandled exception.
+    try:
+        vitpose_job.run_vitpose_job(
+            ANALYSIS_DIR,
+            request,
+            vitpose_job.default_tracker(),
+            vitpose_job.default_pose_backend(),
+            job_id=job_id,
+        )
+    except Exception:  # noqa: BLE001 — surfaced via vitpose.status.json
+        pass
+
+
+@app.post("/api/vitpose")
+def start_vitpose_job(payload: VitPoseJobRequest) -> JSONResponse:
+    # Validate synchronously so a bad path/bundle fails fast with 4xx (per contract);
+    # the model run itself is offloaded to a daemon thread and polled via the artifact.
+    try:
+        bundle_dir = vitpose_job.bundle_dir_for(
+            ANALYSIS_DIR, payload.route_folder, payload.video_key
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not bundle_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No bundle for route={payload.route_folder!r} "
+                f"video_key={payload.video_key!r}."
+            ),
+        )
+
+    try:
+        video_path = vitpose_job.resolve_video_path(ANALYSIS_DIR, payload.video_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not video_path.is_file():
+        raise HTTPException(
+            status_code=404, detail=f"Video not found: {payload.video_path}"
+        )
+
+    request = _to_vitpose_request(payload)
+    job_id = uuid.uuid4().hex
+    thread = threading.Thread(
+        target=_run_vitpose_safely, args=(request, job_id), daemon=True
+    )
+    thread.start()
+
+    return JSONResponse(status_code=202, content={"jobId": job_id, "status": "accepted"})

@@ -37,11 +37,15 @@ video binaries, so `git add analysis/` stages only the queryable JSON/PNG record
 
 ## Code quality
 
-- Keep the pipeline's dependency footprint lean: `numpy`, `pandas`, `opencv-python`
-  only — no `scipy`/`statsmodels`/`matplotlib` (stats are hand-rolled; charts are
-  inline SVG).
+- Keep the **`analysis_pipeline`** dependency footprint lean: `numpy`, `pandas`,
+  `opencv-python` only — no `scipy`/`statsmodels`/`matplotlib` (stats are
+  hand-rolled; charts are inline SVG). The one sanctioned exception is the ViTPose
+  Ground Truth scaffold (`POST /api/vitpose`), which pulls `torch`/`transformers`/
+  `ultralytics`; it is quarantined to `vitpose_job.py` and kept out of the
+  `analysis_pipeline` import graph. See `docs/adr/0003`.
 - Run the smoke tests after touching the pipeline:
-  `python -m analysis_pipeline.tests.test_smoke`.
+  `python -m analysis_pipeline.tests.test_smoke`. After touching the ViTPose
+  scaffold, run `python test_vitpose_job.py` (stub-backed; no torch needed).
 
 ## Agent skills
 

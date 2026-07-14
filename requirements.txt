@@ -6,3 +6,12 @@ uvicorn>=0.30
 numpy>=1.26
 pandas>=2.2
 opencv-python>=4.10
+
+# ViTPose++ Ground Truth scaffold endpoint (POST /api/vitpose; see docs/adr/0003).
+# This is the repo's one heavyweight exception to the lean-footprint rule: the
+# downloader now runs a person detector + tracker + top-down pose model to seed
+# beta-scanner's human-authored Ground Truth. Kept out of the analysis_pipeline
+# import path so `python -m analysis_pipeline` stays lean.
+torch>=2.2
+transformers>=4.46
+ultralytics>=8.3

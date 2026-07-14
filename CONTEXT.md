@@ -8,8 +8,13 @@ not a spec — it carries no implementation detail.
 
 - **Bundle** — a self-contained per-video record at
   `analysis/<route_folder>/<video_key>/`: the video, `final_frame.png`,
-  `metadata.json`, `setup.json`, and timestamped detection files. The unit of
-  ingest.
+  `metadata.json`, `setup.json`, and timestamped detection files. May also carry a
+  `vitpose.json` **scaffold** (below). The unit of ingest.
+- **ViTPose scaffold** (`vitpose.json`) — per-frame ViTPose++ Climber keypoints the
+  downloader writes to seed beta-scanner's human-authored Ground Truth. A *seed, not
+  truth*: the human still corrects and owns it. It is **not** a detection Run — no
+  `detections/*_pose.json` is produced. Emitted by `POST /api/vitpose`; see
+  `docs/adr/0003`.
 - **Route** — a physical climb, identified by its `route_folder`. Multiple
   **Videos** of the same Route are the norm (different sessions/angles/lighting).
 - **Run** — one detection execution on one Video, recorded as a paired
