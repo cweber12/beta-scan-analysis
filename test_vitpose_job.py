@@ -83,10 +83,34 @@ def test_select_climber_nearest_when_no_containment():
     assert select_climber_track(history, tap, None) == 2
 
 
+def test_select_climber_prefers_persistent_over_fleeting_containment():
+    # Track 9 covers the tap on a single spurious frame; track 4 covers it on many.
+    # The persistent climber (4) must win, not the first-seen fleeting track (9).
+    tap = Point(0.50, 0.50)
+    hit = Box(0.45, 0.45, 0.10, 0.10)   # contains the tap
+    off = Box(0.80, 0.80, 0.10, 0.10)   # nowhere near it
+    history = [
+        FrameTracks(0.0, {9: hit, 4: off}),   # track 9 briefly over the tap
+        FrameTracks(0.5, {9: off, 4: hit}),   # track 4 on the tap from here on
+        FrameTracks(1.0, {9: off, 4: hit}),
+        FrameTracks(1.5, {4: hit}),
+    ]
+    assert select_climber_track(history, tap, None) == 4
+
+
 def test_select_climber_no_tap_largest_in_crop():
     history = _history_two_people()
     crop = Box(0.3, 0.1, 0.5, 0.6)  # contains the climber's center, not the spotter's
     assert select_climber_track(history, None, crop) == 1
+
+
+def test_select_climber_no_tap_prefers_persistent_over_brief_closeup():
+    # Track 8 is a huge one-frame close-up; track 5 is smaller but on screen all clip.
+    big_closeup = Box(0.1, 0.1, 0.7, 0.7)     # area 0.49, single frame
+    climber = Box(0.45, 0.40, 0.12, 0.30)     # area 0.036, every frame
+    history = [FrameTracks(0.0, {8: big_closeup, 5: climber})]
+    history += [FrameTracks(0.1 * i, {5: climber}) for i in range(1, 30)]
+    assert select_climber_track(history, None, None) == 5
 
 
 def test_select_climber_none_when_no_tracks():

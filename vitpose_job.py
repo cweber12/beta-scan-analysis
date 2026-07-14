@@ -194,51 +194,59 @@ def select_climber_track(
 ) -> int | None:
     """Pick the track id that is the Climber; None when no person was tracked.
 
-    With a tap: the earliest track whose box contains the tap wins; failing any
-    containment, the track whose box center is nearest the tap (min over frames).
-    Without a tap: the track that is largest on average within ``climber_crop``
-    (spotters/passersby are smaller / off to the side), else the largest overall.
+    With a tap: the track whose box contains the tap on the **most** frames wins
+    (persistence beats a fleeting spurious detection that briefly covered the tap);
+    ties break toward the nearest approach. If no track ever contains the tap, the
+    track whose box center comes nearest the tap over the clip. Without a tap: the
+    track that is largest on average within ``climber_crop`` (spotters/passersby are
+    smaller / off to the side), else the largest overall.
     """
     if not any(f.boxes for f in history):
         return None
 
     if climber_point is not None:
-        # Earliest containment wins — the tap lands on the Climber directly.
+        contain_counts: dict[int, int] = {}
+        nearest: dict[int, float] = {}
         for frame in history:
             for track_id, box in frame.boxes.items():
                 if box.contains(climber_point):
-                    return track_id
-        # No box ever contained the tap: nearest box center across the whole clip.
-        best_id: int | None = None
-        best_dist = float("inf")
-        for frame in history:
-            for track_id, box in frame.boxes.items():
+                    contain_counts[track_id] = contain_counts.get(track_id, 0) + 1
                 dist = (box.cx - climber_point.x) ** 2 + (box.cy - climber_point.y) ** 2
-                if dist < best_dist:
-                    best_dist, best_id = dist, track_id
-        return best_id
+                if track_id not in nearest or dist < nearest[track_id]:
+                    nearest[track_id] = dist
+        if contain_counts:
+            # Most-persistent containment; tie-break toward the nearest approach.
+            return max(contain_counts, key=lambda t: (contain_counts[t], -nearest[t]))
+        # No box ever contained the tap: nearest box center across the whole clip.
+        return min(nearest, key=lambda t: nearest[t])
 
-    # No tap: prefer the biggest track centered inside the climber crop.
+    # No tap: prefer the most prominent *persistent* track inside the climber crop.
     return _largest_track(history, climber_crop)
 
 
 def _largest_track(history: Sequence[FrameTracks], crop: Box | None) -> int | None:
-    areas: dict[int, list[float]] = {}
+    """The track with the greatest summed box area over the clip (inside ``crop``).
+
+    Summed — not average — area rewards both size and persistence, so a brief
+    close-up of a passerby can't outrank the climber who is smaller but on screen
+    for most of the send.
+    """
+    areas: dict[int, float] = {}
     for frame in history:
         for track_id, box in frame.boxes.items():
             if crop is not None and not crop.contains(Point(box.cx, box.cy)):
                 continue
-            areas.setdefault(track_id, []).append(box.area)
+            areas[track_id] = areas.get(track_id, 0.0) + box.area
 
     # If the crop filtered everyone out, fall back to the largest track anywhere.
     if not areas and crop is not None:
         for frame in history:
             for track_id, box in frame.boxes.items():
-                areas.setdefault(track_id, []).append(box.area)
+                areas[track_id] = areas.get(track_id, 0.0) + box.area
 
     if not areas:
         return None
-    return max(areas, key=lambda tid: sum(areas[tid]) / len(areas[tid]))
+    return max(areas, key=lambda tid: areas[tid])
 
 
 def _nearest_frame_index(history: Sequence[FrameTracks], timestamp: float) -> int | None:
@@ -414,17 +422,25 @@ class UltralyticsTracker:
 class TransformersViTPoseBackend:
     """Top-down ViTPose++ via HuggingFace transformers (lazy-loaded)."""
 
+    # vitpose-plus-* is a mixture-of-experts model: its forward needs a dataset_index
+    # to pick an expert head. 0 = the COCO expert, which emits the 17 COCO joints.
+    COCO_EXPERT_INDEX = 0
+
     def __init__(self, model_name: str = "usyd-community/vitpose-plus-base") -> None:
         self._model_name = model_name
         self._processor = None
         self._model = None
+        self._device = "cpu"
 
     def _ensure_model(self):
         if self._model is None:
+            import torch  # lazy
             from transformers import AutoProcessor, VitPoseForPoseEstimation  # lazy
 
+            self._device = "cuda" if torch.cuda.is_available() else "cpu"
             self._processor = AutoProcessor.from_pretrained(self._model_name)
-            self._model = VitPoseForPoseEstimation.from_pretrained(self._model_name)
+            model = VitPoseForPoseEstimation.from_pretrained(self._model_name)
+            self._model = model.to(self._device).eval()
         return self._processor, self._model
 
     def pose(self, video_path: Path, targets: Sequence[PoseTarget]) -> dict[int, list[Keypoint]]:
@@ -459,9 +475,11 @@ class TransformersViTPoseBackend:
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         # ViTPose processor wants COCO boxes in absolute pixels: [x, y, w, h].
         px_box = [[box.x * width, box.y * height, box.w * width, box.h * height]]
-        inputs = processor(rgb, boxes=[px_box], return_tensors="pt")
+        inputs = processor(rgb, boxes=[px_box], return_tensors="pt").to(self._device)
+        # One person box -> batch of 1; select the COCO expert for it.
+        dataset_index = torch.tensor([self.COCO_EXPERT_INDEX], device=self._device)
         with torch.no_grad():
-            outputs = model(**inputs)
+            outputs = model(**inputs, dataset_index=dataset_index)
         results = processor.post_process_pose_estimation(outputs, boxes=[px_box])[0][0]
 
         keypoints: list[Keypoint] = []

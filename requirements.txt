@@ -14,4 +14,5 @@ opencv-python>=4.10
 # import path so `python -m analysis_pipeline` stays lean.
 torch>=2.2
 transformers>=4.48  # VitPoseForPoseEstimation was added in 4.48
+scipy>=1.11         # transformers' ViTPose image processor warps boxes via scipy
 ultralytics>=8.3
