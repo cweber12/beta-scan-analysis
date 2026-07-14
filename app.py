@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +28,23 @@ BASE_DIR = Path(__file__).resolve().parent
 ANALYSIS_DIR = BASE_DIR / "analysis"
 STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="Climb Video Analyzer")
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    # Pre-load the ViTPose/YOLO models once at boot on a background thread, so the
+    # first calibration is fast and startup isn't blocked. Best-effort: a missing
+    # ML dependency just means the first real request pays the load cost instead.
+    def _warm() -> None:
+        try:
+            vitpose_job.warm_backends()
+        except Exception:  # noqa: BLE001 — pre-warm is best-effort
+            pass
+
+    threading.Thread(target=_warm, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Climb Video Analyzer", lifespan=_lifespan)
 
 
 # --------------------------------------------------------------------------- #
@@ -234,19 +251,27 @@ def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseReques
     )
 
 
+# The pose/track models are shared singletons; serialize jobs so two background
+# threads never run inference on them at once (this is a local, single-user tool).
+_vitpose_lock = threading.Lock()
+
+
 def _run_vitpose_safely(request: vitpose_job.VitPoseRequest, job_id: str) -> None:
     # Failures are already recorded to the status sidecar inside run_vitpose_job; the
     # thread just needs to not crash the interpreter on an unhandled exception.
     try:
-        vitpose_job.run_vitpose_job(
-            ANALYSIS_DIR,
-            request,
-            vitpose_job.default_tracker(),
-            vitpose_job.default_pose_backend(),
-            job_id=job_id,
-        )
+        with _vitpose_lock:
+            vitpose_job.run_vitpose_job(
+                ANALYSIS_DIR,
+                request,
+                vitpose_job.default_tracker(),
+                vitpose_job.default_pose_backend(),
+                job_id=job_id,
+            )
     except Exception:  # noqa: BLE001 — surfaced via vitpose.status.json
         pass
+
+
 
 
 @app.post("/api/vitpose")

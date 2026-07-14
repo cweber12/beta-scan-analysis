@@ -469,6 +469,10 @@ class UltralyticsTracker:
             self._model = YOLO(self._model_name)
         return self._model
 
+    def warm(self) -> None:
+        """Load the model now so the first real request doesn't pay for it."""
+        self._ensure_model()
+
     def track(self, video_path: Path) -> list[FrameTracks]:
         import cv2  # lazy
 
@@ -519,6 +523,10 @@ class TransformersViTPoseBackend:
             model = VitPoseForPoseEstimation.from_pretrained(self._model_name)
             self._model = model.to(self._device).eval()
         return self._processor, self._model
+
+    def warm(self) -> None:
+        """Load processor + model now so the first real request doesn't pay for it."""
+        self._ensure_model()
 
     def pose(self, video_path: Path, targets: Sequence[PoseTarget]) -> dict[int, list[Keypoint]]:
         import cv2  # lazy
@@ -575,9 +583,32 @@ class TransformersViTPoseBackend:
         return keypoints
 
 
+# Cached singletons: the models are expensive to load and re-init on CUDA, so we
+# keep one resident instance each and reuse it across every job (this server runs
+# locally for a single user — jobs are serialized by the caller's lock).
+_TRACKER: Tracker | None = None
+_POSE_BACKEND: PoseBackend | None = None
+
+
 def default_tracker() -> Tracker:
-    return UltralyticsTracker()
+    global _TRACKER
+    if _TRACKER is None:
+        _TRACKER = UltralyticsTracker()
+    return _TRACKER
 
 
 def default_pose_backend() -> PoseBackend:
-    return TransformersViTPoseBackend()
+    global _POSE_BACKEND
+    if _POSE_BACKEND is None:
+        _POSE_BACKEND = TransformersViTPoseBackend()
+    return _POSE_BACKEND
+
+
+def warm_backends() -> None:
+    """Pre-load both models (call at startup so the first calibration is fast)."""
+    b = default_tracker()
+    p = default_pose_backend()
+    if hasattr(b, "warm"):
+        b.warm()
+    if hasattr(p, "warm"):
+        p.warm()
