@@ -185,44 +185,103 @@ def bundle_dir_for(analysis_root: Path, route_folder: str, video_key: str) -> Pa
 
 
 # --------------------------------------------------------------------------- #
-# Climber selection (pure geometry — the heart of "Climber Identity")
+# Climber Identity — a per-frame box trajectory stitched across ByteTrack ids
 # --------------------------------------------------------------------------- #
+#
+# ByteTrack fragments the climber into several track ids over a boulder problem
+# (scale/pose changes and occlusion break the track), and no single id is both
+# near the base tap and present for the whole ascent. So we don't trust one id:
+# seed from the tap, then follow the climber frame-to-frame by spatial nearest-box
+# association, in both directions from the seed, stitching across id switches.
 
-def select_climber_track(
+# Max normalized center displacement to associate the same climber between frames,
+# with a per-elapsed-frame slack so the trajectory survives short detection gaps.
+_ASSOC_BASE = 0.08
+_ASSOC_PER_FRAME = 0.04
+
+
+def _center_dist(a: Box, b: Box) -> float:
+    return ((a.cx - b.cx) ** 2 + (a.cy - b.cy) ** 2) ** 0.5
+
+
+def _nearest_box(boxes: Sequence[Box], ref: Box, max_dist: float) -> Box | None:
+    best: Box | None = None
+    best_d = max_dist
+    for box in boxes:
+        d = _center_dist(box, ref)
+        if d <= best_d:
+            best_d, best = d, box
+    return best
+
+
+def _seed_climber(
     history: Sequence[FrameTracks],
     climber_point: Point | None,
     climber_crop: Box | None,
-) -> int | None:
-    """Pick the track id that is the Climber; None when no person was tracked.
+) -> tuple[int | None, Box | None]:
+    """Find the (frame_index, box) to start stitching the Climber trajectory from.
 
-    With a tap: the track whose box contains the tap on the **most** frames wins
-    (persistence beats a fleeting spurious detection that briefly covered the tap);
-    ties break toward the nearest approach. If no track ever contains the tap, the
-    track whose box center comes nearest the tap over the clip. Without a tap: the
-    track that is largest on average within ``climber_crop`` (spotters/passersby are
-    smaller / off to the side), else the largest overall.
+    With a tap: the box that contains it (nearest such), else the nearest box center
+    over the clip. Without a tap: the first box of the most prominent persistent
+    track inside the crop.
+    """
+    if climber_point is not None:
+        contains: list[tuple[float, int, Box]] = []
+        nearest: tuple[float, int, Box] | None = None
+        for i, frame in enumerate(history):
+            for box in frame.boxes.values():
+                d = ((box.cx - climber_point.x) ** 2 + (box.cy - climber_point.y) ** 2) ** 0.5
+                if box.contains(climber_point):
+                    contains.append((d, i, box))
+                if nearest is None or d < nearest[0]:
+                    nearest = (d, i, box)
+        if contains:
+            _, idx, box = min(contains, key=lambda t: t[0])
+            return idx, box
+        return (nearest[1], nearest[2]) if nearest else (None, None)
+
+    track_id = _largest_track(history, climber_crop)
+    if track_id is None:
+        return None, None
+    for i, frame in enumerate(history):
+        if track_id in frame.boxes:
+            return i, frame.boxes[track_id]
+    return None, None
+
+
+def build_climber_track(
+    history: Sequence[FrameTracks],
+    climber_point: Point | None,
+    climber_crop: Box | None,
+) -> dict[int, Box]:
+    """Per-frame Climber box (frame_index -> box), stitched across id switches.
+
+    Empty when no person was tracked. Frames where the climber can't be associated
+    are simply absent from the map (they'll be seeded ``absent`` downstream).
     """
     if not any(f.boxes for f in history):
-        return None
+        return {}
 
-    if climber_point is not None:
-        contain_counts: dict[int, int] = {}
-        nearest: dict[int, float] = {}
-        for frame in history:
-            for track_id, box in frame.boxes.items():
-                if box.contains(climber_point):
-                    contain_counts[track_id] = contain_counts.get(track_id, 0) + 1
-                dist = (box.cx - climber_point.x) ** 2 + (box.cy - climber_point.y) ** 2
-                if track_id not in nearest or dist < nearest[track_id]:
-                    nearest[track_id] = dist
-        if contain_counts:
-            # Most-persistent containment; tie-break toward the nearest approach.
-            return max(contain_counts, key=lambda t: (contain_counts[t], -nearest[t]))
-        # No box ever contained the tap: nearest box center across the whole clip.
-        return min(nearest, key=lambda t: nearest[t])
+    seed_idx, seed_box = _seed_climber(history, climber_point, climber_crop)
+    if seed_idx is None or seed_box is None:
+        return {}
 
-    # No tap: prefer the most prominent *persistent* track inside the climber crop.
-    return _largest_track(history, climber_crop)
+    trajectory: dict[int, Box] = {seed_idx: seed_box}
+
+    # Walk forward, then backward, from the seed; the association threshold widens
+    # with the gap since the last hit so a few missed detections don't sever the track.
+    for direction in (1, -1):
+        prev, last = seed_box, seed_idx
+        i = seed_idx + direction
+        while 0 <= i < len(history):
+            threshold = _ASSOC_BASE + _ASSOC_PER_FRAME * abs(i - last)
+            box = _nearest_box(list(history[i].boxes.values()), prev, threshold)
+            if box is not None:
+                trajectory[i] = box
+                prev, last = box, i
+            i += direction
+
+    return trajectory
 
 
 def _largest_track(history: Sequence[FrameTracks], crop: Box | None) -> int | None:
@@ -277,20 +336,21 @@ def build_artifact(
 ) -> dict:
     """Assemble the vitpose.json payload: one echoed frame per requested timestamp.
 
-    A requested frame gets non-empty ``keypoints`` only when the Climber track has a
-    box on the nearest decoded frame; otherwise ``keypoints: []`` (seeded ``absent``).
+    A requested frame gets non-empty ``keypoints`` only when the stitched Climber
+    trajectory has a box on the nearest decoded frame; otherwise ``keypoints: []``
+    (seeded ``absent``).
     """
-    climber_id = select_climber_track(history, request.climber_point, request.climber_crop)
+    trajectory = build_climber_track(history, request.climber_point, request.climber_crop)
 
-    # Map each requested timestamp to the nearest decoded frame that actually has the
-    # Climber, collecting the unique (frame_index, box) targets to pose.
+    # Map each requested timestamp to the nearest decoded frame that has the Climber,
+    # collecting the unique (frame_index, box) targets to pose.
     ts_to_index: dict[float, int] = {}
     targets: dict[int, PoseTarget] = {}
     for ts in request.frames:
         idx = _nearest_frame_index(history, ts)
-        if idx is None or climber_id is None:
+        if idx is None:
             continue
-        box = history[idx].boxes.get(climber_id)
+        box = trajectory.get(idx)
         if box is None:
             continue
         ts_to_index[ts] = idx

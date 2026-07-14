@@ -22,9 +22,9 @@ from vitpose_job import (
     PoseTarget,
     VitPoseRequest,
     build_artifact,
+    build_climber_track,
     resolve_video_path,
     run_vitpose_job,
-    select_climber_track,
 )
 
 
@@ -68,54 +68,53 @@ def _history_two_people():
 
 
 # --------------------------------------------------------------------------- #
-# Climber selection
+# Climber Identity — trajectory stitching
 # --------------------------------------------------------------------------- #
 
-def test_select_climber_by_containment():
-    history = _history_two_people()
-    tap = Point(0.50, 0.40)  # inside track 1's box on frame 0
-    assert select_climber_track(history, tap, None) == 1
-
-
-def test_select_climber_nearest_when_no_containment():
-    history = _history_two_people()
-    tap = Point(0.05, 0.95)  # inside nobody; nearest the spotter (track 2, lower-left)
-    assert select_climber_track(history, tap, None) == 2
-
-
-def test_select_climber_prefers_persistent_over_fleeting_containment():
-    # Track 9 covers the tap on a single spurious frame; track 4 covers it on many.
-    # The persistent climber (4) must win, not the first-seen fleeting track (9).
-    tap = Point(0.50, 0.50)
-    hit = Box(0.45, 0.45, 0.10, 0.10)   # contains the tap
-    off = Box(0.80, 0.80, 0.10, 0.10)   # nowhere near it
+def test_climber_track_stitches_across_bytetrack_id_switch():
+    # THE regression for the real bug: ByteTrack fragments the climber into id 1
+    # (at the base) then id 9 (as they ascend); a spotter (id 2) sits still at the
+    # base. Seeding from the base tap must follow the climber UP across the id
+    # switch, covering every frame — and never latch onto the stationary spotter.
+    def climber(y):  # ascends: box top-left y decreases over time
+        return Box(0.45, y, 0.10, 0.15)
+    spot = Box(0.05, 0.80, 0.08, 0.15)   # cx ~0.09, far from the climber (cx 0.50)
     history = [
-        FrameTracks(0.0, {9: hit, 4: off}),   # track 9 briefly over the tap
-        FrameTracks(0.5, {9: off, 4: hit}),   # track 4 on the tap from here on
-        FrameTracks(1.0, {9: off, 4: hit}),
-        FrameTracks(1.5, {4: hit}),
+        FrameTracks(0.0, {1: climber(0.80), 2: spot}),   # climber at base = id 1
+        FrameTracks(0.1, {1: climber(0.72), 2: spot}),
+        FrameTracks(0.2, {9: climber(0.64), 2: spot}),   # id switch 1 -> 9
+        FrameTracks(0.3, {9: climber(0.56), 2: spot}),
+        FrameTracks(0.4, {9: climber(0.48), 2: spot}),
     ]
-    assert select_climber_track(history, tap, None) == 4
+    tap = Point(0.50, 0.85)  # on the climber at the base (inside id 1 on frame 0)
+    traj = build_climber_track(history, tap, None)
+    assert set(traj.keys()) == {0, 1, 2, 3, 4}          # every frame covered
+    assert all(b.cx > 0.3 for b in traj.values())       # the climber, not the spotter
 
 
-def test_select_climber_no_tap_largest_in_crop():
-    history = _history_two_people()
-    crop = Box(0.3, 0.1, 0.5, 0.6)  # contains the climber's center, not the spotter's
-    assert select_climber_track(history, None, crop) == 1
+def test_climber_track_seeds_nearest_when_no_containment():
+    a0 = Box(0.40, 0.40, 0.10, 0.10)
+    a1 = Box(0.42, 0.42, 0.10, 0.10)
+    history = [FrameTracks(0.0, {3: a0}), FrameTracks(0.1, {3: a1})]
+    tap = Point(0.90, 0.90)  # inside nobody; seed on the nearest box, then follow it
+    assert set(build_climber_track(history, tap, None).keys()) == {0, 1}
 
 
-def test_select_climber_no_tap_prefers_persistent_over_brief_closeup():
-    # Track 8 is a huge one-frame close-up; track 5 is smaller but on screen all clip.
+def test_climber_track_no_tap_seeds_persistent_over_brief_closeup():
+    # A huge one-frame close-up (id 8) must not be seeded over the persistent
+    # climber (id 5); the trajectory should follow the climber across the clip.
     big_closeup = Box(0.1, 0.1, 0.7, 0.7)     # area 0.49, single frame
-    climber = Box(0.45, 0.40, 0.12, 0.30)     # area 0.036, every frame
+    climber = Box(0.45, 0.40, 0.12, 0.30)     # cx 0.51, every frame
     history = [FrameTracks(0.0, {8: big_closeup, 5: climber})]
     history += [FrameTracks(0.1 * i, {5: climber}) for i in range(1, 30)]
-    assert select_climber_track(history, None, None) == 5
+    traj = build_climber_track(history, None, None)
+    assert len(traj) == 30
+    assert all(abs(b.cx - 0.51) < 1e-9 for b in traj.values())
 
 
-def test_select_climber_none_when_no_tracks():
+def test_climber_track_empty_when_no_tracks():
     history = [FrameTracks(0.0, {}), FrameTracks(0.5, {})]
-    assert select_climber_track(history, Point(0.5, 0.5), None) is None
+    assert build_climber_track(history, Point(0.5, 0.5), None) == {}
 
 
 # --------------------------------------------------------------------------- #
