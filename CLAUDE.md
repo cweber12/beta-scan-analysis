@@ -28,6 +28,10 @@ commits. Use a `feat:` / `fix:` / `chore:` / `refactor:` prefix.
 separate commit prefixed `data:` — e.g. `data: add <route> detection bundle`. Never mix
 data bundles with code changes in the same commit. The `.gitignore` already excludes the
 video binaries, so `git add analysis/` stages only the queryable JSON/PNG record.
+If there are existing `analysis/` changes in the current worktree while working an
+issue, commit them on the current issue branch as part of that issue's work. Keep the
+data in its own `data:` commit, but do not defer it to a separate branch or leave it
+uncommitted when the issue branch is pushed or merged.
 
 **General git rules** (also in the harness defaults):
 - If on the default branch (`main`), create a feature branch before committing.
