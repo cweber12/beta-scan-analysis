@@ -94,9 +94,14 @@ matches your driver. Stop the analyzer server first — a running uvicorn holds 
 and the reinstall fails with `WinError 5`.) No code or config changes: the job detects CUDA
 at model load and reports the device it used in `vitpose.status.json`.
 
-## Expected outcome
+## Measured outcome (2026-07-15, same 53 s / 53-frame bundle)
 
-| Path | Baseline (53 s video) | After |
-| --- | --- | --- |
-| GPU (RTX 4060) | n/a (never used) | ~15–25 s (track ~10–15 s, batched pose ~2–4 s, seeks ~2 s) |
-| CPU fallback | ~60–90 s | ~30–50 s (stride 2 + seek + batching) |
+| Path | Baseline | After | Breakdown |
+| --- | --- | --- | --- |
+| GPU (RTX 4060) | n/a (never used) | **17.0 s** | track 14.1 s, pose 3.0 s |
+| CPU fallback (stride 2) | ~60–90 s | **37.0 s** | track 24.8 s, pose 12.2 s |
+
+Artifact parity vs. the pre-optimization baseline: identical schema, timestamps echoed
+verbatim, the same 50/53 frames posed, and keypoint position deltas of mean 0.0014
+(p95 0.005, max 0.087) in normalized coordinates — well inside authoring tolerance
+(the human corrects the seed regardless).

@@ -589,12 +589,14 @@ class UltralyticsTracker:
 
         history: list[FrameTracks] = []
         # classes=[0] -> person only; persist=True keeps ByteTrack ids across frames.
+        # half (fp16) only on CUDA — passing the kwarg at all on CPU trips an
+        # ultralytics deprecation warning.
+        fp16 = {"half": True} if self.device == "cuda" else {}
         results = model.track(
             source=str(video_path), classes=[0], persist=True,
             tracker="bytetrack.yaml", stream=True, verbose=False,
             device=0 if self.device == "cuda" else "cpu",
-            half=self.device == "cuda",
-            vid_stride=stride,
+            vid_stride=stride, **fp16,
         )
         for idx, result in enumerate(results):
             boxes: dict[int, Box] = {}
