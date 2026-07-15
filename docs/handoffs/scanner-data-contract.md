@@ -36,9 +36,14 @@ analysis/<route_folder>/<video_key>/
     final_frame.png        # last frame — the ORB query image (committed)
     metadata.json          # analysis_inputs (hand labels) + source_video (w/h/fps/duration)
     setup.json             # climberCrop, wallCrop, climberPoint, panning, qualityTier (normalized [0,1] boxes)
+    vitpose.json           # harness-written ViTPose seed poses (you read this)
+    vitpose.status.json    # job sidecar: running | done | error
+    ground-truth.json      # scanner-written Ground Truth (you write this)
     detections/
         <run_ts>_pose.json # envelope: { video_key, run_ts, ..., data:{ diagnostics, frames[] } }
         <run_ts>_orb.json  # envelope: { ..., data:{ referenceFrameMeta, summary } }
+    evaluations/           # harness-written eval records (do NOT write here)
+        <run_ts>_vs_<truthHash8>.json
 ```
 
 `route_folder` = the folder two levels up from the video. Two videos share a route
@@ -230,6 +235,114 @@ and also feeds the harness's per-video cards.)
 - A fresh scan produces `overlayQuality ∈ [0,1]`, a `badStretches` array,
   per-frame `source` + `climber`/`wall` stats, and `reference_frame.png`.
 - Old bundles remain readable (fields simply absent).
+
+---
+
+## Phase 3 — Ground Truth review provenance (detection-vs-truth evaluation)
+
+The harness now grades scanner pose runs against a per-video truth file. Your side
+of the contract is `ground-truth.json`; the harness's side is `vitpose.json` (the
+seed you build Ground Truth from) and the `evaluations/` records it derives. The
+harness-side work is tracked as issues #3–#12 on `cweber12/beta-scan-analysis`;
+the scanner-side requirements below correspond to **issue #5** there.
+
+### What the harness gives you: `vitpose.json`
+
+Unchanged from ADR 0003, plus one new field:
+
+```json
+{
+  "version": 1,
+  "setupHash": "<hash of the setup.json the job ran under>",   // NEW
+  "frames": [
+    { "timestamp": 12.0,
+      "keypoints": [ { "name": "left_wrist", "x": 0.41, "y": 0.72, "score": 0.93 }, ... ] }
+  ]
+}
+```
+
+Existing guarantees still hold: timestamps echoed verbatim (match within 1 ms),
+coordinates full-frame-normalized `[0,1]`, the 13 COCO core joints carry exact
+names (eyes/ears may appear as faint context), `keypoints: []` means the Climber
+was untracked at that frame (seed the frame `absent`). Legacy artifacts without
+`setupHash` exist; the harness falls back to the bundle's current `setup.json`
+and warns.
+
+### What you must write: `ground-truth.json` additions
+
+The scanner is moving to **auto-accepting** seeded frames, with the human only
+flagging frames as *absent* or *wrong*. That inverts what `verified: true` means —
+from "a human attested this" to "nobody objected" — so auto-accepted frames MUST
+be distinguishable from human-reviewed ones, or the harness's accuracy tier
+becomes ViTPose grading itself (the circularity your `docs/adr/0019` and our
+ADR 0003 both exist to prevent).
+
+Two required additions:
+
+```json
+{
+  "version": 1,
+  "setupHash": "<copied from the vitpose.json you seeded from>",   // NEW — required
+  "jointSet": ["nose", "left_shoulder", ...],
+  "groundTruthHash": "...",
+  "updatedAt": "...",
+  "frames": [
+    {
+      "frameIndex": 12,
+      "timestamp": 12,
+      "state": "present",
+      "joints": { "left_wrist": { "x": 0.41, "y": 0.72, "occluded": false }, ... },
+      "verified": true,
+      "review": "auto"        // NEW — required on every frame
+    }
+  ]
+}
+```
+
+`review` values and their exact semantics:
+
+| value | meaning | how the harness scores it |
+| --- | --- | --- |
+| `"auto"` | seeded and auto-accepted; no human looked at it | agreement-tier evidence only — never accuracy |
+| `"human-flagged-wrong"` | human says the seed skeleton is wrong (but climber present) | excluded from joint metrics entirely (known-bad seed); counted in skip accounting |
+| `"human-flagged-absent"` | human says no climber is in this frame | becomes presence truth: `state` must be `absent`, and a scanner detection here scores as a false positive |
+| `"human"` (if you ever support editing) | human moved joints / attested the frame | accuracy-tier evidence |
+
+Rules:
+
+- Every frame carries `review`. Old files without it are treated as all-`auto`.
+- `setupHash` is copied from the `vitpose.json` you seeded from. If the user
+  redraws crops (new `setupHash` in `setup.json`), the old Ground Truth no longer
+  pairs with new scans — request a fresh ViTPose job and re-seed rather than
+  carrying stale truth forward.
+- Keep `groundTruthHash` recomputed on every save (the harness keys evaluation
+  records on it, so a truth edit produces a new record instead of overwriting
+  history).
+- Do not thin frames: a flagged frame stays in the file with its flag.
+
+### Things you already emit that the evaluation depends on (don't break)
+
+- **`setupHash` inside each pose run's `data`** — the harness refuses to compare a
+  run against truth from a different setup, and reports the mismatch. (This
+  already caught one stale bundle.)
+- **`appVersion` in `diagnostics`** — the harness groups evaluation records by
+  scanner version to report per-joint regressions/improvements over time
+  ("did the tracking fix improve ankle PCK?"). Keep it a real git sha.
+- **Per-keypoint `score` thinning** — the harness counts a missing joint as a
+  coverage failure, not a skip, so thinned output is measured, not hidden.
+
+### What the harness computes (for your context, no action needed)
+
+`python -m analysis_pipeline evaluate` pairs each pose run with the bundle's
+truth file (`ground-truth.json`, else `vitpose.json`), joins timestamps
+(nearest scanner frame within half a frame interval), and writes per-pair records
+under `evaluations/`: per-joint `PCK@0.5-torso`, median/p90 torso-normalized
+distance, presence 2×2, joint coverage — split into `agreement` (auto frames) vs
+`accuracy` (human frames) tiers, torso length always from the truth skeleton.
+Trend reports correlate error with frame-level conditions (climber size, movement
+speed, edge proximity) and track appVersion deltas. A future phase adds a second
+independent pose model so cross-model agreement can auto-populate the accuracy
+tier (issue #12).
 
 ---
 
