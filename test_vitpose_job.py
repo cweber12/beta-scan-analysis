@@ -21,6 +21,7 @@ from vitpose_job import (
     Point,
     PoseTarget,
     VitPoseRequest,
+    _require_scipy,
     build_artifact,
     build_climber_track,
     resolve_video_path,
@@ -258,6 +259,54 @@ def test_run_job_records_error_status_on_failure():
         status = json.loads((root / "r" / "k" / "vitpose.status.json").read_text())
         assert status["status"] == "error"
         assert "boom" in status["error"]
+
+
+def test_run_job_poses_climber_for_nonpanning_point_and_crop_setup():
+    # Regression for issue #3: the maze-of-death iewxlKJNhC8 bundle is a NON-panning
+    # setup carrying BOTH a climber tap and a climber crop. That shape reached the
+    # real pose backend, which then crashed inside transformers' scipy_warp_affine
+    # ("NameError: name 'inv' is not defined"). Drive that exact request shape through
+    # the job with a stub backend to lock in that a climber IS selected and the pose
+    # backend IS invoked -- the code path that led to the crash -- and that the run
+    # ends in a `done` artifact with posed keypoints.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        backend = StubPoseBackend()
+        req = VitPoseRequest(
+            video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
+            frames=(0.0, 0.5, 1.0),
+            climber_point=Point(0.51, 0.35),      # taps the climber (track 1)
+            climber_crop=Box(0.40, 0.20, 0.25, 0.40),
+            panning=False,
+        )
+        path = run_vitpose_job(root, req, StubTracker(_history_two_people()), backend)
+
+        status = json.loads((path.parent / "vitpose.status.json").read_text())
+        assert status["status"] == "done"
+        # The climber was selected and handed to the pose backend (the crashing path).
+        assert backend.seen_targets
+        art = json.loads(path.read_text())
+        assert any(f["keypoints"] for f in art["frames"])
+
+
+# --------------------------------------------------------------------------- #
+# scipy preflight (the real root cause: a missing scipy dies deep in transformers
+# with a cryptic NameError 'inv'; the guard turns that into an actionable message)
+# --------------------------------------------------------------------------- #
+
+def test_require_scipy_raises_actionable_error_when_missing():
+    try:
+        _require_scipy(False)
+    except ImportError as exc:
+        assert "scipy" in str(exc).lower()
+        assert "requirements.txt" in str(exc)
+        return
+    raise AssertionError("expected ImportError when scipy is unavailable")
+
+
+def test_require_scipy_noop_when_available():
+    _require_scipy(True)  # scipy present -> the pose path proceeds, no raise
 
 
 # --------------------------------------------------------------------------- #

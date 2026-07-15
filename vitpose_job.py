@@ -500,6 +500,23 @@ class UltralyticsTracker:
         return history
 
 
+def _require_scipy(scipy_available: bool) -> None:
+    """Fail fast, with guidance, when scipy is missing.
+
+    The transformers ViTPose image processor warps each person box (and refines the
+    output heatmaps) via ``scipy.ndimage``; with scipy absent it dies deep inside the
+    library with a cryptic ``NameError: name 'inv' is not defined`` — impossible to
+    act on from the job's error sidecar. scipy is declared in ``requirements.txt`` for
+    exactly this; surface an actionable message if the venv hasn't been synced.
+    """
+    if not scipy_available:
+        raise ImportError(
+            "ViTPose's image processor requires scipy (it warps person boxes and "
+            "refines heatmaps via scipy.ndimage). Install it: "
+            "pip install -r requirements.txt"
+        )
+
+
 class TransformersViTPoseBackend:
     """Top-down ViTPose++ via HuggingFace transformers (lazy-loaded)."""
 
@@ -517,6 +534,9 @@ class TransformersViTPoseBackend:
         if self._model is None:
             import torch  # lazy
             from transformers import AutoProcessor, VitPoseForPoseEstimation  # lazy
+            from transformers.utils import is_scipy_available  # lazy
+
+            _require_scipy(is_scipy_available())
 
             self._device = "cuda" if torch.cuda.is_available() else "cpu"
             self._processor = AutoProcessor.from_pretrained(self._model_name)
