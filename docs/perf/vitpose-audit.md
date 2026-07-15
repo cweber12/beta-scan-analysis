@@ -79,6 +79,21 @@ reader (`app/api/dev/corpus/vitpose/route.ts`) only inspects `status` and `error
 - The tracker opens the video once just to read fps, then ultralytics decodes it again —
   negligible.
 
+## GPU install (one manual step)
+
+`requirements.txt` stays CPU-safe on purpose — a plain `pip install -r requirements.txt`
+still produces a fully working (slower, strided) CPU service. To run on the GPU, swap in
+the CUDA wheels after syncing requirements:
+
+```sh
+pip install torch==2.13.0 torchvision==0.28.0 --index-url https://download.pytorch.org/whl/cu130 --force-reinstall --no-deps
+```
+
+(cu130 matches the RTX 4060 / driver CUDA 13.1 on the dev machine; pick the channel that
+matches your driver. Stop the analyzer server first — a running uvicorn holds torch's DLLs
+and the reinstall fails with `WinError 5`.) No code or config changes: the job detects CUDA
+at model load and reports the device it used in `vitpose.status.json`.
+
 ## Expected outcome
 
 | Path | Baseline (53 s video) | After |
