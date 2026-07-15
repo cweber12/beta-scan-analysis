@@ -24,7 +24,7 @@ import json
 import sys
 import traceback
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol, Sequence
@@ -38,6 +38,7 @@ from typing import Protocol, Sequence
 # Detection Frames within 1 ms, so we never re-derive them from the decoder clock.
 ARTIFACT_NAME = "vitpose.json"
 STATUS_NAME = "vitpose.status.json"
+SETUP_NAME = "setup.json"
 ARTIFACT_VERSION = 1
 
 # COCO-17 keypoint order emitted by ViTPose. The first 13 are the joints beta-scanner
@@ -132,6 +133,12 @@ class VitPoseRequest:
     climber_point: Point | None = None
     climber_crop: Box | None = None
     panning: bool = False
+    # Hash of the setup.json (Climber selection) this job runs under. Stamped into the
+    # artifact as the provenance anchor: downstream pairing treats a pose run and a
+    # truth file as comparable only when their setupHashes match. When the request
+    # omits it, the job falls back to the bundle's current setup.json (see
+    # run_vitpose_job) so new artifacts always carry the field.
+    setup_hash: str | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -375,7 +382,29 @@ def build_artifact(
         # Echo the requested timestamp verbatim — never the decoder's frame time.
         frames_out.append({"timestamp": ts, "keypoints": keypoints})
 
-    return {"version": ARTIFACT_VERSION, "frames": frames_out}
+    artifact: dict = {"version": ARTIFACT_VERSION}
+    # Stamp the provenance anchor when known. Omitted (not null) when absent, so
+    # consumers' `artifact.get("setupHash", <fallback>)` reaches the legacy fallback.
+    if request.setup_hash:
+        artifact["setupHash"] = request.setup_hash
+    artifact["frames"] = frames_out
+    return artifact
+
+
+def _read_setup_hash(bundle_dir: Path) -> str | None:
+    """Return the bundle's current ``setup.json`` setupHash, or ``None`` if unreadable.
+
+    The writer's fallback for a request that omits ``setup_hash``: stamp the setup the
+    bundle is currently calibrated under. Mirrors the consumer-side fallback documented
+    in the artifact contract, so a freshly written artifact never lacks the field.
+    """
+    setup_path = bundle_dir / SETUP_NAME
+    try:
+        setup = json.loads(setup_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    value = setup.get("setupHash")
+    return value if isinstance(value, str) and value else None
 
 
 def _log(message: str) -> None:
@@ -426,6 +455,11 @@ def run_vitpose_job(
         video_path = resolve_video_path(analysis_root, request.video_path)
         if not video_path.is_file():
             raise FileNotFoundError(f"Video not found: {video_path}")
+
+        # Stamp the setup the job ran under. Prefer the hash the request carries; fall
+        # back to the bundle's current setup.json so the artifact always names a setup.
+        if not request.setup_hash:
+            request = replace(request, setup_hash=_read_setup_hash(bundle_dir))
 
         history = tracker.track(video_path)
         artifact = build_artifact(request, history, pose_backend, video_path)

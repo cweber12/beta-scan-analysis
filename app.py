@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 import vitpose_job
 from youtube_core import (
@@ -97,6 +97,12 @@ class VitPoseFrame(BaseModel):
 class VitPoseJobRequest(BaseModel):
     # Cross-program contract with beta-scanner (its HARNESS_API_BASE points here).
     # See docs/adr/0003. Coordinates are full-frame-normalized [0, 1].
+    #
+    # The scanner-side relay sends snake_case, but tolerate a camelCase `setupHash`
+    # sent straight to this service (matching setup.json's own casing). setup_hash
+    # stays canonical in the model so storage and logs are consistent.
+    model_config = ConfigDict(populate_by_name=True)
+
     video_path: str = Field(..., min_length=1)
     route_folder: str = Field(..., min_length=1)
     video_key: str = Field(..., min_length=1)
@@ -104,6 +110,10 @@ class VitPoseJobRequest(BaseModel):
     climber_crop: NormCrop | None = None
     wall_crop: NormCrop | None = None  # accepted for contract parity; ignored for pose
     panning: bool = False
+    # Hash of the setup.json this job runs under; stamped into vitpose.json as the
+    # provenance anchor. Optional: the job falls back to the bundle's setup.json.
+    # Accepts `setup_hash` (canonical) or `setupHash`.
+    setup_hash: str | None = Field(default=None, alias="setupHash")
     frames: list[VitPoseFrame] = Field(..., min_length=1)
 
 
@@ -248,6 +258,7 @@ def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseReques
         climber_point=point,
         climber_crop=crop,
         panning=payload.panning,
+        setup_hash=payload.setup_hash,
     )
 
 
