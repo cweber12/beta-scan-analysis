@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 55,
+    "scannerMissingFrames": 9,
+    "torsoUndefinedFrames": 0,
+    "truthFramesAbsent": 3,
+    "truthFramesTotal": 67
+  },
+  "joinToleranceSec": 0.05000000000000071,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 47,
+      "pck": 0.8545454545454545,
+      "total": 55
+    },
+    "left_elbow": {
+      "correct": 51,
+      "pck": 0.9272727272727272,
+      "total": 55
+    },
+    "left_hip": {
+      "correct": 51,
+      "pck": 0.9272727272727272,
+      "total": 55
+    },
+    "left_knee": {
+      "correct": 48,
+      "pck": 0.8727272727272727,
+      "total": 55
+    },
+    "left_shoulder": {
+      "correct": 53,
+      "pck": 0.9636363636363636,
+      "total": 55
+    },
+    "left_wrist": {
+      "correct": 44,
+      "pck": 0.8,
+      "total": 55
+    },
+    "nose": {
+      "correct": 53,
+      "pck": 0.9636363636363636,
+      "total": 55
+    },
+    "right_ankle": {
+      "correct": 41,
+      "pck": 0.7454545454545455,
+      "total": 55
+    },
+    "right_elbow": {
+      "correct": 25,
+      "pck": 0.45454545454545453,
+      "total": 55
+    },
+    "right_hip": {
+      "correct": 52,
+      "pck": 0.9454545454545454,
+      "total": 55
+    },
+    "right_knee": {
+      "correct": 43,
+      "pck": 0.7818181818181819,
+      "total": 55
+    },
+    "right_shoulder": {
+      "correct": 51,
+      "pck": 0.9272727272727272,
+      "total": 55
+    },
+    "right_wrist": {
+      "correct": 21,
+      "pck": 0.38181818181818183,
+      "total": 55
+    }
+  },
+  "routeFolder": "maze-of-death",
+  "runTs": "20260713-125823",
+  "scannerFrameIntervalSec": 0.10000000000000142,
+  "schemaVersion": 1,
+  "setupHash": "b2c1f5339437ea2840801598866aa6abc36887459ffdb78b33e12d7f1ffefb9a",
+  "truthHash": "ccc30d40fe6f436822794d438344eaa4bf25ca54b1d4607896ce27ac8d75053b",
+  "truthSetupHashSource": "setup.json",
+  "truthSource": "vitpose",
+  "videoKey": "maze_of_death1_20260711-113427"
+}

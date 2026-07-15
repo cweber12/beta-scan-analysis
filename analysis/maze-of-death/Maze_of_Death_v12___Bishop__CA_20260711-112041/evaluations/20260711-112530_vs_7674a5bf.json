@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 42,
+    "scannerMissingFrames": 0,
+    "torsoUndefinedFrames": 0,
+    "truthFramesAbsent": 7,
+    "truthFramesTotal": 49
+  },
+  "joinToleranceSec": 0.05000000000000071,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 42
+    },
+    "left_elbow": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 42
+    },
+    "left_hip": {
+      "correct": 2,
+      "pck": 0.047619047619047616,
+      "total": 42
+    },
+    "left_knee": {
+      "correct": 1,
+      "pck": 0.023809523809523808,
+      "total": 42
+    },
+    "left_shoulder": {
+      "correct": 1,
+      "pck": 0.023809523809523808,
+      "total": 42
+    },
+    "left_wrist": {
+      "correct": 1,
+      "pck": 0.023809523809523808,
+      "total": 42
+    },
+    "nose": {
+      "correct": 1,
+      "pck": 0.023809523809523808,
+      "total": 42
+    },
+    "right_ankle": {
+      "correct": 1,
+      "pck": 0.023809523809523808,
+      "total": 42
+    },
+    "right_elbow": {
+      "correct": 1,
+      "pck": 0.023809523809523808,
+      "total": 42
+    },
+    "right_hip": {
+      "correct": 2,
+      "pck": 0.047619047619047616,
+      "total": 42
+    },
+    "right_knee": {
+      "correct": 2,
+      "pck": 0.047619047619047616,
+      "total": 42
+    },
+    "right_shoulder": {
+      "correct": 1,
+      "pck": 0.023809523809523808,
+      "total": 42
+    },
+    "right_wrist": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 42
+    }
+  },
+  "routeFolder": "maze-of-death",
+  "runTs": "20260711-112530",
+  "scannerFrameIntervalSec": 0.10000000000000142,
+  "schemaVersion": 1,
+  "setupHash": "4b9bd7659ff33e714f7c4ad0617a4a31552f84c14634c6da6300d534cfb3e4cc",
+  "truthHash": "7674a5bfbb19e3eddd7341703cb4e47207ba950012a6f0402587e1eb624771a2",
+  "truthSetupHashSource": "setup.json",
+  "truthSource": "vitpose",
+  "videoKey": "Maze_of_Death_v12___Bishop__CA_20260711-112041"
+}
