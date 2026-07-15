@@ -10,6 +10,7 @@ import pandas as pd
 
 from . import crossmatch, report, stats
 from .discovery import discover_runs
+from .evaluate import evaluate
 from .frames import build_frame_table
 from .runs import build_run_table
 
@@ -84,23 +85,61 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True,
     return outputs
 
 
+def run_evaluate(analysis_root: Path) -> None:
+    """Pair pose Runs with bundle truth, write eval records, print a summary."""
+
+    summary = evaluate(analysis_root)
+    print(f"wrote {len(summary.written)} evaluation record(s) "
+          f"from {analysis_root}")
+    for p in summary.written:
+        print(f"  {p.route_folder}/{p.video_key} {p.run_ts} "
+              f"vs {p.truth_source} -> {p.record_path.name}")
+    if summary.skipped:
+        print(f"skipped {len(summary.skipped)} pair(s):")
+        for p in summary.skipped:
+            print(f"  {p.route_folder}/{p.video_key} {p.run_ts}: {p.reason}")
+    if summary.truthless_videos:
+        print(f"no truth for {len(summary.truthless_videos)} bundle(s) "
+              "(no ground-truth.json or vitpose.json)")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="analysis_pipeline",
         description="Correlate video conditions with beta-scanner pose/ORB detection quality.",
     )
-    parser.add_argument("analysis_root", nargs="?", default="analysis", type=Path,
-                        help="root of the analysis/ bundle tree (default: analysis)")
-    parser.add_argument("-o", "--out", default="reports", type=Path,
-                        help="output directory for report + CSVs (default: reports)")
-    parser.add_argument("--no-decode", action="store_true",
-                        help="skip cv2 video decoding (pose-derived predictors only)")
-    parser.add_argument("--matrix", default=None, type=Path,
-                        help="path to the scanner's orb_match_matrix.json "
-                             "(default: <out>/orb_match_matrix.json)")
+    sub = parser.add_subparsers(dest="command")
+
+    p_an = sub.add_parser("analysis", help="build the correlation report (default)")
+    p_an.add_argument("analysis_root", nargs="?", default="analysis", type=Path,
+                      help="root of the analysis/ bundle tree (default: analysis)")
+    p_an.add_argument("-o", "--out", default="reports", type=Path,
+                      help="output directory for report + CSVs (default: reports)")
+    p_an.add_argument("--no-decode", action="store_true",
+                      help="skip cv2 video decoding (pose-derived predictors only)")
+    p_an.add_argument("--matrix", default=None, type=Path,
+                      help="path to the scanner's orb_match_matrix.json "
+                           "(default: <out>/orb_match_matrix.json)")
+
+    p_ev = sub.add_parser(
+        "evaluate", help="write detection-vs-truth evaluation records into the bundles")
+    p_ev.add_argument("analysis_root", nargs="?", default="analysis", type=Path,
+                      help="root of the analysis/ bundle tree (default: analysis)")
+
     args = parser.parse_args(argv)
-    matrix = args.matrix.resolve() if args.matrix else None
-    run(args.analysis_root.resolve(), args.out.resolve(), decode=not args.no_decode, matrix=matrix)
+
+    if args.command == "evaluate":
+        run_evaluate(args.analysis_root.resolve())
+        return
+
+    # Default (no subcommand) and the explicit "analysis" subcommand both build the
+    # report, preserving `python -m analysis_pipeline analysis -o reports`.
+    root = getattr(args, "analysis_root", Path("analysis"))
+    out = getattr(args, "out", Path("reports"))
+    matrix = getattr(args, "matrix", None)
+    matrix = matrix.resolve() if matrix else None
+    run(root.resolve(), out.resolve(),
+        decode=not getattr(args, "no_decode", False), matrix=matrix)
 
 
 if __name__ == "__main__":

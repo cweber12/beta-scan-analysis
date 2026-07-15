@@ -41,12 +41,16 @@ uncommitted when the issue branch is pushed or merged.
 
 ## Code quality
 
-- Keep the **`analysis_pipeline`** dependency footprint lean: `numpy`, `pandas`,
-  `opencv-python` only — no `scipy`/`statsmodels`/`matplotlib` (stats are
-  hand-rolled; charts are inline SVG). The one sanctioned exception is the ViTPose
-  Ground Truth scaffold (`POST /api/vitpose`), which pulls `torch`/`transformers`/
-  `ultralytics`; it is quarantined to `vitpose_job.py` and kept out of the
-  `analysis_pipeline` import graph. See `docs/adr/0003`.
+- Prefer a lean **`analysis_pipeline`** footprint: `numpy`, `pandas`,
+  `opencv-python`, with stats hand-rolled and charts as inline SVG. This is now a
+  *preference, not a hard rule* — the pipeline is local-only, so pulling a well-known
+  dependency (`scipy`/`statsmodels`/`matplotlib`) is a judgement call, not forbidden.
+  Reach for one only when hand-rolling would be materially worse; keep the default
+  lean. The v1 `evaluate` subcommand (`evaluate.py`, issue #6) stays numpy-only *by
+  fit* — the PCK math is trivial — not by policy. The ViTPose Ground Truth scaffold
+  (`POST /api/vitpose`) remains a deliberately quarantined heavy exception: it pulls
+  `torch`/`transformers`/`ultralytics`, lives in `vitpose_job.py`, and is kept out of
+  the `analysis_pipeline` import graph. See `docs/adr/0003`.
 - Run the smoke tests after touching the pipeline:
   `python -m analysis_pipeline.tests.test_smoke`. After touching the ViTPose
   scaffold, run `python test_vitpose_job.py` (stub-backed; no torch needed).

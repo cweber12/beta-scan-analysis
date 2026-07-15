@@ -221,9 +221,190 @@ def test_pipeline_end_to_end_renders_report():
             assert header in html_text, f"missing report section: {header}"
 
 
+# --------------------------------------------------------------------------- #
+# evaluate subcommand (issue #6)
+# --------------------------------------------------------------------------- #
+
+# A truth skeleton with a torso length of exactly 0.3 (shoulder-mid (0.5,0.4) to
+# hip-mid (0.5,0.7)) -> PCK@0.5-torso threshold is 0.15.
+_TRUTH_JOINTS = {
+    "nose": (0.5, 0.2),
+    "left_shoulder": (0.4, 0.4), "right_shoulder": (0.6, 0.4),
+    "left_elbow": (0.35, 0.5), "right_elbow": (0.65, 0.5),
+    "left_wrist": (0.3, 0.6), "right_wrist": (0.7, 0.6),
+    "left_hip": (0.4, 0.7), "right_hip": (0.6, 0.7),
+    "left_knee": (0.4, 0.85), "right_knee": (0.6, 0.85),
+    "left_ankle": (0.4, 0.95), "right_ankle": (0.6, 0.95),
+}
+
+
+def _kp_list(joints: dict) -> list:
+    return [{"name": n, "x": x, "y": y, "score": 0.9} for n, (x, y) in joints.items()]
+
+
+def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list) -> None:
+    det = video_dir / "detections"
+    det.mkdir(parents=True, exist_ok=True)
+    env = {"video_key": video_dir.name, "route_folder": video_dir.parent.name,
+           "run_ts": stem, "type": "pose",
+           "data": {"setupHash": setup_hash, "diagnostics": {}, "frames": frames}}
+    (det / f"{stem}_pose.json").write_text(json.dumps(env), encoding="utf-8")
+
+
+def _write_bundle_meta(video_dir: Path, setup_hash: str) -> None:
+    video_dir.mkdir(parents=True, exist_ok=True)
+    (video_dir / "metadata.json").write_text(
+        json.dumps({"route_folder": video_dir.parent.name, "video_key": video_dir.name}),
+        encoding="utf-8")
+    (video_dir / "setup.json").write_text(
+        json.dumps({"setupHash": setup_hash}), encoding="utf-8")
+
+
+def _ground_truth_doc(setup_hash: str | None) -> dict:
+    """Truth with the mix of frames the edge cases need."""
+
+    frames = [
+        {"frameIndex": 1, "timestamp": 1.0, "state": "present",
+         "review": "auto", "joints": {n: {"x": x, "y": y, "occluded": False}
+                                      for n, (x, y) in _TRUTH_JOINTS.items()}},
+        {"frameIndex": 2, "timestamp": 2.0, "state": "present",
+         "review": "auto", "joints": {n: {"x": x, "y": y, "occluded": False}
+                                      for n, (x, y) in _TRUTH_JOINTS.items()}},
+        {"frameIndex": 3, "timestamp": 3.0, "state": "absent",
+         "review": "human-flagged-absent", "joints": {}},
+        # torso-undefined: right_hip missing so shoulder/hip mid can't be formed
+        {"frameIndex": 4, "timestamp": 4.0, "state": "present", "review": "auto",
+         "joints": {n: {"x": x, "y": y, "occluded": False}
+                    for n, (x, y) in _TRUTH_JOINTS.items() if n != "right_hip"}},
+        # scanner-missing: present, torso defined, but no scanner frame near ts=9
+        {"frameIndex": 9, "timestamp": 9.0, "state": "present", "review": "auto",
+         "joints": {n: {"x": x, "y": y, "occluded": False}
+                    for n, (x, y) in _TRUTH_JOINTS.items()}},
+    ]
+    doc: dict = {"version": 1, "jointSet": list(_TRUTH_JOINTS),
+                 "frames": frames, "groundTruthHash": "abcdef1234567890"}
+    if setup_hash is not None:
+        doc["setupHash"] = setup_hash
+    return doc
+
+
+def _scanner_frames_for_pck() -> list:
+    """Frame @1.0 matches truth exactly; @2.0 offsets nose and thins left_wrist."""
+
+    f1 = {"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)}
+    off = dict(_TRUTH_JOINTS)
+    off["nose"] = (0.7, 0.2)      # 0.2 > 0.15 threshold -> nose wrong here
+    off.pop("left_wrist")          # thinned scanner joint -> a miss
+    f2 = {"timestamp": 2.0, "keypoints": _kp_list(off)}
+    f3 = {"timestamp": 3.0, "keypoints": _kp_list(_TRUTH_JOINTS)}  # truth absent here
+    return [f1, f2, f3]
+
+
+def test_evaluate_pck_exact_and_edge_cases():
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeE" / "vidE"
+        _write_bundle_meta(vdir, setup_hash="sh_match")
+        # legacy ground-truth (no self setupHash) -> effective hash = setup.json's
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000001", "sh_match", _scanner_frames_for_pck())
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 1 and not summary.skipped
+        rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
+
+        # Record shape / provenance header.
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION
+        assert rec["metric"] == "PCK@0.5-torso"
+        assert rec["setupHash"] == "sh_match"
+        assert rec["truthSource"] == "ground-truth"
+        assert rec["truthHash"] == "abcdef1234567890"
+        assert rec["truthSetupHashSource"] == "setup.json"
+        assert rec["jointSet"] == ev.COCO_CORE_JOINTS
+
+        counts = rec["counts"]
+        assert counts["truthFramesTotal"] == 5
+        assert counts["truthFramesAbsent"] == 1
+        assert counts["torsoUndefinedFrames"] == 1
+        assert counts["matchedFrames"] == 2
+        assert counts["scannerMissingFrames"] == 1
+        assert rec["scannerFrameIntervalSec"] == 1.0
+        assert rec["joinToleranceSec"] == 0.5
+
+        pj = rec["perJoint"]
+        # nose wrong in frame2 -> 1/2; left_wrist thinned in frame2 -> 1/2.
+        assert pj["nose"] == {"correct": 1, "total": 2, "pck": 0.5}
+        assert pj["left_wrist"] == {"correct": 1, "total": 2, "pck": 0.5}
+        # every other core joint matched exactly in both frames -> 2/2.
+        for name in ev.COCO_CORE_JOINTS:
+            if name in ("nose", "left_wrist"):
+                continue
+            assert pj[name] == {"correct": 2, "total": 2, "pck": 1.0}, name
+
+        # Idempotent filename: rerun overwrites, no second file.
+        summary2 = ev.evaluate(root)
+        assert len(summary2.written) == 1
+        assert summary2.written[0].record_path == summary.written[0].record_path
+        assert len(list((vdir / "evaluations").glob("*.json"))) == 1
+
+
+def test_evaluate_setuphash_mismatch_is_skipped():
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeF" / "vidF"
+        _write_bundle_meta(vdir, setup_hash="sh_truth")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        # A stale run whose setupHash != the setup.json the truth was authored under.
+        _write_pose_run(vdir, "20260101-000009", "sh_STALE", _scanner_frames_for_pck())
+
+        summary = ev.evaluate(root)
+        assert not summary.written
+        assert len(summary.skipped) == 1
+        assert "setupHash mismatch" in summary.skipped[0].reason
+        assert not (vdir / "evaluations").exists()
+
+
+def test_evaluate_vitpose_fallback_when_no_ground_truth():
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeG" / "vidG"
+        _write_bundle_meta(vdir, setup_hash="sh_vit")
+        vitpose = {"version": 1, "frames": [
+            {"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
+            {"timestamp": 2.0, "keypoints": []},  # seeded absent
+        ]}
+        (vdir / "vitpose.json").write_text(json.dumps(vitpose), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000010", "sh_vit",
+                        [{"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
+                         {"timestamp": 2.0, "keypoints": _kp_list(_TRUTH_JOINTS)}])
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 1
+        rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
+        assert rec["truthSource"] == "vitpose"
+        assert rec["setupHash"] == "sh_vit"
+        # vitpose hash is content-derived (no groundTruthHash), 64-hex sha256.
+        assert len(rec["truthHash"]) == 64
+        assert rec["counts"]["truthFramesAbsent"] == 1  # the empty-keypoints frame
+        assert rec["counts"]["matchedFrames"] == 1
+        # perfect match on the one scored frame.
+        assert rec["perJoint"]["nose"] == {"correct": 1, "total": 1, "pck": 1.0}
+
+
 def _run_all():
     fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
-           test_crossmatch_reducers, test_pipeline_end_to_end_renders_report]
+           test_crossmatch_reducers, test_pipeline_end_to_end_renders_report,
+           test_evaluate_pck_exact_and_edge_cases,
+           test_evaluate_setuphash_mismatch_is_skipped,
+           test_evaluate_vitpose_fallback_when_no_ground_truth]
     for fn in fns:
         fn()
         print(f"PASS {fn.__name__}")
