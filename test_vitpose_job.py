@@ -118,6 +118,20 @@ def test_climber_track_empty_when_no_tracks():
     assert build_climber_track(history, Point(0.5, 0.5), None) == {}
 
 
+def test_climber_track_association_slack_scales_with_source_frame_gap():
+    # A strided tracker history: consecutive entries are 2 source frames apart, and
+    # the climber moves 0.13 per entry — beyond the unscaled consecutive threshold
+    # (0.08 + 0.04 = 0.12) but within the frame-gap-scaled one (0.08 + 0.04*2 = 0.16).
+    # Stitching must use the source-frame gap, not the history-index gap.
+    history = [
+        FrameTracks(i * 2 / 24.0, {1: Box(0.10 + 0.13 * i, 0.40, 0.10, 0.15)}, frame_number=i * 2)
+        for i in range(5)
+    ]
+    tap = Point(0.15, 0.45)  # on the climber in the first entry
+    traj = build_climber_track(history, tap, None)
+    assert set(traj.keys()) == {0, 1, 2, 3, 4}
+
+
 # --------------------------------------------------------------------------- #
 # Artifact assembly
 # --------------------------------------------------------------------------- #
@@ -188,6 +202,30 @@ def test_artifact_omits_setup_hash_when_request_has_none():
     assert "setupHash" not in art
 
 
+def test_targets_carry_source_frame_numbers_from_strided_history():
+    # A strided history: entry i is source frame i*2. The PoseTarget handed to the
+    # backend must carry that source frame number (it's what the backend seeks),
+    # keyed by the history index the artifact assembly uses.
+    history = [
+        FrameTracks(i * 2 / 24.0, {1: Box(0.45, 0.40, 0.10, 0.15)}, frame_number=i * 2)
+        for i in range(3)
+    ]
+    backend = StubPoseBackend()
+    build_artifact(_request([2 / 24.0]), history, backend, Path("x.mp4"))
+    assert len(backend.seen_targets) == 1
+    target = backend.seen_targets[0]
+    assert target.frame_index == 1
+    assert target.frame_number == 2
+    assert target.source_frame == 2
+
+
+def test_pose_target_source_frame_falls_back_to_history_index():
+    # Legacy/stub histories without frame numbers: source frame == history index.
+    target = PoseTarget(frame_index=7, box=Box(0.1, 0.1, 0.2, 0.2))
+    assert target.frame_number is None
+    assert target.source_frame == 7
+
+
 def test_two_timestamps_nearest_same_frame_are_both_posed():
     history = _history_two_people()  # decoded times 0.0, 0.5, 1.0
     backend = StubPoseBackend()
@@ -247,6 +285,9 @@ def test_run_job_writes_artifact_and_done_status():
 
         status = json.loads((path.parent / "vitpose.status.json").read_text())
         assert status["status"] == "done"
+        # Phase timings ride in the done sidecar (contract-safe extra keys).
+        assert set(status["timings"]) == {"track_s", "pose_s", "total_s"}
+        assert all(v >= 0 for v in status["timings"].values())
         # The scored-run invariant: no detections/ pose|orb file was written.
         assert not (path.parent / "detections").exists()
 

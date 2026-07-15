@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
+import time
 import traceback
 import uuid
 from dataclasses import dataclass, replace
@@ -110,18 +112,34 @@ class Keypoint:
 
 @dataclass(frozen=True)
 class FrameTracks:
-    """Tracks present on one decoded frame, keyed by track id -> full-frame box."""
+    """Tracks present on one decoded frame, keyed by track id -> full-frame box.
+
+    ``frame_number`` is the frame's position in the *source* video. When the tracker
+    decodes with a stride it differs from the entry's index in the history list;
+    ``None`` (stub histories, legacy callers) means the two coincide.
+    """
 
     timestamp: float
     boxes: dict[int, Box]
+    frame_number: int | None = None
 
 
 @dataclass(frozen=True)
 class PoseTarget:
-    """A frame the Climber must be posed on: its index in the track history + box."""
+    """A frame the Climber must be posed on.
+
+    ``frame_index`` keys the pose result back into the track history;
+    ``frame_number`` is the source-video frame the backend must decode (they differ
+    when the tracker ran with a stride; ``None`` means they coincide).
+    """
 
     frame_index: int
     box: Box
+    frame_number: int | None = None
+
+    @property
+    def source_frame(self) -> int:
+        return self.frame_number if self.frame_number is not None else self.frame_index
 
 
 @dataclass(frozen=True)
@@ -203,8 +221,15 @@ def bundle_dir_for(analysis_root: Path, route_folder: str, video_key: str) -> Pa
 
 # Max normalized center displacement to associate the same climber between frames,
 # with a per-elapsed-frame slack so the trajectory survives short detection gaps.
+# The slack counts *source-video* frames (FrameTracks.frame_number), so a strided
+# tracker history gets proportionally more room per history step.
 _ASSOC_BASE = 0.08
 _ASSOC_PER_FRAME = 0.04
+
+
+def _source_frame_no(history: Sequence[FrameTracks], i: int) -> int:
+    fn = history[i].frame_number
+    return fn if fn is not None else i
 
 
 def _center_dist(a: Box, b: Box) -> float:
@@ -281,7 +306,8 @@ def build_climber_track(
         prev, last = seed_box, seed_idx
         i = seed_idx + direction
         while 0 <= i < len(history):
-            threshold = _ASSOC_BASE + _ASSOC_PER_FRAME * abs(i - last)
+            gap = abs(_source_frame_no(history, i) - _source_frame_no(history, last))
+            threshold = _ASSOC_BASE + _ASSOC_PER_FRAME * gap
             box = _nearest_box(list(history[i].boxes.values()), prev, threshold)
             if box is not None:
                 trajectory[i] = box
@@ -361,7 +387,9 @@ def build_artifact(
         if box is None:
             continue
         ts_to_index[ts] = idx
-        targets.setdefault(idx, PoseTarget(frame_index=idx, box=box))
+        targets.setdefault(
+            idx, PoseTarget(frame_index=idx, box=box, frame_number=history[idx].frame_number)
+        )
 
     posed: dict[int, list[Keypoint]] = (
         pose_backend.pose(video_path, list(targets.values())) if targets else {}
@@ -413,14 +441,28 @@ def _log(message: str) -> None:
     print(f"[vitpose] {message}", file=sys.stderr, flush=True)
 
 
-def _write_status(bundle_dir: Path, job_id: str, status: str, *, error: str | None = None) -> None:
-    payload = {
+def _write_status(
+    bundle_dir: Path,
+    job_id: str,
+    status: str,
+    *,
+    error: str | None = None,
+    timings: dict[str, float] | None = None,
+    device: str | None = None,
+) -> None:
+    # Extra keys are contract-safe: beta-scanner's sidecar reader only inspects
+    # `status` and `error` (app/api/dev/corpus/vitpose/route.ts).
+    payload: dict = {
         "jobId": job_id,
         "status": status,
         "updated_at": datetime.now().isoformat(timespec="seconds"),
     }
     if error is not None:
         payload["error"] = error
+    if timings is not None:
+        payload["timings"] = timings
+    if device is not None:
+        payload["device"] = device
     (bundle_dir / STATUS_NAME).write_text(
         json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
@@ -461,18 +503,30 @@ def run_vitpose_job(
         if not request.setup_hash:
             request = replace(request, setup_hash=_read_setup_hash(bundle_dir))
 
+        started = time.perf_counter()
         history = tracker.track(video_path)
+        track_s = time.perf_counter() - started
+
+        posed_at = time.perf_counter()
         artifact = build_artifact(request, history, pose_backend, video_path)
+        pose_s = time.perf_counter() - posed_at
 
         artifact_path = bundle_dir / ARTIFACT_NAME
         artifact_path.write_text(
             json.dumps(artifact, indent=2, ensure_ascii=False), encoding="utf-8"
         )
-        _write_status(bundle_dir, job_id, "done")
+        timings = {
+            "track_s": round(track_s, 2),
+            "pose_s": round(pose_s, 2),
+            "total_s": round(time.perf_counter() - started, 2),
+        }
+        device = getattr(tracker, "device", None) or getattr(pose_backend, "device", None)
+        _write_status(bundle_dir, job_id, "done", timings=timings, device=device)
         posed = sum(1 for f in artifact["frames"] if f["keypoints"])
         _log(
             f"job {job_id[:8]} done: {posed}/{len(artifact['frames'])} frames posed "
-            f"-> {artifact_path}"
+            f"in {timings['total_s']}s (track {timings['track_s']}s, "
+            f"pose {timings['pose_s']}s, device {device or 'unknown'}) -> {artifact_path}"
         )
         return artifact_path
     except Exception as exc:  # noqa: BLE001 — surface every failure via the sidecar
@@ -490,17 +544,33 @@ def run_vitpose_job(
 # --------------------------------------------------------------------------- #
 
 class UltralyticsTracker:
-    """Person detect + ByteTrack via ultralytics YOLO (lazy-loaded)."""
+    """Person detect + ByteTrack via ultralytics YOLO (lazy-loaded).
 
-    def __init__(self, model_name: str = "yolov8n.pt") -> None:
+    On CUDA the video is tracked at full frame rate; on CPU — where YOLO dominates
+    the job's wall time — every ``CPU_VID_STRIDE``-th frame is tracked instead, and
+    each history entry carries its source ``frame_number`` so downstream timestamp
+    matching, association slack, and pose-frame seeking stay exact.
+    """
+
+    CPU_VID_STRIDE = 2
+
+    def __init__(self, model_name: str = "yolov8n.pt", vid_stride: int | None = None) -> None:
         self._model_name = model_name
+        self._vid_stride = vid_stride  # explicit override; None = pick by device
         self._model = None
+        self._load_lock = threading.Lock()
+        self.device: str | None = None  # "cuda" / "cpu", known after the model loads
 
     def _ensure_model(self):
-        if self._model is None:
-            from ultralytics import YOLO  # lazy
+        # Locked: the boot-time warm thread and an early first job otherwise race
+        # and load a second copy of the model.
+        with self._load_lock:
+            if self._model is None:
+                import torch  # lazy
+                from ultralytics import YOLO  # lazy
 
-            self._model = YOLO(self._model_name)
+                self.device = "cuda" if torch.cuda.is_available() else "cpu"
+                self._model = YOLO(self._model_name)
         return self._model
 
     def warm(self) -> None:
@@ -511,6 +581,8 @@ class UltralyticsTracker:
         import cv2  # lazy
 
         model = self._ensure_model()
+        stride = self._vid_stride or (1 if self.device == "cuda" else self.CPU_VID_STRIDE)
+
         cap = cv2.VideoCapture(str(video_path))
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         cap.release()
@@ -520,6 +592,9 @@ class UltralyticsTracker:
         results = model.track(
             source=str(video_path), classes=[0], persist=True,
             tracker="bytetrack.yaml", stream=True, verbose=False,
+            device=0 if self.device == "cuda" else "cpu",
+            half=self.device == "cuda",
+            vid_stride=stride,
         )
         for idx, result in enumerate(results):
             boxes: dict[int, Box] = {}
@@ -530,7 +605,10 @@ class UltralyticsTracker:
                 xywhn = b.xywhn.tolist()
                 for track_id, (cx, cy, w, h) in zip(ids, xywhn):
                     boxes[int(track_id)] = Box(x=cx - w / 2.0, y=cy - h / 2.0, w=w, h=h)
-            history.append(FrameTracks(timestamp=idx / fps, boxes=boxes))
+            frame_no = idx * stride
+            history.append(
+                FrameTracks(timestamp=frame_no / fps, boxes=boxes, frame_number=frame_no)
+            )
         return history
 
 
@@ -552,30 +630,39 @@ def _require_scipy(scipy_available: bool) -> None:
 
 
 class TransformersViTPoseBackend:
-    """Top-down ViTPose++ via HuggingFace transformers (lazy-loaded)."""
+    """Top-down ViTPose++ via HuggingFace transformers (lazy-loaded).
+
+    Seeks directly to each target's source frame (instead of decoding the whole
+    video a second time) and runs the forwards in batches of ``BATCH_SIZE``.
+    """
 
     # vitpose-plus-* is a mixture-of-experts model: its forward needs a dataset_index
     # to pick an expert head. 0 = the COCO expert, which emits the 17 COCO joints.
     COCO_EXPERT_INDEX = 0
+    BATCH_SIZE = 16
 
     def __init__(self, model_name: str = "usyd-community/vitpose-plus-base") -> None:
         self._model_name = model_name
         self._processor = None
         self._model = None
-        self._device = "cpu"
+        self._load_lock = threading.Lock()
+        self.device = "cpu"
 
     def _ensure_model(self):
-        if self._model is None:
-            import torch  # lazy
-            from transformers import AutoProcessor, VitPoseForPoseEstimation  # lazy
-            from transformers.utils import is_scipy_available  # lazy
+        # Locked: the boot-time warm thread and an early first job otherwise race
+        # and load a second copy of the model.
+        with self._load_lock:
+            if self._model is None:
+                import torch  # lazy
+                from transformers import AutoProcessor, VitPoseForPoseEstimation  # lazy
+                from transformers.utils import is_scipy_available  # lazy
 
-            _require_scipy(is_scipy_available())
+                _require_scipy(is_scipy_available())
 
-            self._device = "cuda" if torch.cuda.is_available() else "cpu"
-            self._processor = AutoProcessor.from_pretrained(self._model_name)
-            model = VitPoseForPoseEstimation.from_pretrained(self._model_name)
-            self._model = model.to(self._device).eval()
+                self.device = "cuda" if torch.cuda.is_available() else "cpu"
+                self._processor = AutoProcessor.from_pretrained(self._model_name)
+                model = VitPoseForPoseEstimation.from_pretrained(self._model_name)
+                self._model = model.to(self.device).eval()
         return self._processor, self._model
 
     def warm(self) -> None:
@@ -589,52 +676,62 @@ class TransformersViTPoseBackend:
         if not targets:
             return {}
         processor, model = self._ensure_model()
-        by_index = {t.frame_index: t for t in targets}
 
         cap = cv2.VideoCapture(str(video_path))
         width = cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 1.0
         height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 1.0
 
-        out: dict[int, list[Keypoint]] = {}
-        idx = 0
-        while True:
+        # Grab exactly the target frames, seeking in source order so every seek is
+        # forward-only. A frame the decoder can't produce is simply skipped (its
+        # requested timestamps stay `keypoints: []`, same as an untracked Climber).
+        grabbed: list[tuple[PoseTarget, object]] = []
+        for target in sorted(targets, key=lambda t: t.source_frame):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target.source_frame)
             ok, frame = cap.read()
-            if not ok:
-                break
-            target = by_index.get(idx)
-            if target is not None:
-                out[idx] = self._pose_one(processor, model, torch, frame, target.box, width, height)
-            idx += 1
+            if ok:
+                grabbed.append((target, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
         cap.release()
+
+        out: dict[int, list[Keypoint]] = {}
+        for start in range(0, len(grabbed), self.BATCH_SIZE):
+            self._pose_batch(
+                processor, model, torch,
+                grabbed[start:start + self.BATCH_SIZE], width, height, out,
+            )
         return out
 
-    def _pose_one(self, processor, model, torch, frame_bgr, box: Box, width: float, height: float):
-        import cv2  # lazy
-
-        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        # ViTPose processor wants COCO boxes in absolute pixels: [x, y, w, h].
-        px_box = [[box.x * width, box.y * height, box.w * width, box.h * height]]
-        inputs = processor(rgb, boxes=[px_box], return_tensors="pt").to(self._device)
-        # One person box -> batch of 1; select the COCO expert for it.
-        dataset_index = torch.tensor([self.COCO_EXPERT_INDEX], device=self._device)
+    def _pose_batch(self, processor, model, torch, batch, width: float, height: float, out):
+        """Pose one chunk: N frames, one Climber box each, one forward pass."""
+        images = [rgb for _, rgb in batch]
+        # ViTPose processor wants COCO boxes in absolute pixels: [x, y, w, h],
+        # one list of person boxes per image (always exactly one — the Climber).
+        boxes = [
+            [[t.box.x * width, t.box.y * height, t.box.w * width, t.box.h * height]]
+            for t, _ in batch
+        ]
+        inputs = processor(images, boxes=boxes, return_tensors="pt").to(self.device)
+        # One box per image -> one expert selection per image.
+        dataset_index = torch.tensor([self.COCO_EXPERT_INDEX] * len(batch), device=self.device)
         with torch.no_grad():
             outputs = model(**inputs, dataset_index=dataset_index)
-        results = processor.post_process_pose_estimation(outputs, boxes=[px_box])[0][0]
+        results = processor.post_process_pose_estimation(outputs, boxes=boxes)
 
-        keypoints: list[Keypoint] = []
-        for (x_px, y_px), score, label in zip(
-            results["keypoints"].tolist(),
-            results["scores"].tolist(),
-            results["labels"].tolist(),
-        ):
-            label = int(label)
-            if label >= len(COCO_KEYPOINT_NAMES):
-                continue
-            keypoints.append(Keypoint(
-                name=COCO_KEYPOINT_NAMES[label],
-                x=x_px / width, y=y_px / height, score=float(score),
-            ))
-        return keypoints
+        for (target, _), image_results in zip(batch, results):
+            person = image_results[0]
+            keypoints: list[Keypoint] = []
+            for (x_px, y_px), score, label in zip(
+                person["keypoints"].tolist(),
+                person["scores"].tolist(),
+                person["labels"].tolist(),
+            ):
+                label = int(label)
+                if label >= len(COCO_KEYPOINT_NAMES):
+                    continue
+                keypoints.append(Keypoint(
+                    name=COCO_KEYPOINT_NAMES[label],
+                    x=x_px / width, y=y_px / height, score=float(score),
+                ))
+            out[target.frame_index] = keypoints
 
 
 # Cached singletons: the models are expensive to load and re-init on CUDA, so we
