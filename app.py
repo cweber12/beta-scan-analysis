@@ -104,6 +104,9 @@ class VitPoseJobRequest(BaseModel):
     climber_crop: NormCrop | None = None
     wall_crop: NormCrop | None = None  # accepted for contract parity; ignored for pose
     panning: bool = False
+    # Hash of the setup.json this job runs under; stamped into vitpose.json as the
+    # provenance anchor. Optional: the job falls back to the bundle's setup.json.
+    setup_hash: str | None = None
     frames: list[VitPoseFrame] = Field(..., min_length=1)
 
 
@@ -248,6 +251,7 @@ def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseReques
         climber_point=point,
         climber_crop=crop,
         panning=payload.panning,
+        setup_hash=payload.setup_hash,
     )
 
 

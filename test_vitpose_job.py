@@ -170,6 +170,24 @@ def test_artifact_all_empty_when_no_climber():
     assert backend.seen_targets == []  # backend never invoked with no targets
 
 
+def test_artifact_stamps_setup_hash_from_request():
+    # The provenance anchor: the stamped setupHash equals the request's setup_hash.
+    history = _history_two_people()
+    req = VitPoseRequest(
+        video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
+        frames=(0.0,), climber_point=Point(0.50, 0.40), setup_hash="abc123",
+    )
+    art = build_artifact(req, history, StubPoseBackend(), Path("x.mp4"))
+    assert art["setupHash"] == "abc123"
+
+
+def test_artifact_omits_setup_hash_when_request_has_none():
+    # No setup hash known -> the key is omitted (not null), so consumers'
+    # artifact.get("setupHash", <fallback>) reaches the legacy fallback.
+    art = build_artifact(_request([0.0]), _history_two_people(), StubPoseBackend(), Path("x.mp4"))
+    assert "setupHash" not in art
+
+
 def test_two_timestamps_nearest_same_frame_are_both_posed():
     history = _history_two_people()  # decoded times 0.0, 0.5, 1.0
     backend = StubPoseBackend()
@@ -231,6 +249,38 @@ def test_run_job_writes_artifact_and_done_status():
         assert status["status"] == "done"
         # The scored-run invariant: no detections/ pose|orb file was written.
         assert not (path.parent / "detections").exists()
+
+
+def test_run_job_stamps_request_setup_hash():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        # A stale setup.json in the bundle must NOT override the request's hash.
+        (root / "r" / "k" / "setup.json").write_text('{"setupHash": "stale"}')
+        req = VitPoseRequest(
+            video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
+            frames=(0.0,), climber_point=Point(0.50, 0.40), setup_hash="fresh",
+        )
+        path = run_vitpose_job(root, req, StubTracker(_history_two_people()), StubPoseBackend())
+        assert json.loads(path.read_text())["setupHash"] == "fresh"
+
+
+def test_run_job_falls_back_to_bundle_setup_hash():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        (root / "r" / "k" / "setup.json").write_text('{"setupHash": "from-setup"}')
+        # Request carries no setup_hash -> stamp the bundle's current setup.json.
+        path = run_vitpose_job(root, _request([0.0]), StubTracker(_history_two_people()), StubPoseBackend())
+        assert json.loads(path.read_text())["setupHash"] == "from-setup"
+
+
+def test_run_job_omits_setup_hash_when_unresolvable():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)  # no setup.json written
+        path = run_vitpose_job(root, _request([0.0]), StubTracker(_history_two_people()), StubPoseBackend())
+        assert "setupHash" not in json.loads(path.read_text())
 
 
 def test_run_job_missing_bundle_raises():
