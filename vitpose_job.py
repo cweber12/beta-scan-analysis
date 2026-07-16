@@ -75,6 +75,7 @@ COCO_KEYPOINT_NAMES: tuple[str, ...] = (
 class Point:
     x: float
     y: float
+    t: float | None = None
 
 
 @dataclass(frozen=True)
@@ -225,6 +226,12 @@ def bundle_dir_for(analysis_root: Path, route_folder: str, video_key: str) -> Pa
 # tracker history gets proportionally more room per history step.
 _ASSOC_BASE = 0.08
 _ASSOC_PER_FRAME = 0.04
+_ASSOC_MAX = 0.18
+_REACQUIRE_AREA_MIN_RATIO = 1.0 / 3.0
+_REACQUIRE_AREA_MAX_RATIO = 3.0
+
+_SEED_WINDOW_S = 0.75
+_CROP_GATE_EXPAND = 0.10
 
 
 def _source_frame_no(history: Sequence[FrameTracks], i: int) -> int:
@@ -234,6 +241,22 @@ def _source_frame_no(history: Sequence[FrameTracks], i: int) -> int:
 
 def _center_dist(a: Box, b: Box) -> float:
     return ((a.cx - b.cx) ** 2 + (a.cy - b.cy) ** 2) ** 0.5
+
+
+def _point_to_box_dist(point: Point, box: Box) -> float:
+    return ((box.cx - point.x) ** 2 + (box.cy - point.y) ** 2) ** 0.5
+
+
+def _seed_box_passes_crop_gate(seed_box: Box, climber_crop: Box | None) -> bool:
+    if climber_crop is None:
+        return True
+    pad_x = climber_crop.w * _CROP_GATE_EXPAND
+    pad_y = climber_crop.h * _CROP_GATE_EXPAND
+    min_x = climber_crop.x - pad_x
+    max_x = climber_crop.x + climber_crop.w + pad_x
+    min_y = climber_crop.y - pad_y
+    max_y = climber_crop.y + climber_crop.h + pad_y
+    return min_x <= seed_box.cx <= max_x and min_y <= seed_box.cy <= max_y
 
 
 def _nearest_box(boxes: Sequence[Box], ref: Box, max_dist: float) -> Box | None:
@@ -253,24 +276,47 @@ def _seed_climber(
 ) -> tuple[int | None, Box | None]:
     """Find the (frame_index, box) to start stitching the Climber trajectory from.
 
-    With a tap: the box that contains it (nearest such), else the nearest box center
-    over the clip. Without a tap: the first box of the most prominent persistent
-    track inside the crop.
+    With a tap timestamp: search only near that time, prefer containing boxes, then
+    nearest centers in-window; no global fallback. Without a tap timestamp: prefer
+    the earliest containing frame, then nearest center over the clip. Seed candidates
+    must pass the expanded crop gate when a climber crop is present.
+
+    Without a tap: seed from the first box of the most prominent persistent track
+    inside the crop.
     """
     if climber_point is not None:
-        contains: list[tuple[float, int, Box]] = []
-        nearest: tuple[float, int, Box] | None = None
-        for i, frame in enumerate(history):
-            for box in frame.boxes.values():
-                d = ((box.cx - climber_point.x) ** 2 + (box.cy - climber_point.y) ** 2) ** 0.5
+        frame_indices = list(range(len(history)))
+        anchored = climber_point.t is not None
+        if anchored:
+            frame_indices = [
+                i for i, frame in enumerate(history)
+                if abs(frame.timestamp - climber_point.t) <= _SEED_WINDOW_S
+            ]
+            if not frame_indices:
+                return None, None
+
+        containing: list[tuple[int, float, int, Box]] = []
+        non_containing: list[tuple[float, int, Box]] = []
+        for i in frame_indices:
+            for box in history[i].boxes.values():
+                d = _point_to_box_dist(climber_point, box)
                 if box.contains(climber_point):
-                    contains.append((d, i, box))
-                if nearest is None or d < nearest[0]:
-                    nearest = (d, i, box)
-        if contains:
-            _, idx, box = min(contains, key=lambda t: t[0])
-            return idx, box
-        return (nearest[1], nearest[2]) if nearest else (None, None)
+                    frame_key = d if anchored else float(i)
+                    tie = i if anchored else d
+                    containing.append((frame_key, tie, i, box))
+                else:
+                    non_containing.append((d, i, box))
+
+        containing.sort(key=lambda c: (c[0], c[1]))
+        non_containing.sort(key=lambda c: (c[0], c[1]))
+
+        for _, _, idx, box in containing:
+            if _seed_box_passes_crop_gate(box, climber_crop):
+                return idx, box
+        for _, idx, box in non_containing:
+            if _seed_box_passes_crop_gate(box, climber_crop):
+                return idx, box
+        return None, None
 
     track_id = _largest_track(history, climber_crop)
     if track_id is None:
@@ -301,15 +347,21 @@ def build_climber_track(
     trajectory: dict[int, Box] = {seed_idx: seed_box}
 
     # Walk forward, then backward, from the seed; the association threshold widens
-    # with the gap since the last hit so a few missed detections don't sever the track.
+    # with source-frame gap but is capped, and long-gap re-acquirements must keep
+    # roughly consistent area to avoid latching onto a distant bystander.
     for direction in (1, -1):
         prev, last = seed_box, seed_idx
         i = seed_idx + direction
         while 0 <= i < len(history):
             gap = abs(_source_frame_no(history, i) - _source_frame_no(history, last))
-            threshold = _ASSOC_BASE + _ASSOC_PER_FRAME * gap
+            threshold = min(_ASSOC_BASE + _ASSOC_PER_FRAME * gap, _ASSOC_MAX)
             box = _nearest_box(list(history[i].boxes.values()), prev, threshold)
             if box is not None:
+                if abs(i - last) > 1 and prev.area > 0.0:
+                    ratio = box.area / prev.area
+                    if not (_REACQUIRE_AREA_MIN_RATIO <= ratio <= _REACQUIRE_AREA_MAX_RATIO):
+                        i += direction
+                        continue
                 trajectory[i] = box
                 prev, last = box, i
             i += direction
@@ -330,12 +382,6 @@ def _largest_track(history: Sequence[FrameTracks], crop: Box | None) -> int | No
             if crop is not None and not crop.contains(Point(box.cx, box.cy)):
                 continue
             areas[track_id] = areas.get(track_id, 0.0) + box.area
-
-    # If the crop filtered everyone out, fall back to the largest track anywhere.
-    if not areas and crop is not None:
-        for frame in history:
-            for track_id, box in frame.boxes.items():
-                areas[track_id] = areas.get(track_id, 0.0) + box.area
 
     if not areas:
         return None

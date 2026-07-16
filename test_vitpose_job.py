@@ -132,6 +132,122 @@ def test_climber_track_association_slack_scales_with_source_frame_gap():
     assert set(traj.keys()) == {0, 1, 2, 3, 4}
 
 
+def test_seed_with_t_anchors_to_time_window_not_late_bystander():
+    climber = Box(0.40, 0.40, 0.20, 0.20)
+    late_bystander = Box(0.49, 0.49, 0.04, 0.04)
+    history = [
+        FrameTracks(0.5, {1: climber}),
+        FrameTracks(2.5, {2: late_bystander}),
+    ]
+    tap = Point(0.50, 0.50, t=0.5)
+
+    idx, box = vj._seed_climber(history, tap, None)
+    assert idx == 0
+    assert box == climber
+
+
+def test_seed_with_t_prefers_containing_over_nearest_non_containing_in_window():
+    containing = Box(0.45, 0.45, 0.30, 0.30)
+    nearest_non_containing = Box(0.515, 0.48, 0.03, 0.03)
+    history = [FrameTracks(1.0, {1: containing, 2: nearest_non_containing})]
+    tap = Point(0.50, 0.50, t=1.0)
+
+    idx, box = vj._seed_climber(history, tap, None)
+    assert idx == 0
+    assert box == containing
+
+
+def test_climber_track_with_t_and_empty_window_has_no_global_fallback():
+    history = [
+        FrameTracks(0.0, {1: Box(0.45, 0.45, 0.20, 0.20)}),
+        FrameTracks(1.0, {2: Box(0.10, 0.10, 0.10, 0.10)}),
+    ]
+    tap = Point(0.50, 0.50, t=5.0)
+    assert build_climber_track(history, tap, None) == {}
+
+
+def test_seed_crop_gate_skips_best_outside_expanded_crop_and_picks_next():
+    best_outside_gate = Box(0.30, 0.30, 0.32, 0.32)  # center 0.46, outside crop+10%
+    next_best_inside_gate = Box(0.28, 0.28, 0.30, 0.30)  # center 0.43, inside crop+10%
+    crop = Box(0.0, 0.0, 0.40, 0.40)
+    history = [FrameTracks(0.0, {1: best_outside_gate, 2: next_best_inside_gate})]
+    tap = Point(0.45, 0.45, t=0.0)
+
+    idx, box = vj._seed_climber(history, tap, crop)
+    assert idx == 0
+    assert box == next_best_inside_gate
+
+
+def test_seed_crop_gate_accepts_center_just_inside_expanded_margin():
+    near_margin = Box(0.389, 0.389, 0.10, 0.10)  # center 0.439 (inside 0.44 limit)
+    crop = Box(0.0, 0.0, 0.40, 0.40)
+    history = [FrameTracks(0.0, {1: near_margin})]
+    tap = Point(0.44, 0.44, t=0.0)
+
+    idx, box = vj._seed_climber(history, tap, crop)
+    assert idx == 0
+    assert box == near_margin
+
+
+def test_climber_track_caps_association_slack_on_long_source_frame_gap():
+    history = [
+        FrameTracks(0.0, {1: Box(0.10, 0.40, 0.10, 0.10)}, frame_number=0),
+        FrameTracks(10 / 24.0, {9: Box(0.40, 0.40, 0.10, 0.10)}, frame_number=10),
+    ]
+    tap = Point(0.15, 0.45)
+
+    traj = build_climber_track(history, tap, None)
+    assert set(traj.keys()) == {0}
+
+
+def test_climber_track_reacquire_rejects_large_area_jump_after_gap():
+    history = [
+        FrameTracks(0.0, {1: Box(0.20, 0.40, 0.10, 0.10)}),
+        FrameTracks(0.1, {}),
+        FrameTracks(0.2, {2: Box(0.19, 0.39, 0.25, 0.20)}),
+    ]
+    tap = Point(0.25, 0.45)
+
+    traj = build_climber_track(history, tap, None)
+    assert set(traj.keys()) == {0}
+
+
+def test_no_tap_crop_filter_out_produces_empty_trajectory_and_artifact_frames():
+    history = [
+        FrameTracks(0.0, {1: Box(0.60, 0.40, 0.10, 0.10)}),
+        FrameTracks(0.5, {1: Box(0.62, 0.38, 0.10, 0.10)}),
+    ]
+    crop = Box(0.0, 0.0, 0.20, 0.20)
+
+    assert build_climber_track(history, None, crop) == {}
+    req = VitPoseRequest(
+        video_path="analysis/r/k/k.mp4",
+        route_folder="r",
+        video_key="k",
+        frames=(0.0, 0.5),
+        climber_point=None,
+        climber_crop=crop,
+    )
+    art = build_artifact(req, history, StubPoseBackend(), Path("x.mp4"))
+    assert all(f["keypoints"] == [] for f in art["frames"])
+
+
+def test_seed_without_t_prefers_earliest_containing_frame():
+    early = Box(0.10, 0.10, 0.80, 0.80)
+    late_nearer = Box(0.45, 0.45, 0.10, 0.10)
+    history = [
+        FrameTracks(0.0, {1: early}),
+        FrameTracks(0.1, {}),
+        FrameTracks(0.2, {}),
+        FrameTracks(0.3, {2: late_nearer}),
+    ]
+    tap = Point(0.50, 0.50)
+
+    idx, box = vj._seed_climber(history, tap, None)
+    assert idx == 0
+    assert box == early
+
+
 # --------------------------------------------------------------------------- #
 # Artifact assembly
 # --------------------------------------------------------------------------- #

@@ -81,6 +81,7 @@ class DetectionRequest(BaseModel):
 class NormPoint(BaseModel):
     x: float
     y: float
+    t: float | None = None
 
 
 class NormCrop(BaseModel):
@@ -238,7 +239,7 @@ def push_detections(payload: DetectionRequest) -> dict[str, object]:
 
 def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseRequest:
     point = (
-        vitpose_job.Point(payload.climber_point.x, payload.climber_point.y)
+        vitpose_job.Point(payload.climber_point.x, payload.climber_point.y, payload.climber_point.t)
         if payload.climber_point is not None
         else None
     )
