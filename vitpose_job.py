@@ -495,6 +495,8 @@ def _write_status(
     error: str | None = None,
     timings: dict[str, float] | None = None,
     device: str | None = None,
+    warnings: list[str] | None = None,
+    seed_debug: dict | None = None,
 ) -> None:
     # Extra keys are contract-safe: beta-scanner's sidecar reader only inspects
     # `status` and `error` (app/api/dev/corpus/vitpose/route.ts).
@@ -509,9 +511,86 @@ def _write_status(
         payload["timings"] = timings
     if device is not None:
         payload["device"] = device
+    if warnings:
+        payload["warnings"] = warnings
+    if seed_debug is not None:
+        payload["seedDebug"] = seed_debug
     (bundle_dir / STATUS_NAME).write_text(
         json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+
+
+def _seed_mode(request: VitPoseRequest) -> str:
+    if request.climber_point is None:
+        return "largest_track"
+    if request.climber_point.t is not None:
+        return "tap_time_window"
+    return "tap_legacy"
+
+
+def _seed_debug(
+    request: VitPoseRequest,
+    history: Sequence[FrameTracks],
+) -> dict[str, object]:
+    seed_idx, seed_box = _seed_climber(history, request.climber_point, request.climber_crop)
+    debug: dict[str, object] = {
+        "mode": _seed_mode(request),
+        "historyFrames": len(history),
+    }
+    if request.climber_point is not None:
+        debug["tap"] = {
+            "x": request.climber_point.x,
+            "y": request.climber_point.y,
+            "t": request.climber_point.t,
+        }
+    if request.climber_crop is not None:
+        debug["crop"] = {
+            "x": request.climber_crop.x,
+            "y": request.climber_crop.y,
+            "w": request.climber_crop.w,
+            "h": request.climber_crop.h,
+        }
+    if seed_idx is None or seed_box is None:
+        debug["seedFound"] = False
+        return debug
+
+    debug["seedFound"] = True
+    debug["seed"] = {
+        "frameIndex": seed_idx,
+        "timestamp": history[seed_idx].timestamp,
+        "sourceFrame": _source_frame_no(history, seed_idx),
+        "box": {
+            "x": seed_box.x,
+            "y": seed_box.y,
+            "w": seed_box.w,
+            "h": seed_box.h,
+            "cx": seed_box.cx,
+            "cy": seed_box.cy,
+        },
+    }
+    return debug
+
+
+def _request_warnings(request: VitPoseRequest, history: Sequence[FrameTracks]) -> list[str]:
+    warnings: list[str] = []
+    point = request.climber_point
+    if point is None:
+        return warnings
+
+    if point.t is None:
+        warnings.append(
+            "climber_point.t is missing; using legacy global tap seeding. "
+            "Recalibrate in beta-scanner so tap timestamp is sent."
+        )
+    if point.t is not None and abs(point.t) <= 1e-9:
+        near_start = [frame for frame in history if frame.timestamp <= _SEED_WINDOW_S]
+        if any(len(frame.boxes) > 1 for frame in near_start):
+            warnings.append(
+                "climber_point.t is 0 while multiple people appear near clip start; "
+                "seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
+            )
+
+    return warnings
 
 
 def run_vitpose_job(
@@ -552,6 +631,8 @@ def run_vitpose_job(
         started = time.perf_counter()
         history = tracker.track(video_path)
         track_s = time.perf_counter() - started
+        warnings = _request_warnings(request, history)
+        seed_debug = _seed_debug(request, history)
 
         posed_at = time.perf_counter()
         artifact = build_artifact(request, history, pose_backend, video_path)
@@ -567,12 +648,21 @@ def run_vitpose_job(
             "total_s": round(time.perf_counter() - started, 2),
         }
         device = getattr(tracker, "device", None) or getattr(pose_backend, "device", None)
-        _write_status(bundle_dir, job_id, "done", timings=timings, device=device)
+        _write_status(
+            bundle_dir,
+            job_id,
+            "done",
+            timings=timings,
+            device=device,
+            warnings=warnings,
+            seed_debug=seed_debug,
+        )
         posed = sum(1 for f in artifact["frames"] if f["keypoints"])
+        warning_note = f", {len(warnings)} warning(s)" if warnings else ""
         _log(
             f"job {job_id[:8]} done: {posed}/{len(artifact['frames'])} frames posed "
             f"in {timings['total_s']}s (track {timings['track_s']}s, "
-            f"pose {timings['pose_s']}s, device {device or 'unknown'}) -> {artifact_path}"
+            f"pose {timings['pose_s']}s, device {device or 'unknown'}{warning_note}) -> {artifact_path}"
         )
         return artifact_path
     except Exception as exc:  # noqa: BLE001 — surface every failure via the sidecar

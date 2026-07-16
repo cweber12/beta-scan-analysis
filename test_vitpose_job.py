@@ -404,8 +404,38 @@ def test_run_job_writes_artifact_and_done_status():
         # Phase timings ride in the done sidecar (contract-safe extra keys).
         assert set(status["timings"]) == {"track_s", "pose_s", "total_s"}
         assert all(v >= 0 for v in status["timings"].values())
+        assert status["seedDebug"]["seedFound"] is True
         # The scored-run invariant: no detections/ pose|orb file was written.
         assert not (path.parent / "detections").exists()
+
+
+def test_run_job_warns_when_climber_t_missing():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        path = run_vitpose_job(root, _request([0.0]), StubTracker(_history_two_people()), StubPoseBackend())
+
+        status = json.loads((path.parent / "vitpose.status.json").read_text())
+        assert status["status"] == "done"
+        assert any("climber_point.t is missing" in w for w in status.get("warnings", []))
+
+
+def test_run_job_warns_when_t_zero_with_multiple_people_near_start():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        req = VitPoseRequest(
+            video_path="analysis/r/k/k.mp4",
+            route_folder="r",
+            video_key="k",
+            frames=(0.0,),
+            climber_point=Point(0.50, 0.40, t=0.0),
+        )
+        path = run_vitpose_job(root, req, StubTracker(_history_two_people()), StubPoseBackend())
+
+        status = json.loads((path.parent / "vitpose.status.json").read_text())
+        assert status["status"] == "done"
+        assert any("climber_point.t is 0" in w for w in status.get("warnings", []))
 
 
 def test_run_job_stamps_request_setup_hash():
