@@ -112,17 +112,32 @@ class Keypoint:
 
 
 @dataclass(frozen=True)
+class Appearance:
+    """Clothing-color signature of one person box: L1-normalized HSV hue-sat
+    histograms (16x8 bins, flattened) of two box sub-regions — ``shirt`` (center
+    50% width, 20–55% height) and ``pants`` (60–90% height). Either may be empty
+    when its region was degenerate (box clipped at the frame edge).
+    """
+
+    shirt: tuple[float, ...] = ()
+    pants: tuple[float, ...] = ()
+
+
+@dataclass(frozen=True)
 class FrameTracks:
     """Tracks present on one decoded frame, keyed by track id -> full-frame box.
 
     ``frame_number`` is the frame's position in the *source* video. When the tracker
     decodes with a stride it differs from the entry's index in the history list;
     ``None`` (stub histories, legacy callers) means the two coincide.
+    ``features`` (optional) carries per-track-id clothing-color signatures; when
+    absent the stitcher degrades to motion-only association.
     """
 
     timestamp: float
     boxes: dict[int, Box]
     frame_number: int | None = None
+    features: dict[int, Appearance] | None = None
 
 
 @dataclass(frozen=True)
@@ -217,8 +232,13 @@ def bundle_dir_for(analysis_root: Path, route_folder: str, video_key: str) -> Pa
 # ByteTrack fragments the climber into several track ids over a boulder problem
 # (scale/pose changes and occlusion break the track), and no single id is both
 # near the base tap and present for the whole ascent. So we don't trust one id:
-# seed from the tap, then follow the climber frame-to-frame by spatial nearest-box
-# association, in both directions from the seed, stitching across id switches.
+# seed from the tap, then follow the climber frame-to-frame in both directions,
+# stitching across id switches. Association is *scored*, not just gated: the
+# motion window is a generous candidate pre-filter (traverses, down-climbs and
+# pans are legitimate), and clothing-color appearance against a rolling reference
+# picks among candidates — measured on the planet-x pair, appearance separates
+# the reappearing climber (0.35) from base bystanders (0.76–0.84) at the exact
+# gap where nearest-box association latched onto the wrong person (issue #19).
 
 # Max normalized center displacement to associate the same climber between frames,
 # with a per-elapsed-frame slack so the trajectory survives short detection gaps.
@@ -232,6 +252,21 @@ _REACQUIRE_AREA_MAX_RATIO = 3.0
 
 _SEED_WINDOW_S = 0.75
 _CROP_GATE_EXPAND = 0.10
+
+# Appearance scoring. Distances are Bhattacharyya in [0, 1] against a rolling
+# (EMA) reference — never a frozen seed-time snapshot, which decays over an
+# ascent as lighting/scale change. Appearance is comparative, not an absolute
+# veto: a candidate with no features scores the neutral 0.5, so histories
+# without features (stubs, legacy) reduce to pure motion ranking.
+_APP_WEIGHT = 1.0        # weight of appearance vs gate-normalized motion distance
+_APP_CONFIDENT = 0.45    # at/below: accept AND fold into the rolling reference
+_APP_MISMATCH = 0.65     # at/above: accept but count toward the mismatch streak
+_MISMATCH_STREAK = 5     # consecutive mismatch accepts that trigger a backtrack
+_APP_EMA_ALPHA = 0.2     # rolling-reference update rate on confident accepts
+
+# seedDebug event thresholds/caps.
+_JUMP_EVENT_DIST = 0.08
+_EVENT_CAP = 50
 
 
 def _source_frame_no(history: Sequence[FrameTracks], i: int) -> int:
@@ -259,14 +294,56 @@ def _seed_box_passes_crop_gate(seed_box: Box, climber_crop: Box | None) -> bool:
     return min_x <= seed_box.cx <= max_x and min_y <= seed_box.cy <= max_y
 
 
-def _nearest_box(boxes: Sequence[Box], ref: Box, max_dist: float) -> Box | None:
-    best: Box | None = None
-    best_d = max_dist
-    for box in boxes:
-        d = _center_dist(box, ref)
-        if d <= best_d:
-            best_d, best = d, box
-    return best
+def _bhattacharyya(p: Sequence[float], q: Sequence[float]) -> float:
+    """Bhattacharyya distance between two L1-normalized histograms, in [0, 1]."""
+    bc = 0.0
+    for a, b in zip(p, q):
+        if a > 0.0 and b > 0.0:
+            bc += (a * b) ** 0.5
+    return max(0.0, 1.0 - min(bc, 1.0)) ** 0.5
+
+
+def _appearance_dist(ref: Appearance | None, cand: Appearance | None) -> float | None:
+    """Mean shirt/pants distance over the regions both sides have; None if none."""
+    if ref is None or cand is None:
+        return None
+    dists = []
+    if ref.shirt and cand.shirt:
+        dists.append(_bhattacharyya(ref.shirt, cand.shirt))
+    if ref.pants and cand.pants:
+        dists.append(_bhattacharyya(ref.pants, cand.pants))
+    return sum(dists) / len(dists) if dists else None
+
+
+def _ema_appearance(ref: Appearance | None, new: Appearance | None) -> Appearance | None:
+    if ref is None:
+        return new
+    if new is None:
+        return ref
+
+    def mix(a: tuple[float, ...], b: tuple[float, ...]) -> tuple[float, ...]:
+        if not a:
+            return b
+        if not b:
+            return a
+        mixed = [(1.0 - _APP_EMA_ALPHA) * x + _APP_EMA_ALPHA * y for x, y in zip(a, b)]
+        total = sum(mixed) or 1.0
+        return tuple(v / total for v in mixed)
+
+    return Appearance(shirt=mix(ref.shirt, new.shirt), pants=mix(ref.pants, new.pants))
+
+
+def _features_for(frame: FrameTracks, track_id: int | None) -> Appearance | None:
+    if track_id is None or frame.features is None:
+        return None
+    return frame.features.get(track_id)
+
+
+def _track_id_at(history: Sequence[FrameTracks], idx: int, box: Box) -> int | None:
+    for tid, b in history[idx].boxes.items():
+        if b == box:
+            return tid
+    return None
 
 
 def _seed_climber(
@@ -327,46 +404,214 @@ def _seed_climber(
     return None, None
 
 
+@dataclass
+class StitchResult:
+    """Output of ``stitch_climber_track``: the trajectory plus its provenance."""
+
+    trajectory: dict[int, Box]
+    track_ids: dict[int, int]        # frame_index -> ByteTrack id the box came from
+    reseeds: list[dict]              # backtrack events (wrong-person recoveries)
+    seed_index: int | None = None
+    seed_box: Box | None = None
+
+
+def _best_candidate(
+    frame: FrameTracks,
+    prev: Box,
+    threshold: float,
+    ref: Appearance | None,
+    long_gap: bool,
+) -> tuple[int, Box, float | None] | None:
+    """Best (track_id, box, appearance_dist) within the motion gate, or None.
+
+    Score = gate-normalized motion distance + weighted appearance distance; a
+    candidate with no appearance scores the neutral 0.5, so feature-less
+    histories reduce to pure nearest-box ranking.
+    """
+    best: tuple[float, int, Box, float | None] | None = None
+    for tid, box in frame.boxes.items():
+        d = _center_dist(box, prev)
+        if d > threshold:
+            continue
+        if long_gap and prev.area > 0.0:
+            ratio = box.area / prev.area
+            if not (_REACQUIRE_AREA_MIN_RATIO <= ratio <= _REACQUIRE_AREA_MAX_RATIO):
+                continue
+        app_d = _appearance_dist(ref, _features_for(frame, tid))
+        score = d / threshold + _APP_WEIGHT * (app_d if app_d is not None else 0.5)
+        if best is None or score < best[0]:
+            best = (score, tid, box, app_d)
+    if best is None:
+        return None
+    return best[1], best[2], best[3]
+
+
+def _walk_direction(
+    history: Sequence[FrameTracks],
+    seed_idx: int,
+    seed_box: Box,
+    seed_app: Appearance | None,
+    direction: int,
+    trajectory: dict[int, Box],
+    track_ids: dict[int, int],
+    reseeds: list[dict],
+) -> None:
+    """Stitch one direction from the seed, with wrong-person backtrack recovery.
+
+    A run of ``_MISMATCH_STREAK`` accepted frames whose appearance sits far from
+    the rolling reference — on a *different ByteTrack id* than the last confident
+    climber accept — means the walk latched onto someone else (the reference only
+    updates on confident accepts, so it still describes the climber). The
+    poisoned frames are discarded, the walk rewinds to where the switch began,
+    and *recovery mode* re-associates from the last confident climber box while
+    refusing mismatching candidates — so the real climber is reacquired if
+    visible, and truly occluded frames stay absent instead of going wrong.
+
+    Mismatch on the *same continuous id* never triggers a backtrack: same-id
+    spatial continuity is strong evidence it's still the climber, and their
+    visible appearance legitimately lurches when the wall occludes them (e.g.
+    mantling over the top lip). Measured on the good planet-x fixture, firing on
+    same-id drift discarded ~35 real climber frames at the top-out.
+    """
+    prev, last = seed_box, seed_idx
+    ref = seed_app
+    # Last accept that matched the reference: box, index, and its ByteTrack id.
+    conf_box, conf_idx, conf_tid = seed_box, seed_idx, track_ids.get(seed_idx)
+    streak: list[int] = []                    # consecutive mismatch-accept indices
+    recovery = False
+    backtracked: set[int] = set()             # streak starts already rewound to once
+    i = seed_idx + direction
+    while 0 <= i < len(history):
+        gap = abs(_source_frame_no(history, i) - _source_frame_no(history, last))
+        threshold = min(_ASSOC_BASE + _ASSOC_PER_FRAME * gap, _ASSOC_MAX)
+        cand = _best_candidate(history[i], prev, threshold, ref, long_gap=abs(i - last) > 1)
+        if cand is None:
+            i += direction
+            continue
+        tid, box, app_d = cand
+        if recovery and app_d is not None and app_d >= _APP_MISMATCH:
+            # Still the wrong person; keep the frame absent and keep looking.
+            i += direction
+            continue
+        trajectory[i] = box
+        track_ids[i] = tid
+        prev, last = box, i
+        if app_d is None or app_d <= _APP_CONFIDENT:
+            ref = _ema_appearance(ref, _features_for(history[i], tid))
+            conf_box, conf_idx, conf_tid = box, i, tid
+            streak = []
+            recovery = False
+        elif app_d >= _APP_MISMATCH and (conf_tid is None or tid != conf_tid):
+            streak.append(i)
+            if len(streak) >= _MISMATCH_STREAK and streak[0] not in backtracked:
+                first = streak[0]
+                discarded = [(j, track_ids.get(j), trajectory[j]) for j in streak]
+                for j in streak:
+                    trajectory.pop(j, None)
+                    track_ids.pop(j, None)
+                backtracked.add(first)
+                reseeds.append({
+                    "frameIndex": first,
+                    "sourceFrame": _source_frame_no(history, first),
+                    "timestamp": history[first].timestamp,
+                    "reason": "appearance-mismatch-streak",
+                    "_discarded": discarded,
+                    "_direction": direction,
+                })
+                prev, last = conf_box, conf_idx
+                streak = []
+                recovery = True
+                i = first
+                continue
+        else:
+            # Between the thresholds, or mismatch on the climber's own id:
+            # plausible enough to keep, not enough to fold into the reference.
+            streak = []
+            recovery = False
+        i += direction
+
+
+def stitch_climber_track(
+    history: Sequence[FrameTracks],
+    climber_point: Point | None,
+    climber_crop: Box | None,
+) -> StitchResult:
+    """Stitch the per-frame Climber trajectory (with provenance) from the seed.
+
+    Empty when no person was tracked or no seed was found. Frames where the
+    climber can't be associated are simply absent from the map (they'll be
+    seeded ``absent`` downstream).
+    """
+    result = StitchResult(trajectory={}, track_ids={}, reseeds=[])
+    if not any(f.boxes for f in history):
+        return result
+
+    seed_idx, seed_box = _seed_climber(history, climber_point, climber_crop)
+    if seed_idx is None or seed_box is None:
+        return result
+
+    result.seed_index, result.seed_box = seed_idx, seed_box
+    result.trajectory[seed_idx] = seed_box
+    seed_tid = _track_id_at(history, seed_idx, seed_box)
+    if seed_tid is not None:
+        result.track_ids[seed_idx] = seed_tid
+    seed_app = _features_for(history[seed_idx], seed_tid)
+
+    for direction in (1, -1):
+        _walk_direction(
+            history, seed_idx, seed_box, seed_app, direction,
+            result.trajectory, result.track_ids, result.reseeds,
+        )
+
+    # Finalize reseed events. A discard is a *false alarm* when the walk ended up
+    # continuing on the very id it discarded (the wrong-person hypothesis produced
+    # no alternative — e.g. the climber re-emerging with a fresh ByteTrack id and
+    # lurched appearance after mantling the top lip); restore those frames.
+    # A genuine switch shows the post-streak trajectory on a different id.
+    for event in result.reseeds:
+        discarded = event.pop("_discarded")
+        direction = event.pop("_direction")
+        indices = [j for j, _, _ in discarded]
+        edge = max(indices) if direction > 0 else min(indices)
+        following = [
+            j for j in result.trajectory
+            if (j > edge if direction > 0 else j < edge)
+        ]
+        next_idx = None
+        if following:
+            next_idx = min(following) if direction > 0 else max(following)
+        next_tid = result.track_ids.get(next_idx) if next_idx is not None else None
+        streak_tids = {tid for _, tid, _ in discarded if tid is not None}
+        recovered = sum(1 for j in indices if j in result.trajectory)
+        restored = 0
+        if next_tid is not None and next_tid in streak_tids:
+            for j, tid, box in discarded:
+                if j not in result.trajectory:
+                    result.trajectory[j] = box
+                    if tid is not None:
+                        result.track_ids[j] = tid
+                    restored += 1
+            # Recovery mode also rejected this id's frames between the streak and
+            # where the walk resumed; the id is trusted now, so backfill them.
+            span = indices + [next_idx]
+            for j in range(min(span), max(span)):
+                if j not in result.trajectory and next_tid in history[j].boxes:
+                    result.trajectory[j] = history[j].boxes[next_tid]
+                    result.track_ids[j] = next_tid
+                    restored += 1
+        event["discarded"] = len(discarded)
+        event["recovered"] = recovered
+        event["restored"] = restored
+    return result
+
+
 def build_climber_track(
     history: Sequence[FrameTracks],
     climber_point: Point | None,
     climber_crop: Box | None,
 ) -> dict[int, Box]:
-    """Per-frame Climber box (frame_index -> box), stitched across id switches.
-
-    Empty when no person was tracked. Frames where the climber can't be associated
-    are simply absent from the map (they'll be seeded ``absent`` downstream).
-    """
-    if not any(f.boxes for f in history):
-        return {}
-
-    seed_idx, seed_box = _seed_climber(history, climber_point, climber_crop)
-    if seed_idx is None or seed_box is None:
-        return {}
-
-    trajectory: dict[int, Box] = {seed_idx: seed_box}
-
-    # Walk forward, then backward, from the seed; the association threshold widens
-    # with source-frame gap but is capped, and long-gap re-acquirements must keep
-    # roughly consistent area to avoid latching onto a distant bystander.
-    for direction in (1, -1):
-        prev, last = seed_box, seed_idx
-        i = seed_idx + direction
-        while 0 <= i < len(history):
-            gap = abs(_source_frame_no(history, i) - _source_frame_no(history, last))
-            threshold = min(_ASSOC_BASE + _ASSOC_PER_FRAME * gap, _ASSOC_MAX)
-            box = _nearest_box(list(history[i].boxes.values()), prev, threshold)
-            if box is not None:
-                if abs(i - last) > 1 and prev.area > 0.0:
-                    ratio = box.area / prev.area
-                    if not (_REACQUIRE_AREA_MIN_RATIO <= ratio <= _REACQUIRE_AREA_MAX_RATIO):
-                        i += direction
-                        continue
-                trajectory[i] = box
-                prev, last = box, i
-            i += direction
-
-    return trajectory
+    """Per-frame Climber box (frame_index -> box), stitched across id switches."""
+    return stitch_climber_track(history, climber_point, climber_crop).trajectory
 
 
 def _largest_track(history: Sequence[FrameTracks], crop: Box | None) -> int | None:
@@ -412,14 +657,17 @@ def build_artifact(
     history: Sequence[FrameTracks],
     pose_backend: PoseBackend,
     video_path: Path,
+    stitch: StitchResult | None = None,
 ) -> dict:
     """Assemble the vitpose.json payload: one echoed frame per requested timestamp.
 
     A requested frame gets non-empty ``keypoints`` only when the stitched Climber
     trajectory has a box on the nearest decoded frame; otherwise ``keypoints: []``
-    (seeded ``absent``).
+    (seeded ``absent``). Pass ``stitch`` to reuse an already-computed trajectory.
     """
-    trajectory = build_climber_track(history, request.climber_point, request.climber_crop)
+    if stitch is None:
+        stitch = stitch_climber_track(history, request.climber_point, request.climber_crop)
+    trajectory = stitch.trajectory
 
     # Map each requested timestamp to the nearest decoded frame that has the Climber,
     # collecting the unique (frame_index, box) targets to pose.
@@ -528,11 +776,38 @@ def _seed_mode(request: VitPoseRequest) -> str:
     return "tap_legacy"
 
 
+def _stitch_events(
+    history: Sequence[FrameTracks], stitch: StitchResult
+) -> tuple[list[dict], list[dict]]:
+    """(idSwitches, jumps) between consecutive stitched frames, capped for size."""
+    id_switches: list[dict] = []
+    jumps: list[dict] = []
+    indices = sorted(stitch.trajectory)
+    for prev_i, i in zip(indices, indices[1:]):
+        prev_tid = stitch.track_ids.get(prev_i)
+        tid = stitch.track_ids.get(i)
+        if prev_tid is not None and tid is not None and prev_tid != tid:
+            if len(id_switches) < _EVENT_CAP:
+                id_switches.append({
+                    "sourceFrame": _source_frame_no(history, i),
+                    "from": prev_tid,
+                    "to": tid,
+                })
+        dist = _center_dist(stitch.trajectory[prev_i], stitch.trajectory[i])
+        if dist > _JUMP_EVENT_DIST and len(jumps) < _EVENT_CAP:
+            jumps.append({
+                "sourceFrame": _source_frame_no(history, i),
+                "dist": round(dist, 4),
+            })
+    return id_switches, jumps
+
+
 def _seed_debug(
     request: VitPoseRequest,
     history: Sequence[FrameTracks],
+    stitch: StitchResult,
 ) -> dict[str, object]:
-    seed_idx, seed_box = _seed_climber(history, request.climber_point, request.climber_crop)
+    seed_idx, seed_box = stitch.seed_index, stitch.seed_box
     debug: dict[str, object] = {
         "mode": _seed_mode(request),
         "historyFrames": len(history),
@@ -567,6 +842,13 @@ def _seed_debug(
             "cx": seed_box.cx,
             "cy": seed_box.cy,
         },
+    }
+    id_switches, jumps = _stitch_events(history, stitch)
+    debug["stitch"] = {
+        "stitchedFrames": len(stitch.trajectory),
+        "idSwitches": id_switches,
+        "jumps": jumps,
+        "reseeds": stitch.reseeds,
     }
     return debug
 
@@ -632,10 +914,11 @@ def run_vitpose_job(
         history = tracker.track(video_path)
         track_s = time.perf_counter() - started
         warnings = _request_warnings(request, history)
-        seed_debug = _seed_debug(request, history)
+        stitch = stitch_climber_track(history, request.climber_point, request.climber_crop)
+        seed_debug = _seed_debug(request, history, stitch)
 
         posed_at = time.perf_counter()
-        artifact = build_artifact(request, history, pose_backend, video_path)
+        artifact = build_artifact(request, history, pose_backend, video_path, stitch=stitch)
         pose_s = time.perf_counter() - posed_at
 
         artifact_path = bundle_dir / ARTIFACT_NAME
@@ -678,6 +961,38 @@ def run_vitpose_job(
 # Default (real) backends — heavy imports are lazy so this module stays importable
 # and testable without torch/transformers/ultralytics installed.
 # --------------------------------------------------------------------------- #
+
+def _box_appearance(frame_bgr, box: Box) -> Appearance | None:
+    """Clothing-color signature of one person box on a decoded BGR frame.
+
+    Shirt = center 50% width, 20–55% box height; pants = 60–90% height. Each is
+    an L1-normalized 16x8 HSV hue-sat histogram. Returns None when both regions
+    are degenerate (box clipped to nothing at the frame edge).
+    """
+    import cv2  # lazy — only the real tracker path calls this
+
+    height, width = frame_bgr.shape[:2]
+
+    def region_hist(y0f: float, y1f: float) -> tuple[float, ...]:
+        x0 = max(0, int((box.x + 0.25 * box.w) * width))
+        x1 = min(width, int((box.x + 0.75 * box.w) * width))
+        y0 = max(0, int((box.y + y0f * box.h) * height))
+        y1 = min(height, int((box.y + y1f * box.h) * height))
+        if x1 - x0 < 2 or y1 - y0 < 2:
+            return ()
+        hsv = cv2.cvtColor(frame_bgr[y0:y1, x0:x1], cv2.COLOR_BGR2HSV)
+        hist = cv2.calcHist([hsv], [0, 1], None, [16, 8], [0, 180, 0, 256])
+        total = float(hist.sum())
+        if total <= 0.0:
+            return ()
+        return tuple(round(float(v) / total, 5) for v in hist.flatten())
+
+    shirt = region_hist(0.20, 0.55)
+    pants = region_hist(0.60, 0.90)
+    if not shirt and not pants:
+        return None
+    return Appearance(shirt=shirt, pants=pants)
+
 
 class UltralyticsTracker:
     """Person detect + ByteTrack via ultralytics YOLO (lazy-loaded).
@@ -736,16 +1051,26 @@ class UltralyticsTracker:
         )
         for idx, result in enumerate(results):
             boxes: dict[int, Box] = {}
+            features: dict[int, Appearance] = {}
             b = getattr(result, "boxes", None)
             if b is not None and b.id is not None:
                 ids = b.id.int().tolist()
                 # xywhn is center-based, normalized; convert to top-left corner.
                 xywhn = b.xywhn.tolist()
+                frame_bgr = getattr(result, "orig_img", None)
                 for track_id, (cx, cy, w, h) in zip(ids, xywhn):
-                    boxes[int(track_id)] = Box(x=cx - w / 2.0, y=cy - h / 2.0, w=w, h=h)
+                    box = Box(x=cx - w / 2.0, y=cy - h / 2.0, w=w, h=h)
+                    boxes[int(track_id)] = box
+                    if frame_bgr is not None:
+                        app = _box_appearance(frame_bgr, box)
+                        if app is not None:
+                            features[int(track_id)] = app
             frame_no = idx * stride
             history.append(
-                FrameTracks(timestamp=frame_no / fps, boxes=boxes, frame_number=frame_no)
+                FrameTracks(
+                    timestamp=frame_no / fps, boxes=boxes,
+                    frame_number=frame_no, features=features or None,
+                )
             )
         return history
 

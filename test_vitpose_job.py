@@ -9,12 +9,14 @@ Runnable with pytest, or standalone: ``python test_vitpose_job.py``.
 
 from __future__ import annotations
 
+import gzip
 import json
 import tempfile
 from pathlib import Path
 
 import vitpose_job as vj
 from vitpose_job import (
+    Appearance,
     Box,
     FrameTracks,
     Keypoint,
@@ -26,7 +28,10 @@ from vitpose_job import (
     build_climber_track,
     resolve_video_path,
     run_vitpose_job,
+    stitch_climber_track,
 )
+
+FIXTURES = Path(__file__).parent / "tests" / "fixtures"
 
 
 # --------------------------------------------------------------------------- #
@@ -246,6 +251,153 @@ def test_seed_without_t_prefers_earliest_containing_frame():
     idx, box = vj._seed_climber(history, tap, None)
     assert idx == 0
     assert box == early
+
+
+# --------------------------------------------------------------------------- #
+# Appearance-anchored stitching: wrong-person backtrack + false-alarm restore
+# --------------------------------------------------------------------------- #
+
+# Two maximally-distinct clothing signatures (Bhattacharyya distance 1.0).
+_APP_A = Appearance(shirt=(1.0, 0.0), pants=(1.0, 0.0))
+_APP_B = Appearance(shirt=(0.0, 1.0), pants=(0.0, 1.0))
+
+
+def test_backtrack_discards_wrong_person_and_reacquires_climber():
+    # The issue #19 regression, synthetic: the climber (id 1, appearance A) drops
+    # out of detection; a differently-dressed bystander (id 2, appearance B) sits
+    # just inside the widened association gate and gets accepted. After the
+    # mismatch streak the walk must rewind, drop the bystander frames, and
+    # reacquire the climber (id 3, appearance A) when they reappear.
+    climber = [Box(0.50, 0.60 - 0.01 * i, 0.06, 0.20) for i in range(12)]
+    bystander = Box(0.46, 0.72, 0.05, 0.18)
+    history = []
+    for i in range(3):     # climber tracked as id 1
+        history.append(FrameTracks(0.1 * i, {1: climber[i], 2: bystander},
+                                   features={1: _APP_A, 2: _APP_B}))
+    for i in range(3, 9):  # climber undetected; only the bystander remains
+        history.append(FrameTracks(0.1 * i, {2: bystander}, features={2: _APP_B}))
+    for i in range(9, 12):  # climber reappears as id 3
+        history.append(FrameTracks(0.1 * i, {3: climber[i], 2: bystander},
+                                   features={3: _APP_A, 2: _APP_B}))
+
+    res = stitch_climber_track(history, Point(0.53, 0.65, t=0.0), None)
+    # The bystander never survives into the trajectory...
+    assert all(b.cx > 0.48 for b in res.trajectory.values())
+    # ...the reappeared climber does...
+    assert {9, 10, 11} <= set(res.trajectory)
+    # ...and the recovery is recorded, with nothing restored (a genuine switch).
+    assert len(res.reseeds) == 1
+    assert res.reseeds[0]["reason"] == "appearance-mismatch-streak"
+    assert res.reseeds[0]["restored"] == 0
+
+
+def test_false_alarm_streak_on_resumed_id_is_restored():
+    # A fresh ByteTrack id with lurched appearance (the climber mantling the top
+    # lip) trips the mismatch streak — but the walk then continues on that very
+    # id once its appearance settles, proving the alarm false. The discarded
+    # frames must be restored, not left absent.
+    # 0.5s frame spacing keeps the +/-0.75s seed window inside the id-1 segment.
+    history = [
+        FrameTracks(0.5 * i, {1: Box(0.50, 0.60 - 0.01 * i, 0.06, 0.20)},
+                    features={1: _APP_A})
+        for i in range(3)
+    ]
+    for i in range(3, 9):   # id switch to 5; appearance lurches to B
+        history.append(FrameTracks(0.5 * i, {5: Box(0.50, 0.60 - 0.01 * i, 0.06, 0.20)},
+                                   features={5: _APP_B}))
+    for i in range(9, 12):  # still id 5; appearance settles back to A
+        history.append(FrameTracks(0.5 * i, {5: Box(0.50, 0.60 - 0.01 * i, 0.06, 0.20)},
+                                   features={5: _APP_A}))
+
+    res = stitch_climber_track(history, Point(0.53, 0.65, t=0.0), None)
+    assert set(res.trajectory) == set(range(12))  # every frame kept
+    assert len(res.reseeds) == 1
+    assert res.reseeds[0]["restored"] >= 5
+
+
+def test_stitch_motion_only_when_history_has_no_features():
+    # Feature-less histories (stubs, legacy) must reduce to pure motion
+    # association: same trajectory, no reseed events.
+    history = _history_two_people()
+    res = stitch_climber_track(history, Point(0.50, 0.40), None)
+    assert res.reseeds == []
+    assert res.trajectory == build_climber_track(history, Point(0.50, 0.40), None)
+
+
+def test_run_job_seed_debug_carries_stitch_summary():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        path = run_vitpose_job(root, _request([0.0]), StubTracker(_history_two_people()), StubPoseBackend())
+        status = json.loads((path.parent / "vitpose.status.json").read_text())
+        stitch = status["seedDebug"]["stitch"]
+        assert stitch["stitchedFrames"] == 3
+        assert stitch["idSwitches"] == []
+        assert stitch["jumps"] == []
+        assert stitch["reseeds"] == []
+
+
+# --------------------------------------------------------------------------- #
+# Frozen-fixture regressions: the real planet-x tracker histories (boxes +
+# appearance) that produced issue #19. Skipped silently if the fixtures are
+# absent (they are committed; this guards odd checkouts only).
+# --------------------------------------------------------------------------- #
+
+def _load_fixture(name):
+    path = FIXTURES / f"{name}.json.gz"
+    if not path.is_file():
+        return None
+    with gzip.open(path, "rt", encoding="utf-8") as fh:
+        data = json.load(fh)
+    history = []
+    for f in data["frames"]:
+        feats = None
+        if "feats" in f:
+            feats = {
+                int(tid): Appearance(shirt=tuple(a["shirt"]), pants=tuple(a["pants"]))
+                for tid, a in f["feats"].items()
+            }
+        history.append(FrameTracks(
+            timestamp=f["t"],
+            boxes={int(tid): Box(*b) for tid, b in f["boxes"].items()},
+            frame_number=f["fn"],
+            features=feats,
+        ))
+    return history
+
+
+def test_fixture_bad_run_recovers_climber_after_bystander_latch():
+    # jGa4kCQkXaQ: nearest-box stitching latched onto a stationary base
+    # bystander (cx~0.35) during a 5-frame detection gap at source frame ~385
+    # and froze there for the rest of the clip. The scored stitcher must stay
+    # on the climber (cx>0.40) for every post-gap frame it stitches.
+    history = _load_fixture("planetx_bad_jGa4kCQkXaQ")
+    if history is None:
+        return
+    res = stitch_climber_track(history, Point(0.4501217246628323, 0.8004807947738386, 10.87), None)
+    post_gap = [b for i, b in res.trajectory.items() if history[i].frame_number >= 390]
+    assert len(post_gap) > 1500                      # the ascent is covered
+    assert all(b.cx > 0.40 for b in post_gap)        # never the bystander
+    assert any(e["restored"] == 0 for e in res.reseeds)  # the genuine switch fired
+
+
+def test_fixture_good_run_full_parity_with_motion_only_stitching():
+    # DEDBeWcqxK8 (two bystanders at the base, correct end-to-end today): the
+    # appearance-scored stitcher must reproduce the motion-only trajectory
+    # exactly — same frames, same boxes — and top out in the same place.
+    history = _load_fixture("planetx_good_DEDBeWcqxK8")
+    if history is None:
+        return
+    res = stitch_climber_track(history, Point(0.5995285009214322, 0.6611047947605168, 0.0), None)
+    stripped = [FrameTracks(f.timestamp, f.boxes, f.frame_number, None) for f in history]
+    motion_only = stitch_climber_track(stripped, Point(0.5995285009214322, 0.6611047947605168, 0.0), None)
+    assert set(res.trajectory) == set(motion_only.trajectory)
+    assert all(
+        vj._center_dist(res.trajectory[i], motion_only.trajectory[i]) <= 0.03
+        for i in res.trajectory
+    )
+    top = res.trajectory[max(res.trajectory)]
+    assert top.cy < 0.2                              # topped out, not at the base
 
 
 # --------------------------------------------------------------------------- #
