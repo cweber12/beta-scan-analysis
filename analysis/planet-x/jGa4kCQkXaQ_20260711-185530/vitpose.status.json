@@ -1,11 +1,11 @@
 {
-  "jobId": "8ee35c25098e40dca3490ed36d0db723",
+  "jobId": "cdb3ed48c5484d09b806becb99738c9a",
   "status": "done",
-  "updated_at": "2026-07-16T21:39:59",
+  "updated_at": "2026-07-17T14:39:59",
   "timings": {
-    "track_s": 45.51,
-    "pose_s": 65.4,
-    "total_s": 110.94
+    "track_s": 57.48,
+    "pose_s": 81.47,
+    "total_s": 139.18
   },
   "device": "cuda",
   "seedDebug": {
@@ -35,6 +35,96 @@
         "cx": 0.45531922578811646,
         "cy": 0.8155204057693481
       }
+    },
+    "stitch": {
+      "stitchedFrames": 2298,
+      "idSwitches": [
+        {
+          "sourceFrame": 2,
+          "from": 2,
+          "to": 3
+        },
+        {
+          "sourceFrame": 375,
+          "from": 3,
+          "to": 25
+        },
+        {
+          "sourceFrame": 390,
+          "from": 25,
+          "to": 29
+        },
+        {
+          "sourceFrame": 481,
+          "from": 29,
+          "to": 41
+        },
+        {
+          "sourceFrame": 521,
+          "from": 41,
+          "to": 48
+        },
+        {
+          "sourceFrame": 1538,
+          "from": 48,
+          "to": 84
+        },
+        {
+          "sourceFrame": 1580,
+          "from": 84,
+          "to": 48
+        },
+        {
+          "sourceFrame": 1606,
+          "from": 48,
+          "to": 84
+        },
+        {
+          "sourceFrame": 1640,
+          "from": 84,
+          "to": 48
+        },
+        {
+          "sourceFrame": 2051,
+          "from": 48,
+          "to": 101
+        },
+        {
+          "sourceFrame": 2072,
+          "from": 101,
+          "to": 48
+        }
+      ],
+      "jumps": [],
+      "reseeds": [
+        {
+          "frameIndex": 387,
+          "sourceFrame": 387,
+          "timestamp": 12.9,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 8,
+          "recovered": 5,
+          "restored": 0
+        },
+        {
+          "frameIndex": 495,
+          "sourceFrame": 495,
+          "timestamp": 16.5,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 31,
+          "recovered": 7,
+          "restored": 0
+        },
+        {
+          "frameIndex": 500,
+          "sourceFrame": 500,
+          "timestamp": 16.666666666666668,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 141,
+          "recovered": 120,
+          "restored": 0
+        }
+      ]
     }
   }
 }
