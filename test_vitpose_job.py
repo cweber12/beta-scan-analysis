@@ -265,37 +265,37 @@ _APP_B = Appearance(shirt=(0.0, 1.0), pants=(0.0, 1.0))
 def test_backtrack_discards_wrong_person_and_reacquires_climber():
     # The issue #19 regression, synthetic: the climber (id 1, appearance A) drops
     # out of detection; a differently-dressed bystander (id 2, appearance B) sits
-    # just inside the widened association gate and gets accepted. After the
-    # mismatch streak the walk must rewind, drop the bystander frames, and
-    # reacquire the climber (id 3, appearance A) when they reappear.
-    climber = [Box(0.50, 0.60 - 0.01 * i, 0.06, 0.20) for i in range(12)]
+    # just inside the widened association gate and gets accepted. Once the climber
+    # is visible again (id 3) the mismatch streak has its evidence: the walk must
+    # rewind, drop the whole bystander run, and reacquire the climber.
+    climber = [Box(0.50, 0.60 - 0.01 * i, 0.06, 0.20) for i in range(17)]
     bystander = Box(0.46, 0.72, 0.05, 0.18)
     history = []
-    for i in range(3):     # climber tracked as id 1
+    for i in range(3):      # climber tracked as id 1
         history.append(FrameTracks(0.1 * i, {1: climber[i], 2: bystander},
                                    features={1: _APP_A, 2: _APP_B}))
-    for i in range(3, 9):  # climber undetected; only the bystander remains
+    for i in range(3, 9):   # climber undetected; only the bystander remains
         history.append(FrameTracks(0.1 * i, {2: bystander}, features={2: _APP_B}))
-    for i in range(9, 12):  # climber reappears as id 3
+    for i in range(9, 17):  # climber reappears as id 3
         history.append(FrameTracks(0.1 * i, {3: climber[i], 2: bystander},
                                    features={3: _APP_A, 2: _APP_B}))
 
     res = stitch_climber_track(history, Point(0.53, 0.65, t=0.0), None)
     # The bystander never survives into the trajectory...
-    assert all(b.cx > 0.48 for b in res.trajectory.values())
+    assert all(b.cx > 0.49 for b in res.trajectory.values())
     # ...the reappeared climber does...
-    assert {9, 10, 11} <= set(res.trajectory)
+    assert {9, 10, 11, 12, 13, 14, 15, 16} <= set(res.trajectory)
     # ...and the recovery is recorded, with nothing restored (a genuine switch).
     assert len(res.reseeds) == 1
     assert res.reseeds[0]["reason"] == "appearance-mismatch-streak"
     assert res.reseeds[0]["restored"] == 0
 
 
-def test_false_alarm_streak_on_resumed_id_is_restored():
+def test_appearance_lurch_without_visible_alternative_never_triggers():
     # A fresh ByteTrack id with lurched appearance (the climber mantling the top
-    # lip) trips the mismatch streak — but the walk then continues on that very
-    # id once its appearance settles, proving the alarm false. The discarded
-    # frames must be restored, not left absent.
+    # lip, an exposure shift, a single-climber close-up) must NOT trip the
+    # wrong-person detector when nobody else is visible: without positive
+    # evidence of the right person elsewhere, a mismatch is not a switch.
     # 0.5s frame spacing keeps the +/-0.75s seed window inside the id-1 segment.
     history = [
         FrameTracks(0.5 * i, {1: Box(0.50, 0.60 - 0.01 * i, 0.06, 0.20)},
@@ -311,8 +311,7 @@ def test_false_alarm_streak_on_resumed_id_is_restored():
 
     res = stitch_climber_track(history, Point(0.53, 0.65, t=0.0), None)
     assert set(res.trajectory) == set(range(12))  # every frame kept
-    assert len(res.reseeds) == 1
-    assert res.reseeds[0]["restored"] >= 5
+    assert res.reseeds == []
 
 
 def test_stitch_motion_only_when_history_has_no_features():

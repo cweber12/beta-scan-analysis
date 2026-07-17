@@ -21,6 +21,7 @@ collaborators — needs none of it. The two seams:
 from __future__ import annotations
 
 import json
+import math
 import sys
 import threading
 import time
@@ -264,6 +265,14 @@ _APP_MISMATCH = 0.65     # at/above: accept but count toward the mismatch streak
 _MISMATCH_STREAK = 5     # consecutive mismatch accepts that trigger a backtrack
 _APP_EMA_ALPHA = 0.2     # rolling-reference update rate on confident accepts
 
+# Soft area-consistency weight in the association score. A climber's box area
+# changes slowly frame-to-frame; detectors sometimes emit a sloppy oversized box
+# (person + crash pads) next to the tight one, and pure motion+appearance can
+# latch onto the sloppy chain (its regions then pollute the rolling reference
+# with pad/rock colors). |ln(area ratio)| is 0 for consistent boxes and ~1.8 for
+# a 6x jump, steering the walk to the size-consistent candidate.
+_AREA_WEIGHT = 0.3
+
 # seedDebug event thresholds/caps.
 _JUMP_EVENT_DIST = 0.08
 _EVENT_CAP = 50
@@ -433,17 +442,55 @@ def _best_candidate(
         d = _center_dist(box, prev)
         if d > threshold:
             continue
-        if long_gap and prev.area > 0.0:
+        area_pen = 0.0
+        if prev.area > 0.0 and box.area > 0.0:
             ratio = box.area / prev.area
-            if not (_REACQUIRE_AREA_MIN_RATIO <= ratio <= _REACQUIRE_AREA_MAX_RATIO):
+            if long_gap and not (
+                _REACQUIRE_AREA_MIN_RATIO <= ratio <= _REACQUIRE_AREA_MAX_RATIO
+            ):
                 continue
+            area_pen = abs(math.log(ratio))
         app_d = _appearance_dist(ref, _features_for(frame, tid))
-        score = d / threshold + _APP_WEIGHT * (app_d if app_d is not None else 0.5)
+        score = (
+            d / threshold
+            + _APP_WEIGHT * (app_d if app_d is not None else 0.5)
+            + _AREA_WEIGHT * area_pen
+        )
         if best is None or score < best[0]:
             best = (score, tid, box, app_d)
     if best is None:
         return None
     return best[1], best[2], best[3]
+
+
+def _confident_match(
+    frame: FrameTracks,
+    ref: Appearance | None,
+    exclude_tid: int | None,
+    ref_area: float,
+) -> tuple[int, Box, float] | None:
+    """The best box in the frame whose appearance confidently matches ``ref``.
+
+    Position-free: used both as the *evidence* that the right person is visible
+    elsewhere (so a mismatch streak may fire) and as recovery's far
+    reacquisition target. Gated only by the area ratio against the climber's
+    last confident box — appearance strictness is the safety here.
+    """
+    best: tuple[float, int, Box] | None = None
+    for tid, box in frame.boxes.items():
+        if tid == exclude_tid:
+            continue
+        if ref_area > 0.0 and box.area > 0.0:
+            ratio = box.area / ref_area
+            if not (_REACQUIRE_AREA_MIN_RATIO <= ratio <= _REACQUIRE_AREA_MAX_RATIO):
+                continue
+        app_d = _appearance_dist(ref, _features_for(frame, tid))
+        if app_d is not None and app_d <= _APP_CONFIDENT:
+            if best is None or app_d < best[0]:
+                best = (app_d, tid, box)
+    if best is None:
+        return None
+    return best[1], best[2], best[0]
 
 
 def _walk_direction(
@@ -459,19 +506,21 @@ def _walk_direction(
     """Stitch one direction from the seed, with wrong-person backtrack recovery.
 
     A run of ``_MISMATCH_STREAK`` accepted frames whose appearance sits far from
-    the rolling reference — on a *different ByteTrack id* than the last confident
-    climber accept — means the walk latched onto someone else (the reference only
-    updates on confident accepts, so it still describes the climber). The
-    poisoned frames are discarded, the walk rewinds to where the switch began,
-    and *recovery mode* re-associates from the last confident climber box while
-    refusing mismatching candidates — so the real climber is reacquired if
-    visible, and truly occluded frames stay absent instead of going wrong.
+    the rolling reference — on a foreign ByteTrack id, *while a confidently
+    matching person is visible elsewhere in the frame* — means the walk latched
+    onto someone else (the reference only updates on confident accepts, so it
+    still describes the climber). The whole contiguous run on the offending ids
+    back to the last confident accept is discarded, the walk rewinds, and
+    *recovery mode* re-associates from the last confident climber box: gated
+    candidates that mismatch are refused, and the confident match may be taken
+    from anywhere in the frame — appearance strictness plus the area gate
+    replace the motion gate, so the climber high on the wall is reacquirable
+    from a base-level anchor.
 
-    Mismatch on the *same continuous id* never triggers a backtrack: same-id
-    spatial continuity is strong evidence it's still the climber, and their
-    visible appearance legitimately lurches when the wall occludes them (e.g.
-    mantling over the top lip). Measured on the good planet-x fixture, firing on
-    same-id drift discarded ~35 real climber frames at the top-out.
+    The visible-alternative requirement is what makes the detector safe on
+    single-climber videos and same-person appearance lurches (mantling the top
+    lip, exposure shifts): without positive evidence of the right person
+    elsewhere, a mismatch is never treated as a switch.
     """
     prev, last = seed_box, seed_idx
     ref = seed_app
@@ -485,14 +534,19 @@ def _walk_direction(
         gap = abs(_source_frame_no(history, i) - _source_frame_no(history, last))
         threshold = min(_ASSOC_BASE + _ASSOC_PER_FRAME * gap, _ASSOC_MAX)
         cand = _best_candidate(history[i], prev, threshold, ref, long_gap=abs(i - last) > 1)
+        if recovery and (
+            cand is None or (cand[2] is not None and cand[2] >= _APP_MISMATCH)
+        ):
+            # The gate offers nothing trustworthy; reacquire on appearance alone.
+            far = _confident_match(history[i], ref, None, conf_box.area)
+            if far is None:
+                i += direction
+                continue
+            cand = far
         if cand is None:
             i += direction
             continue
         tid, box, app_d = cand
-        if recovery and app_d is not None and app_d >= _APP_MISMATCH:
-            # Still the wrong person; keep the frame absent and keep looking.
-            i += direction
-            continue
         trajectory[i] = box
         track_ids[i] = tid
         prev, last = box, i
@@ -501,15 +555,28 @@ def _walk_direction(
             conf_box, conf_idx, conf_tid = box, i, tid
             streak = []
             recovery = False
-        elif app_d >= _APP_MISMATCH and (conf_tid is None or tid != conf_tid):
+        elif (
+            app_d >= _APP_MISMATCH
+            and (conf_tid is None or tid != conf_tid)
+            and _confident_match(history[i], ref, tid, conf_box.area) is not None
+        ):
             streak.append(i)
             if len(streak) >= _MISMATCH_STREAK and streak[0] not in backtracked:
-                first = streak[0]
-                discarded = [(j, track_ids.get(j), trajectory[j]) for j in streak]
-                for j in streak:
+                # Discard the whole contiguous run on the offending ids back to
+                # the last confident accept, not just the streak frames — the
+                # switch may predate the point where the evidence appeared.
+                streak_tids = {track_ids[j] for j in streak if j in track_ids}
+                span = range(conf_idx + direction, i + direction, direction)
+                discard_idx = [
+                    j for j in span
+                    if j in trajectory and track_ids.get(j) in streak_tids
+                ]
+                discarded = [(j, track_ids.get(j), trajectory[j]) for j in discard_idx]
+                for j in discard_idx:
                     trajectory.pop(j, None)
                     track_ids.pop(j, None)
-                backtracked.add(first)
+                backtracked.add(streak[0])
+                first = discard_idx[0] if discard_idx else streak[0]
                 reseeds.append({
                     "frameIndex": first,
                     "sourceFrame": _source_frame_no(history, first),
@@ -524,8 +591,9 @@ def _walk_direction(
                 i = first
                 continue
         else:
-            # Between the thresholds, or mismatch on the climber's own id:
-            # plausible enough to keep, not enough to fold into the reference.
+            # Between the thresholds, mismatch on the climber's own id, or no
+            # better-matching person visible: plausible enough to keep, not
+            # enough to fold into the reference.
             streak = []
             recovery = False
         i += direction
