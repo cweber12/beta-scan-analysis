@@ -1,39 +1,42 @@
 {
-  "jobId": "f7a78350e32c4421bd7ff2dc9151c1ea",
+  "jobId": "03b7c1c0deb44438bf1af33364141e3f",
   "status": "done",
-  "updated_at": "2026-07-16T08:45:33",
+  "updated_at": "2026-07-17T21:29:56",
   "timings": {
-    "track_s": 29.73,
-    "pose_s": 4.37,
-    "total_s": 34.1
+    "track_s": 16.03,
+    "pose_s": 3.63,
+    "total_s": 19.66
   },
   "device": "cuda",
+  "warnings": [
+    "climber_point.t is missing; using legacy global tap seeding. Recalibrate in beta-scanner so tap timestamp is sent."
+  ],
   "seedDebug": {
-    "mode": "tap_time_window",
+    "mode": "tap_legacy",
     "historyFrames": 1433,
     "tap": {
-      "x": 0.4368865400310734,
-      "y": 0.6936934375766844,
-      "t": 15.88
+      "x": 0.394440340737593,
+      "y": 0.9113197839747494,
+      "t": null
     },
     "crop": {
-      "x": 0.3859375,
+      "x": 0.3190196674607102,
       "y": 0.37083333333333335,
-      "w": 0.1625,
-      "h": 0.48194444444444445
+      "w": 0.22941783253928982,
+      "h": 0.6214227132256184
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 456,
-      "timestamp": 15.21347103977669,
-      "sourceFrame": 456,
+      "frameIndex": 155,
+      "timestamp": 5.171245638520586,
+      "sourceFrame": 155,
       "box": {
-        "x": 0.4157271087169647,
-        "y": 0.47517240047454834,
-        "w": 0.06478047370910645,
-        "h": 0.3402203321456909,
-        "cx": 0.44811734557151794,
-        "cy": 0.6452825665473938
+        "x": 0.36889906600117683,
+        "y": 0.7011110633611679,
+        "w": 0.07001437991857529,
+        "h": 0.21194449067115784,
+        "cx": 0.4039062559604645,
+        "cy": 0.8070833086967468
       }
     }
   }
