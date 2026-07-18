@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 7,
+    "scannerMissingFrames": 39,
+    "torsoUndefinedFrames": 2,
+    "truthFramesAbsent": 3,
+    "truthFramesTotal": 51
+  },
+  "joinToleranceSec": 0.5,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 3,
+      "pck": 0.6,
+      "total": 5
+    },
+    "left_elbow": {
+      "correct": 5,
+      "pck": 0.8333333333333334,
+      "total": 6
+    },
+    "left_hip": {
+      "correct": 6,
+      "pck": 0.8571428571428571,
+      "total": 7
+    },
+    "left_knee": {
+      "correct": 5,
+      "pck": 0.7142857142857143,
+      "total": 7
+    },
+    "left_shoulder": {
+      "correct": 6,
+      "pck": 0.8571428571428571,
+      "total": 7
+    },
+    "left_wrist": {
+      "correct": 4,
+      "pck": 0.6666666666666666,
+      "total": 6
+    },
+    "nose": {
+      "correct": 5,
+      "pck": 0.7142857142857143,
+      "total": 7
+    },
+    "right_ankle": {
+      "correct": 3,
+      "pck": 0.75,
+      "total": 4
+    },
+    "right_elbow": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 3
+    },
+    "right_hip": {
+      "correct": 5,
+      "pck": 0.7142857142857143,
+      "total": 7
+    },
+    "right_knee": {
+      "correct": 2,
+      "pck": 0.4,
+      "total": 5
+    },
+    "right_shoulder": {
+      "correct": 5,
+      "pck": 0.7142857142857143,
+      "total": 7
+    },
+    "right_wrist": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    }
+  },
+  "routeFolder": "lizard-therapy",
+  "runTs": "20260717-230849",
+  "scannerFrameIntervalSec": 1.0,
+  "schemaVersion": 1,
+  "setupHash": "3df67e3c9e0d0100f8783a955881a6c9003079c802a4095ba48a78857431da13",
+  "truthHash": "5a3062a73fa7204c344240d73acab80875b61bcb624ebe96affac17e736766a2",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "JbLnt-1MOkw_20260711-143153"
+}

@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 39,
+    "scannerMissingFrames": 1,
+    "torsoUndefinedFrames": 2,
+    "truthFramesAbsent": 4,
+    "truthFramesTotal": 46
+  },
+  "joinToleranceSec": 0.5,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 26,
+      "pck": 0.7222222222222222,
+      "total": 36
+    },
+    "left_elbow": {
+      "correct": 23,
+      "pck": 0.696969696969697,
+      "total": 33
+    },
+    "left_hip": {
+      "correct": 36,
+      "pck": 0.9230769230769231,
+      "total": 39
+    },
+    "left_knee": {
+      "correct": 24,
+      "pck": 0.631578947368421,
+      "total": 38
+    },
+    "left_shoulder": {
+      "correct": 37,
+      "pck": 0.9487179487179487,
+      "total": 39
+    },
+    "left_wrist": {
+      "correct": 21,
+      "pck": 0.7241379310344828,
+      "total": 29
+    },
+    "nose": {
+      "correct": 29,
+      "pck": 0.9354838709677419,
+      "total": 31
+    },
+    "right_ankle": {
+      "correct": 32,
+      "pck": 0.8648648648648649,
+      "total": 37
+    },
+    "right_elbow": {
+      "correct": 36,
+      "pck": 0.9230769230769231,
+      "total": 39
+    },
+    "right_hip": {
+      "correct": 35,
+      "pck": 0.8974358974358975,
+      "total": 39
+    },
+    "right_knee": {
+      "correct": 33,
+      "pck": 0.8918918918918919,
+      "total": 37
+    },
+    "right_shoulder": {
+      "correct": 37,
+      "pck": 0.9487179487179487,
+      "total": 39
+    },
+    "right_wrist": {
+      "correct": 37,
+      "pck": 0.9736842105263158,
+      "total": 38
+    }
+  },
+  "routeFolder": "lizard-therapy",
+  "runTs": "20260717-230821",
+  "scannerFrameIntervalSec": 1.0,
+  "schemaVersion": 1,
+  "setupHash": "f2405526a92dd0779e9e9a07e7de5dafc1586bc211f7b8ec58dc9a60a0ae57db",
+  "truthHash": "6cc033ee03629afe07fab16887d4641581f20c4666c571ffa751903809ba147c",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "3BkPS4iZYz8_20260711-143235"
+}
