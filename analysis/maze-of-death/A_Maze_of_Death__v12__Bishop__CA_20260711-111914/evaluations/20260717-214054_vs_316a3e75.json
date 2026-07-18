@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 2,
+    "scannerMissingFrames": 29,
+    "torsoUndefinedFrames": 4,
+    "truthFramesAbsent": 6,
+    "truthFramesTotal": 41
+  },
+  "joinToleranceSec": 0.5,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "left_elbow": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "left_hip": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "left_knee": {
+      "correct": 1,
+      "pck": 0.5,
+      "total": 2
+    },
+    "left_shoulder": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "left_wrist": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 1
+    },
+    "nose": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "right_ankle": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "right_elbow": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "right_hip": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "right_knee": {
+      "correct": 2,
+      "pck": 1.0,
+      "total": 2
+    },
+    "right_shoulder": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    },
+    "right_wrist": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 2
+    }
+  },
+  "routeFolder": "maze-of-death",
+  "runTs": "20260717-214054",
+  "scannerFrameIntervalSec": 1.0,
+  "schemaVersion": 1,
+  "setupHash": "9de444e9411cda573c5076f5560ee801f0698eccfe033e3a566a5d8507607f85",
+  "truthHash": "316a3e751a0b6be8230fa789d991e709577a6d4681060d8472e9c61be4fb5f20",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "A_Maze_of_Death__v12__Bishop__CA_20260711-111914"
+}
