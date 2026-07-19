@@ -417,9 +417,37 @@ def compute_region_stats(
 # --------------------------------------------------------------------------- #
 
 # Corpus-fit constants — fit by scripts/fit_suggestion_thresholds.py against the
-# backfilled stats + existing hand labels. None until the first fit lands;
-# suggestions do not ship before thresholds are fit (issue #23).
-SUGGESTION_THRESHOLDS: dict[str, Any] | None = None
+# backfilled stats + existing hand labels (re-run the script and paste to re-fit).
+# Fit quality on 2026-07-19: camera_stability is a real decision-stump fit
+# (balanced acc 0.972, 18 steady / 4 moving); shadows.noneMaxFraction,
+# climber_contrast, wall_contrast, and motion_blur had too few usable labeled
+# classes and fall back to corpus distribution percentiles;
+# solidMinLargestBlobFraction is a structural prior (one blob >= 80% of shadow
+# area), not a label fit — the legacy shadow labels grade intensity, not shape.
+SUGGESTION_THRESHOLDS: dict[str, Any] | None = {
+    "fitDate": "2026-07-19",
+    "corpusSize": 39,
+    "labeledBundles": 27,
+    "shadows": {
+        "noneMaxFraction": 0.0858,
+        "solidMinLargestBlobFraction": 0.8,
+    },
+    "climber_contrast": {
+        "low": 5.506,
+        "high": 9.7368,
+    },
+    "wall_contrast": {
+        "low": 0.1242,
+        "high": 0.1489,
+    },
+    "motion_blur": {
+        "low": 1112.7843,
+        "high": 1746.0182,
+    },
+    "camera_stability": {
+        "movingMinFrameDiff": 0.0473,
+    },
+}
 
 
 def _get(d: dict | None, *path: str) -> Any:
