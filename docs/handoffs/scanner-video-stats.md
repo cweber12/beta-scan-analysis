@@ -138,7 +138,7 @@ Labels untouched by the user in an old bundle simply have no provenance entry.
 Suggestions use a **structural** shadows vocabulary: `none | solid | patchy`
 (replacing the intensity grades `low|medium|high`). Update the form options to:
 
-```
+```text
 shadows: none | solid | patchy | climber | unknown
 ```
 
@@ -211,6 +211,9 @@ next to the field (it arrives asynchronously with the ViTPose job, not in the
 
 - 2026-07-19 — handoff written (harness agent). Endpoint, artifact, backfill,
   and fitted thresholds are live on the harness side.
+- 2026-07-19 — merged to harness `main` (PR #27). Everything described here is
+  now what a running harness service serves; the 39-bundle corpus carries both
+  phases, stamped with current `setupHash`es. Scanner work can start.
 
 ---
 
