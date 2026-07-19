@@ -36,6 +36,33 @@ provenance so the human-verified layer stays auditable.
 
 ---
 
+## Probe first: `GET {HARNESS_API_BASE}/api/contract`
+
+Before wiring anything, know that the harness now self-describes. Probe once at
+scanner startup (and cache for the session):
+
+```json
+{
+  "service": "beta-scan-analysis-harness",
+  "apiVersion": 1,
+  "endpoints": ["/api/contract", "/api/detections", "/api/download",
+                "/api/import", "/api/routes", "/api/video-stats", "/api/vitpose"],
+  "artifacts": {"vitpose": 1, "videoStats": 1},
+  "suggestions": {"available": true, "fitDate": "2026-07-19",
+                  "corpusSize": 39, "labeledBundles": 27}
+}
+```
+
+Gate on it instead of assuming:
+
+- Enable the prefill flow only when `"/api/video-stats"` is in `endpoints`
+  **and** `suggestions.available` is true (thresholds unfit ⇒ the endpoint
+  still computes stats but returns no suggestions — skip prefill, keep the
+  manual form).
+- `apiVersion` mismatch (scanner expects 1) or probe failure ⇒ show a visible
+  "harness out of date / unreachable" state and degrade to today's manual flow.
+  Never let a contract mismatch surface as a silent mid-calibration 404.
+
 ## The endpoint: `POST {HARNESS_API_BASE}/api/video-stats`
 
 Synchronous (unlike `/api/vitpose`): decodes ~30 sampled frames and responds in
@@ -99,6 +126,13 @@ Notes:
 ---
 
 ## Work items
+
+### 0. Contract probe at startup
+
+Fetch `/api/contract` once at startup (or first harness call), cache it, and
+gate work items 1–5 on it as described above. This is the drift check that
+keeps the two programs honest with each other — treat "probe failed" and
+"probe succeeded but feature not advertised" as the same degraded state.
 
 ### 1. Calibration flow reorder: crops drawn → POST → prefill → verify → save
 
@@ -201,6 +235,7 @@ next to the field (it arrives asynchronously with the ViTPose job, not in the
 
 | # | Work item                                      | Status      | Commit/PR | Notes |
 |---|------------------------------------------------|-------------|-----------|-------|
+| 0 | Contract probe + feature gating                | not-started |           |       |
 | 1 | Flow reorder: POST → prefill → verify → save   | not-started |           |       |
 | 2 | Per-label provenance block                     | not-started |           |       |
 | 3 | Shadows vocab migration + climber option       | not-started |           |       |
@@ -214,6 +249,8 @@ next to the field (it arrives asynchronously with the ViTPose job, not in the
 - 2026-07-19 — merged to harness `main` (PR #27). Everything described here is
   now what a running harness service serves; the 39-bundle corpus carries both
   phases, stamped with current `setupHash`es. Scanner work can start.
+- 2026-07-19 — `GET /api/contract` added on the harness; work item 0 (probe +
+  feature gating) added accordingly.
 
 ---
 

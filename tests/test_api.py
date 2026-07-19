@@ -31,6 +31,7 @@ from app import (
     ImportRequest,
     VideoStatsRequest,
     compute_video_stats,
+    get_contract,
     create_download_bundle,
     create_import_bundle,
     get_routes,
@@ -199,6 +200,40 @@ def test_push_detections_derives_route_and_key():
 
 
 # --------------------------------------------------------------------------- #
+# Contract endpoint (cross-program drift check)
+# --------------------------------------------------------------------------- #
+
+def test_contract_advertises_endpoints_and_versions():
+    import vitpose_job
+
+    contract = get_contract()
+    assert contract["apiVersion"] == app_module.API_VERSION
+    # Endpoint list is derived from the live route table — the cross-program
+    # surface the scanner depends on must all be advertised.
+    for path in ("/api/contract", "/api/detections", "/api/vitpose",
+                 "/api/video-stats"):
+        assert path in contract["endpoints"], path
+    assert all(p.startswith("/api/") for p in contract["endpoints"])
+    assert contract["artifacts"] == {
+        "vitpose": vitpose_job.ARTIFACT_VERSION,
+        "videoStats": video_stats.VIDEO_STATS_VERSION,
+    }
+
+
+def test_contract_reports_suggestion_fit_state():
+    # With the baked corpus fit, suggestions are advertised as available...
+    contract = get_contract()
+    assert contract["suggestions"]["available"] is True
+    assert contract["suggestions"]["fitDate"]
+    assert contract["suggestions"]["corpusSize"] > 0
+    # ...and with thresholds unfit, the scanner is told not to prefill.
+    with patch.object(video_stats, "SUGGESTION_THRESHOLDS", None):
+        unfit = get_contract()
+    assert unfit["suggestions"]["available"] is False
+    assert unfit["suggestions"]["fitDate"] is None
+
+
+# --------------------------------------------------------------------------- #
 # Video Stats endpoint (issue #23)
 # --------------------------------------------------------------------------- #
 
@@ -348,6 +383,8 @@ def _run_all():
         test_create_download_bundle_maps_core_error_to_400,
         test_push_detections_rejects_shallow_path,
         test_push_detections_derives_route_and_key,
+        test_contract_advertises_endpoints_and_versions,
+        test_contract_reports_suggestion_fit_state,
         test_video_stats_missing_bundle_maps_404,
         test_video_stats_requires_wall_crop,
         test_video_stats_computes_writes_and_stamps_hash,

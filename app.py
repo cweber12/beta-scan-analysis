@@ -188,6 +188,41 @@ def get_routes() -> dict[str, list[str]]:
     return {"routes": list_route_folders()}
 
 
+# Bump when a breaking change to any cross-program contract ships (endpoint
+# payload shape, artifact schema, label vocabulary). Additive changes don't bump.
+API_VERSION = 1
+
+
+@app.get("/api/contract")
+def get_contract() -> dict[str, object]:
+    """What this harness speaks — probed by the scanner at startup (drift check).
+
+    The scanner gates features on this instead of assuming: prefill only runs if
+    /api/video-stats is advertised AND suggestions.available is true; a missing
+    endpoint or apiVersion mismatch surfaces as a visible "harness out of date"
+    warning rather than a silent 404 mid-calibration.
+    """
+    thresholds = video_stats.SUGGESTION_THRESHOLDS or {}
+    return {
+        "service": "beta-scan-analysis-harness",
+        "apiVersion": API_VERSION,
+        # Derived from the live route table so this can never drift from reality.
+        "endpoints": sorted(
+            {r.path for r in app.routes if r.path.startswith("/api/")}
+        ),
+        "artifacts": {
+            "vitpose": vitpose_job.ARTIFACT_VERSION,
+            "videoStats": video_stats.VIDEO_STATS_VERSION,
+        },
+        "suggestions": {
+            "available": bool(thresholds),
+            "fitDate": thresholds.get("fitDate"),
+            "corpusSize": thresholds.get("corpusSize"),
+            "labeledBundles": thresholds.get("labeledBundles"),
+        },
+    }
+
+
 @app.post("/api/download")
 def create_download_bundle(payload: DownloadRequest) -> dict[str, object]:
     try:

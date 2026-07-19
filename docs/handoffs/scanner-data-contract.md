@@ -25,6 +25,19 @@ scan exports.
 
 ---
 
+## Contract probe: `GET {HARNESS_API_BASE}/api/contract`
+
+The harness self-describes what it speaks — advertised `/api/*` endpoints
+(derived from its live route table), artifact schema versions
+(`vitpose`, `videoStats`), an `apiVersion` that bumps only on breaking contract
+changes, and whether label suggestions are fit/available. Probe it once at
+scanner startup and **gate harness-facing features on it** instead of assuming
+an endpoint exists; degrade visibly (not with a silent 404) when the probe
+fails or a feature isn't advertised. Full response shape and gating rules:
+[scanner-video-stats.md](scanner-video-stats.md).
+
+---
+
 ## The harness bundle layout you read/write against
 
 Everything lives under the harness's local `analysis/` tree (same machine; the
