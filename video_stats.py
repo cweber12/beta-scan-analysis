@@ -613,10 +613,18 @@ def sample_video_frames(
 
 
 def build_source_stats_block(
-    video_path: Path, source_video: dict[str, Any] | None = None
+    video_path: Path,
+    source_video: dict[str, Any] | None = None,
+    frames: Sequence[np.ndarray] | None = None,
+    timestamps: Sequence[float] | None = None,
 ) -> dict[str, Any]:
-    """Decode + compute the full phase-1 block stored in metadata.json."""
-    frames, timestamps = sample_video_frames(video_path)
+    """Compute the full phase-1 block stored in metadata.json.
+
+    Decodes the video unless the caller passes already-sampled frames (the
+    endpoint reuses its phase-2 decode).
+    """
+    if frames is None or timestamps is None:
+        frames, timestamps = sample_video_frames(video_path)
     block = compute_source_stats(frames, timestamps)
     sv = source_video or {}
     block["bitsPerPixel"] = bits_per_pixel(
