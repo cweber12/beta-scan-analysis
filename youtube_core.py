@@ -14,6 +14,8 @@ from typing import Any
 
 import yt_dlp
 
+import video_stats
+
 
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
 
@@ -527,6 +529,17 @@ def build_analysis_bundle(
     if source_extras:
         source_video.update(source_extras)
 
+    # Phase-1 Video Stats (issue #23): whole-frame stats sampled across the video,
+    # stored with the immutable source facts. Best-effort — a decode failure must
+    # never sink the bundle build (the backfill sweep can recover it later).
+    try:
+        video_stats_block = video_stats.build_source_stats_block(
+            download_result.video_path, source_video
+        )
+    except Exception as exc:  # noqa: BLE001 — stats are additive, never blocking
+        print(f"Warning: video stats extraction failed: {exc}", file=sys.stderr)
+        video_stats_block = None
+
     metadata = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "video_key": video_key,
@@ -538,6 +551,8 @@ def build_analysis_bundle(
         "detections_dir": str(detections_dir),
         "source_video": source_video,
     }
+    if video_stats_block is not None:
+        metadata["video_stats"] = video_stats_block
 
     metadata_path = video_dir / "metadata.json"
     metadata_path.write_text(
