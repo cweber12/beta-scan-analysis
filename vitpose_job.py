@@ -32,6 +32,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol, Sequence
 
+import video_stats
+
 
 # --------------------------------------------------------------------------- #
 # Contract constants
@@ -993,6 +995,20 @@ def run_vitpose_job(
         artifact_path.write_text(
             json.dumps(artifact, indent=2, ensure_ascii=False), encoding="utf-8"
         )
+
+        # Camera viewing-angle estimate from the posed keypoints (issue #23): Video
+        # Stats, not Ground Truth — vitpose.json stays pure keypoint scaffold, and
+        # the estimate lands in video-stats.json with its own provenance. Best-effort:
+        # a failure here must not fail the scaffold job.
+        try:
+            angle = video_stats.estimate_camera_angle(artifact["frames"])
+            if angle is not None:
+                angle["source"] = "vitpose"
+                if request.setup_hash:
+                    angle["setupHash"] = request.setup_hash
+                video_stats.write_camera_angle(bundle_dir, angle)
+        except Exception as exc:  # noqa: BLE001 — additive, never job-fatal
+            _log(f"camera-angle estimate failed (ignored): {exc}")
         timings = {
             "track_s": round(track_s, 2),
             "pose_s": round(pose_s, 2),

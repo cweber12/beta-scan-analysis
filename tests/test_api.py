@@ -11,6 +11,7 @@ Runnable with pytest, or standalone: ``python -m tests.test_api``.
 
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,11 +21,16 @@ from fastapi import HTTPException
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
+import numpy as np
+
 import app as app_module
+import video_stats
 from app import (
     DetectionRequest,
     DownloadRequest,
     ImportRequest,
+    VideoStatsRequest,
+    compute_video_stats,
     create_download_bundle,
     create_import_bundle,
     get_routes,
@@ -193,6 +199,130 @@ def test_push_detections_derives_route_and_key():
 
 
 # --------------------------------------------------------------------------- #
+# Video Stats endpoint (issue #23)
+# --------------------------------------------------------------------------- #
+
+def _fake_samples(*_a, **_k):
+    """Two flat synthetic frames — enough for the pure stats core to run on."""
+    frame = np.full((60, 80, 3), 150, dtype=np.uint8)
+    return [frame, frame], [0.0, 1.0]
+
+
+def _make_stats_bundle(root, *, with_setup=True, with_video=True):
+    bundle = root / "routeA" / "vidA"
+    bundle.mkdir(parents=True)
+    (bundle / "metadata.json").write_text(
+        json.dumps({"route_folder": "routeA", "video_key": "vidA",
+                    "source_video": {"filesize": 1_000_000, "width": 80, "height": 60,
+                                     "fps": 30, "duration_seconds": 10}}),
+        encoding="utf-8")
+    if with_setup:
+        (bundle / "setup.json").write_text(
+            json.dumps({"wallCrop": {"x": 0.1, "y": 0.1, "w": 0.8, "h": 0.8},
+                        "climberCrop": {"x": 0.4, "y": 0.4, "w": 0.2, "h": 0.2},
+                        "climberPoint": {"x": 0.5, "y": 0.5, "t": 0.0},
+                        "panning": False, "setupHash": "sh_setup"}),
+            encoding="utf-8")
+    if with_video:
+        (bundle / "vidA.mp4").write_bytes(b"\x00" * 16)
+    return bundle
+
+
+def test_video_stats_missing_bundle_maps_404():
+    with tempfile.TemporaryDirectory() as tmp, \
+         patch.object(app_module, "ANALYSIS_DIR", Path(tmp)):
+        payload = VideoStatsRequest(route_folder="nope", video_key="missing")
+        try:
+            compute_video_stats(payload)
+        except HTTPException as exc:
+            assert exc.status_code == 404
+        else:
+            raise AssertionError("expected 404 for a missing bundle")
+
+
+def test_video_stats_requires_wall_crop():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _make_stats_bundle(root, with_setup=False)
+        with patch.object(app_module, "ANALYSIS_DIR", root):
+            payload = VideoStatsRequest(route_folder="routeA", video_key="vidA")
+            try:
+                compute_video_stats(payload)
+            except HTTPException as exc:
+                assert exc.status_code == 400
+                assert "wall crop" in exc.detail
+            else:
+                raise AssertionError("expected 400 without a wall crop")
+
+
+def test_video_stats_computes_writes_and_stamps_hash():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        bundle = _make_stats_bundle(root)
+        with patch.object(app_module, "ANALYSIS_DIR", root), \
+             patch.object(video_stats, "sample_video_frames", _fake_samples):
+            # Crops omitted from the payload -> fall back to setup.json.
+            resp = compute_video_stats(
+                VideoStatsRequest(route_folder="routeA", video_key="vidA"))
+
+        assert resp["setupHash"] == "sh_setup"
+        assert resp["regionStats"]["wall"]["luma"]["mean"] > 0
+        assert resp["regionStats"]["climberWall"] is not None
+        assert isinstance(resp["suggestions"], dict)
+
+        artifact = json.loads((bundle / "video-stats.json").read_text(encoding="utf-8"))
+        assert artifact["setupHash"] == "sh_setup"
+        assert artifact["source"] == "endpoint"
+        assert artifact["regionStats"] == resp["regionStats"]
+
+        # Phase-1 self-heal: metadata.json gained the video_stats block, with the
+        # compression proxy derived from the recorded source facts.
+        metadata = json.loads((bundle / "metadata.json").read_text(encoding="utf-8"))
+        assert metadata["video_stats"]["sampledFrames"] == 2
+        assert metadata["video_stats"]["bitsPerPixel"] is not None
+
+
+def test_video_stats_payload_overrides_and_camelcase():
+    # camelCase field names (setup.json casing) must be accepted...
+    payload = VideoStatsRequest.model_validate({
+        "routeFolder": "routeA", "videoKey": "vidA",
+        "wallCrop": {"x": 0, "y": 0, "w": 1, "h": 1},
+        "setupHash": "sh_payload",
+    })
+    assert payload.route_folder == "routeA"
+    assert payload.wall_crop.w == 1
+    # ...and payload geometry/hash must win over setup.json's.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        bundle = _make_stats_bundle(root)
+        with patch.object(app_module, "ANALYSIS_DIR", root), \
+             patch.object(video_stats, "sample_video_frames", _fake_samples):
+            resp = compute_video_stats(payload)
+        assert resp["setupHash"] == "sh_payload"
+        artifact = json.loads((bundle / "video-stats.json").read_text(encoding="utf-8"))
+        assert artifact["setupHash"] == "sh_payload"
+
+
+def test_video_stats_decode_failure_maps_500():
+    def _boom(*_a, **_k):
+        raise RuntimeError("could not open video")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _make_stats_bundle(root)
+        with patch.object(app_module, "ANALYSIS_DIR", root), \
+             patch.object(video_stats, "sample_video_frames", _boom):
+            try:
+                compute_video_stats(
+                    VideoStatsRequest(route_folder="routeA", video_key="vidA"))
+            except HTTPException as exc:
+                assert exc.status_code == 500
+                assert "could not open video" in exc.detail
+            else:
+                raise AssertionError("expected 500 on decode failure")
+
+
+# --------------------------------------------------------------------------- #
 # Schema validation
 # --------------------------------------------------------------------------- #
 
@@ -218,6 +348,11 @@ def _run_all():
         test_create_download_bundle_maps_core_error_to_400,
         test_push_detections_rejects_shallow_path,
         test_push_detections_derives_route_and_key,
+        test_video_stats_missing_bundle_maps_404,
+        test_video_stats_requires_wall_crop,
+        test_video_stats_computes_writes_and_stamps_hash,
+        test_video_stats_payload_overrides_and_camelcase,
+        test_video_stats_decode_failure_maps_500,
         test_schema_validation_rejects_bad_payloads,
     ]
     for fn in fns:

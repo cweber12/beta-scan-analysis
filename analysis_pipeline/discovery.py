@@ -34,6 +34,8 @@ class RunRecord:
     setup: dict[str, Any]
     pose: dict[str, Any]  # the inner ``data`` blob of the pose envelope
     orb: dict[str, Any]  # the inner ``data`` blob of the orb envelope
+    # per-bundle video-stats.json (issue #23); {} when the artifact is absent
+    video_stats: dict[str, Any] = field(default_factory=dict)
     # dedup identity
     video_hash: str = ""
     setup_hash: str = ""
@@ -96,6 +98,11 @@ def discover_runs(analysis_root: Path) -> list[RunRecord]:
         metadata = _load_json(video_dir / "metadata.json")
         setup_path = video_dir / "setup.json"
         setup = _load_json(setup_path) if setup_path.exists() else {}
+        stats_path = video_dir / "video-stats.json"
+        try:
+            video_stats = _load_json(stats_path) if stats_path.exists() else {}
+        except ValueError:
+            video_stats = {}
 
         route_folder = metadata.get("route_folder", video_dir.parent.name)
         video_key = metadata.get("video_key", video_dir.name)
@@ -137,6 +144,7 @@ def discover_runs(analysis_root: Path) -> list[RunRecord]:
                     setup=setup,
                     pose=pose,
                     orb=orb,
+                    video_stats=video_stats,
                     video_hash=diagnostics.get("videoHash", ""),
                     setup_hash=pose.get("setupHash", setup.get("setupHash", "")),
                     config=config,

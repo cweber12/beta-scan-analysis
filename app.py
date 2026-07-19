@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import uuid
 from contextlib import asynccontextmanager
@@ -10,6 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+import video_stats
 import vitpose_job
 from youtube_core import (
     build_analysis_bundle,
@@ -116,6 +118,23 @@ class VitPoseJobRequest(BaseModel):
     # Accepts `setup_hash` (canonical) or `setupHash`.
     setup_hash: str | None = Field(default=None, alias="setupHash")
     frames: list[VitPoseFrame] = Field(..., min_length=1)
+
+
+class VideoStatsRequest(BaseModel):
+    # Phase-2 Video Stats trigger (issue #23): the scanner POSTs its freshly drawn
+    # calibration crops here mid-calibration and gets back region stats + suggested
+    # labels to prefill analysisInputs. Crop geometry is optional — omitted fields
+    # fall back to the bundle's just-saved setup.json. Tolerates camelCase field
+    # names (matching setup.json's casing) alongside canonical snake_case.
+    model_config = ConfigDict(populate_by_name=True)
+
+    route_folder: str = Field(..., min_length=1, alias="routeFolder")
+    video_key: str = Field(..., min_length=1, alias="videoKey")
+    climber_crop: NormCrop | None = Field(default=None, alias="climberCrop")
+    wall_crop: NormCrop | None = Field(default=None, alias="wallCrop")
+    climber_point: NormPoint | None = Field(default=None, alias="climberPoint")
+    panning: bool | None = None
+    setup_hash: str | None = Field(default=None, alias="setupHash")
 
 
 # --------------------------------------------------------------------------- #
@@ -322,3 +341,118 @@ def start_vitpose_job(payload: VitPoseJobRequest) -> JSONResponse:
     thread.start()
 
     return JSONResponse(status_code=202, content={"jobId": job_id, "status": "accepted"})
+
+
+# --------------------------------------------------------------------------- #
+# Video Stats — phase-2 region stats + suggested labels (issue #23)
+# --------------------------------------------------------------------------- #
+
+def _find_bundle_video(bundle_dir: Path, video_key: str) -> Path | None:
+    canonical = bundle_dir / f"{video_key}.mp4"
+    if canonical.is_file():
+        return canonical
+    for path in sorted(bundle_dir.iterdir()):
+        if path.suffix.lower() in {".mp4", ".mov", ".mkv", ".webm", ".avi"}:
+            return path
+    return None
+
+
+def _read_bundle_json(path: Path) -> dict[str, Any]:
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        return loaded if isinstance(loaded, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+@app.post("/api/video-stats")
+def compute_video_stats(payload: VideoStatsRequest) -> dict[str, object]:
+    """Compute region-aware stats for a bundle's calibration crops, synchronously.
+
+    Crop geometry missing from the payload falls back to the bundle's setup.json
+    (the scanner POSTs right after saving it). Writes video-stats.json stamped with
+    the setupHash and returns stats + suggested labels for the prefill flow.
+    """
+    try:
+        bundle_dir = vitpose_job.bundle_dir_for(
+            ANALYSIS_DIR, payload.route_folder, payload.video_key
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not bundle_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No bundle for route={payload.route_folder!r} "
+                f"video_key={payload.video_key!r}."
+            ),
+        )
+
+    setup = _read_bundle_json(bundle_dir / "setup.json")
+    wall_crop = (
+        payload.wall_crop.model_dump() if payload.wall_crop else setup.get("wallCrop")
+    )
+    if not wall_crop:
+        raise HTTPException(
+            status_code=400,
+            detail="No wall crop in the request or the bundle's setup.json.",
+        )
+    climber_crop = (
+        payload.climber_crop.model_dump()
+        if payload.climber_crop
+        else setup.get("climberCrop")
+    )
+    if payload.climber_point is not None:
+        climber_point_t = payload.climber_point.t
+    else:
+        climber_point_t = (setup.get("climberPoint") or {}).get("t")
+    panning = payload.panning if payload.panning is not None else bool(setup.get("panning"))
+    setup_hash = payload.setup_hash or setup.get("setupHash")
+
+    video_path = _find_bundle_video(bundle_dir, payload.video_key)
+    if video_path is None:
+        raise HTTPException(
+            status_code=404, detail=f"No video binary in bundle {bundle_dir.name!r}."
+        )
+
+    try:
+        frames, timestamps = video_stats.sample_video_frames(video_path)
+        region_stats = video_stats.compute_region_stats(
+            frames,
+            timestamps,
+            wall_crop,
+            climber_crop=climber_crop,
+            climber_point_t=climber_point_t,
+            panning=panning,
+        )
+
+        # Suggestions blend phase-1 (motion blur, stability) with phase-2 stats.
+        # Self-heal a bundle that predates phase-1 from the frames already decoded.
+        metadata_path = bundle_dir / "metadata.json"
+        metadata = _read_bundle_json(metadata_path)
+        source_stats = metadata.get("video_stats")
+        if source_stats is None and metadata:
+            source_stats = video_stats.build_source_stats_block(
+                video_path, metadata.get("source_video"), frames, timestamps
+            )
+            video_stats.write_source_stats(bundle_dir, source_stats)
+
+        suggestions = video_stats.suggest_labels(source_stats, region_stats)
+        artifact_path = video_stats.write_region_stats(
+            bundle_dir, region_stats, suggestions, setup_hash, source="endpoint"
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001 — decode/compute failure -> explicit 500
+        raise HTTPException(
+            status_code=500, detail=f"Video stats extraction failed: {exc}"
+        ) from exc
+
+    return {
+        "routeFolder": payload.route_folder,
+        "videoKey": payload.video_key,
+        "setupHash": setup_hash,
+        "artifactPath": str(artifact_path),
+        "regionStats": region_stats,
+        "suggestions": suggestions,
+    }
