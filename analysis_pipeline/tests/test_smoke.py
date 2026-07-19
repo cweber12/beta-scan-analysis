@@ -76,6 +76,39 @@ def _write_run(video_dir: Path, stem: str, *, video_hash: str, setup_hash: str,
                     "analysisInputs": labels}), encoding="utf-8")
 
 
+def _write_video_stats(video_dir: Path, setup_hash: str) -> None:
+    """A minimal phase-2 video-stats.json + phase-1 metadata block (issue #23)."""
+    doc = {
+        "version": 1, "setupHash": setup_hash, "source": "endpoint",
+        "regionStats": {
+            "panningFlagged": False,
+            "wall": {"luma": {"mean": 140.0}, "rmsContrast": 0.12,
+                     "texture": {"edgeDensity": 0.08, "laplacianVar": 210.0},
+                     "hue": {"meanDeg": 30.0, "concentration": 0.9},
+                     "saturation": {"mean": 60.0, "std": 12.0}},
+            "climberWall": {"deltaE": 32.5, "lumaSeparation": 18.0},
+            "shadow": {"fraction": {"mean": 0.22, "std": 0.02},
+                       "inOutLumaRatio": 0.55,
+                       "blobs": {"count": 3, "largestFraction": 0.4},
+                       "drift": {"range": 0.05}},
+        },
+        "suggestions": {"shadows": "patchy"},
+        "cameraAngle": {"estimate": "level", "source": "vitpose"},
+    }
+    (video_dir / "video-stats.json").write_text(json.dumps(doc), encoding="utf-8")
+    metadata_path = video_dir / "metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["video_stats"] = {
+        "luma": {"mean": 120.0, "std": 30.0, "p5": 40.0, "p95": 220.0},
+        "clippedHighlightFraction": 0.01, "crushedShadowFraction": 0.0,
+        "rmsContrast": 0.15, "sharpness": {"mean": 180.0, "min": 90.0},
+        "frameDiff": {"mean": 0.02, "max": 0.05},
+        "exposureDrift": {"slopePerMinute": 1.2, "range": 6.0},
+        "colorCast": {"rOverG": 1.05, "bOverG": 0.92}, "bitsPerPixel": 0.11,
+    }
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+
 def _build_corpus(root: Path) -> None:
     cfg = {"frameStep": 10, "frameIntervalMs": 100}
     base_labels = {"route_orientation": "head-on", "camera_angle": "level",
@@ -98,6 +131,10 @@ def _build_corpus(root: Path) -> None:
                config=cfg, labels={**base_labels, "route_orientation": "right",
                                    "camera_stability": "moving"},
                det_rate=0.9, written_at="2026-01-03T00:00:00")
+    # Video Stats (issue #23): vidB's stats match its run's setupHash (fresh);
+    # vidC's were computed under an older calibration (stale). vidA has none.
+    _write_video_stats(root / "routeB" / "vidB", setup_hash="sb")
+    _write_video_stats(root / "routeC" / "vidC", setup_hash="sc_OLD")
 
 
 def test_discovery_dedup_prune_and_stats():
@@ -122,6 +159,18 @@ def test_discovery_dedup_prune_and_stats():
         assert abs(float(vidb["out_badStretchSeconds"]) - 0.5) < 1e-9
         assert run_df.set_index("video_key").loc["vidA"]["out_overlayQuality"] is None \
             or pd.isna(run_df.set_index("video_key").loc["vidA"]["out_overlayQuality"])
+
+        # Video Stats predictor columns (issue #23) + the staleness flag.
+        by_key = run_df.set_index("video_key")
+        assert by_key.loc["vidB", "vs_climberWallDeltaE"] == 32.5
+        assert by_key.loc["vidB", "vs_shadowBlobCount"] == 3
+        assert by_key.loc["vidB", "src_sharpnessMean"] == 180.0
+        assert by_key.loc["vidB", "src_bitsPerPixel"] == 0.11
+        assert by_key.loc["vidB", "vs_cameraAngle"] == "level"
+        assert by_key.loc["vidB", "vs_stale"] == False  # noqa: E712 — pandas object col
+        assert by_key.loc["vidC", "vs_stale"] == True  # noqa: E712 — computed under sc_OLD
+        assert by_key.loc["vidA", "vs_stale"] is None or pd.isna(by_key.loc["vidA", "vs_stale"])
+        assert pd.isna(by_key.loc["vidA", "vs_climberWallDeltaE"])
 
         kept, dropped = stats.prune_labels(run_df)
         dropped_names = {c for c, _ in dropped}
