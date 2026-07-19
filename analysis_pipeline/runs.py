@@ -25,6 +25,45 @@ LABEL_KEYS = [
 _REGIONS = ("overall", "climber", "wall")
 _STATS = ("mean", "stdDev", "sharpness")
 
+# Video Stats predictor columns (issue #23). Phase-1 source stats live in
+# metadata.json["video_stats"]; phase-2 region stats in video-stats.json.
+# Each entry: column suffix -> path inside the respective block.
+_SOURCE_STAT_PATHS: dict[str, tuple[str, ...]] = {
+    "lumaMean": ("luma", "mean"),
+    "lumaStd": ("luma", "std"),
+    "lumaP5": ("luma", "p5"),
+    "lumaP95": ("luma", "p95"),
+    "clippedHighlightFraction": ("clippedHighlightFraction",),
+    "crushedShadowFraction": ("crushedShadowFraction",),
+    "rmsContrast": ("rmsContrast",),
+    "sharpnessMean": ("sharpness", "mean"),
+    "sharpnessMin": ("sharpness", "min"),
+    "frameDiffMean": ("frameDiff", "mean"),
+    "frameDiffMax": ("frameDiff", "max"),
+    "exposureDriftSlope": ("exposureDrift", "slopePerMinute"),
+    "exposureDriftRange": ("exposureDrift", "range"),
+    "colorCastROverG": ("colorCast", "rOverG"),
+    "colorCastBOverG": ("colorCast", "bOverG"),
+    "bitsPerPixel": ("bitsPerPixel",),
+}
+
+_REGION_STAT_PATHS: dict[str, tuple[str, ...]] = {
+    "wallLumaMean": ("wall", "luma", "mean"),
+    "wallRmsContrast": ("wall", "rmsContrast"),
+    "wallEdgeDensity": ("wall", "texture", "edgeDensity"),
+    "wallLaplacianVar": ("wall", "texture", "laplacianVar"),
+    "wallHueConcentration": ("wall", "hue", "concentration"),
+    "wallSaturationMean": ("wall", "saturation", "mean"),
+    "climberWallDeltaE": ("climberWall", "deltaE"),
+    "climberWallLumaSep": ("climberWall", "lumaSeparation"),
+    "shadowFractionMean": ("shadow", "fraction", "mean"),
+    "shadowFractionStd": ("shadow", "fraction", "std"),
+    "shadowInOutLumaRatio": ("shadow", "inOutLumaRatio"),
+    "shadowBlobCount": ("shadow", "blobs", "count"),
+    "shadowBlobLargestFraction": ("shadow", "blobs", "largestFraction"),
+    "shadowDriftRange": ("shadow", "drift", "range"),
+}
+
 
 def _get(d: dict[str, Any], *path: str, default: Any = None) -> Any:
     cur: Any = d
@@ -76,6 +115,28 @@ def build_run_table(records: list[RunRecord]) -> pd.DataFrame:
         row["motionMagnitude"] = inp.get("motionMagnitude")
         row["climberCoverage_avg"] = _get(inp, "climberFrameCoverage", "avg")
         row["climberCoverage_min"] = _get(inp, "climberFrameCoverage", "min")
+
+        # --- predictors: Video Stats (issue #23) ---
+        source_stats = rec.metadata.get("video_stats") or {}
+        for suffix, path in _SOURCE_STAT_PATHS.items():
+            row[f"src_{suffix}"] = _get(source_stats, *path)
+
+        region_stats = rec.video_stats.get("regionStats") or {}
+        for suffix, path in _REGION_STAT_PATHS.items():
+            row[f"vs_{suffix}"] = _get(region_stats, *path)
+        row["vs_panningFlagged"] = (
+            region_stats.get("panningFlagged") if region_stats else None
+        )
+        # Staleness: region stats describe the crops of the setup they were
+        # computed under; a run under a different setupHash must be visible as
+        # stale rather than silently wrong. None = no region stats at all.
+        if region_stats:
+            row["vs_stale"] = (rec.video_stats.get("setupHash") or "") != (
+                rec.setup_hash or ""
+            )
+        else:
+            row["vs_stale"] = None
+        row["vs_cameraAngle"] = _get(rec.video_stats, "cameraAngle", "estimate")
 
         # --- outcomes: pose (per-run aggregates) ---
         sampled = result_pose.get("sampledFrames")

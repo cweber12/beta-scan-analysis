@@ -39,6 +39,8 @@ analysis/<route_folder>/<video_key>/
     vitpose.json           # harness-written ViTPose seed poses (you read this)
     vitpose.status.json    # job sidecar: running | done | error
     ground-truth.json      # scanner-written Ground Truth (you write this)
+    video-stats.json       # harness-written Video Stats (region stats + camera angle;
+                           #   you trigger it via POST /api/video-stats — see scanner-video-stats.md)
     detections/
         <run_ts>_pose.json # envelope: { video_key, run_ts, ..., data:{ diagnostics, frames[] } }
         <run_ts>_orb.json  # envelope: { ..., data:{ referenceFrameMeta, summary } }

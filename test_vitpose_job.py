@@ -621,6 +621,49 @@ def test_run_job_omits_setup_hash_when_unresolvable():
         assert "setupHash" not in json.loads(path.read_text())
 
 
+class TorsoPoseBackend:
+    """Poses every target with a full confident torso (level front-on geometry)."""
+
+    def pose(self, video_path, targets):
+        torso = [
+            Keypoint("left_shoulder", 0.40, 0.40, 0.9),
+            Keypoint("right_shoulder", 0.60, 0.40, 0.9),
+            Keypoint("left_hip", 0.42, 0.70, 0.9),
+            Keypoint("right_hip", 0.58, 0.70, 0.9),
+        ]
+        return {t.frame_index: torso for t in targets}
+
+
+def test_run_job_writes_camera_angle_into_video_stats():
+    # Issue #23: the job derives a viewing-angle estimate from keypoint geometry
+    # and writes it to video-stats.json (NOT into the vitpose.json scaffold).
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        (root / "r" / "k" / "setup.json").write_text('{"setupHash": "sh_cam"}')
+        path = run_vitpose_job(root, _request([0.0, 0.5, 1.0]),
+                               StubTracker(_history_two_people()), TorsoPoseBackend())
+
+        art = json.loads(path.read_text())
+        assert all("cameraAngle" not in f for f in art["frames"])
+        stats = json.loads((path.parent / "video-stats.json").read_text())
+        angle = stats["cameraAngle"]
+        assert angle["estimate"] == "level"  # sw/hw = 0.20/0.16 = 1.25
+        assert angle["source"] == "vitpose"
+        assert angle["setupHash"] == "sh_cam"
+        assert angle["framesUsed"] == 3
+
+
+def test_run_job_skips_camera_angle_without_confident_torso():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        # StubPoseBackend emits only nose/wrist -> no torso -> no estimate.
+        path = run_vitpose_job(root, _request([0.0, 0.5, 1.0]),
+                               StubTracker(_history_two_people()), StubPoseBackend())
+        assert not (path.parent / "video-stats.json").exists()
+
+
 def test_run_job_missing_bundle_raises():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "analysis"

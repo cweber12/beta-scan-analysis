@@ -20,6 +20,16 @@ not a spec — it carries no implementation detail.
   top-level `setupHash` and per-frame `review` provenance. `review: "auto"` is
   agreement-tier evidence only; human-flagged frames are the accuracy-tier evidence.
   See `docs/adr/0004`.
+- **Video Stats** (`video-stats.json` + `metadata.json.video_stats`) — computed
+  image-statistic Predictors, two-phased: whole-frame *source stats* stamped into
+  `metadata.json` at download/import (never stale), and crop-aware *region stats*
+  in `video-stats.json` stamped with the `setupHash` they were computed under
+  (stale exactly like Ground Truth when recalibration mints a new hash). Emitted
+  by `POST /api/video-stats`; also carries the ViTPose-derived `cameraAngle`
+  estimate. Continuous stats are Predictors; the *suggested labels* derived from
+  them only prefill the hand labels — the human-verified `analysisInputs` layer
+  stays authoritative, with per-label provenance (auto-accepted vs
+  human-overridden) recorded by the scanner.
 - **Route** — a physical climb, identified by its `route_folder`. Multiple
   **Videos** of the same Route are the norm (different sessions/angles/lighting).
 - **Run** — one detection execution on one Video, recorded as a paired

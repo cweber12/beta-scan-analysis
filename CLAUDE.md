@@ -54,6 +54,9 @@ uncommitted when the issue branch is pushed or merged.
 - Run the smoke tests after touching the pipeline:
   `python -m analysis_pipeline.tests.test_smoke`. After touching the ViTPose
   scaffold, run `python test_vitpose_job.py` (stub-backed; no torch needed).
+  After touching the Video Stats core (`video_stats.py`) run
+  `python -m tests.test_video_stats`, and after touching `app.py` run
+  `python -m tests.test_api` (both dependency-free beyond numpy/cv2).
 
 ## Agent skills
 
