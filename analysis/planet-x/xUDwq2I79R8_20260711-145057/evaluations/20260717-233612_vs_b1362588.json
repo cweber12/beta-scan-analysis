@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 687,
+    "scannerMissingFrames": 0,
+    "torsoUndefinedFrames": 13,
+    "truthFramesAbsent": 222,
+    "truthFramesTotal": 922
+  },
+  "joinToleranceSec": 0.5,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 109,
+      "pck": 0.18537414965986396,
+      "total": 588
+    },
+    "left_elbow": {
+      "correct": 10,
+      "pck": 0.021052631578947368,
+      "total": 475
+    },
+    "left_hip": {
+      "correct": 152,
+      "pck": 0.22125181950509462,
+      "total": 687
+    },
+    "left_knee": {
+      "correct": 105,
+      "pck": 0.18683274021352314,
+      "total": 562
+    },
+    "left_shoulder": {
+      "correct": 168,
+      "pck": 0.2445414847161572,
+      "total": 687
+    },
+    "left_wrist": {
+      "correct": 19,
+      "pck": 0.04387990762124711,
+      "total": 433
+    },
+    "nose": {
+      "correct": 164,
+      "pck": 0.250381679389313,
+      "total": 655
+    },
+    "right_ankle": {
+      "correct": 166,
+      "pck": 0.24163027656477437,
+      "total": 687
+    },
+    "right_elbow": {
+      "correct": 160,
+      "pck": 0.2328966521106259,
+      "total": 687
+    },
+    "right_hip": {
+      "correct": 152,
+      "pck": 0.22125181950509462,
+      "total": 687
+    },
+    "right_knee": {
+      "correct": 157,
+      "pck": 0.22852983988355166,
+      "total": 687
+    },
+    "right_shoulder": {
+      "correct": 170,
+      "pck": 0.24745269286754004,
+      "total": 687
+    },
+    "right_wrist": {
+      "correct": 127,
+      "pck": 0.19538461538461538,
+      "total": 650
+    }
+  },
+  "routeFolder": "planet-x",
+  "runTs": "20260717-233612",
+  "scannerFrameIntervalSec": 1.0,
+  "schemaVersion": 1,
+  "setupHash": "61cffee09ae1628f8aa71de3b453358534ae4085097c9f083daf97c1b7c818ef",
+  "truthHash": "b1362588f59d4440267c09ca94c8f4567f7309fa1e06d34801e347ab922990c7",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "xUDwq2I79R8_20260711-145057"
+}

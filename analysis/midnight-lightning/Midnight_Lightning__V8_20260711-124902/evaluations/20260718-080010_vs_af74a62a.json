@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 569,
+    "scannerMissingFrames": 1,
+    "torsoUndefinedFrames": 0,
+    "truthFramesAbsent": 7,
+    "truthFramesTotal": 577
+  },
+  "joinToleranceSec": 0.5,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 431,
+      "pck": 0.7836363636363637,
+      "total": 550
+    },
+    "left_elbow": {
+      "correct": 434,
+      "pck": 0.8362235067437379,
+      "total": 519
+    },
+    "left_hip": {
+      "correct": 532,
+      "pck": 0.9349736379613357,
+      "total": 569
+    },
+    "left_knee": {
+      "correct": 465,
+      "pck": 0.8201058201058201,
+      "total": 567
+    },
+    "left_shoulder": {
+      "correct": 544,
+      "pck": 0.9560632688927944,
+      "total": 569
+    },
+    "left_wrist": {
+      "correct": 430,
+      "pck": 0.8349514563106796,
+      "total": 515
+    },
+    "nose": {
+      "correct": 392,
+      "pck": 0.8596491228070176,
+      "total": 456
+    },
+    "right_ankle": {
+      "correct": 453,
+      "pck": 0.806049822064057,
+      "total": 562
+    },
+    "right_elbow": {
+      "correct": 389,
+      "pck": 0.7367424242424242,
+      "total": 528
+    },
+    "right_hip": {
+      "correct": 546,
+      "pck": 0.9595782073813708,
+      "total": 569
+    },
+    "right_knee": {
+      "correct": 474,
+      "pck": 0.8359788359788359,
+      "total": 567
+    },
+    "right_shoulder": {
+      "correct": 535,
+      "pck": 0.9402460456942003,
+      "total": 569
+    },
+    "right_wrist": {
+      "correct": 289,
+      "pck": 0.6736596736596736,
+      "total": 429
+    }
+  },
+  "routeFolder": "midnight-lightning",
+  "runTs": "20260718-080010",
+  "scannerFrameIntervalSec": 1.0,
+  "schemaVersion": 1,
+  "setupHash": "0f028efb503052d2cb23e615834131aac0a36e0d141df75bb33ff30dbc1f22bf",
+  "truthHash": "af74a62a25750b3a7eeef0fa137a67c0ff3f292d214d7f137611ea24d7e04812",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "Midnight_Lightning__V8_20260711-124902"
+}

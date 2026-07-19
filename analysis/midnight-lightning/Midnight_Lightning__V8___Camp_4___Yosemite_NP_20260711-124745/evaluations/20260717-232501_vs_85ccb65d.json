@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 76,
+    "scannerMissingFrames": 431,
+    "torsoUndefinedFrames": 0,
+    "truthFramesAbsent": 1,
+    "truthFramesTotal": 508
+  },
+  "joinToleranceSec": 0.05000000000000071,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 71,
+      "pck": 0.9466666666666667,
+      "total": 75
+    },
+    "left_elbow": {
+      "correct": 62,
+      "pck": 0.8493150684931506,
+      "total": 73
+    },
+    "left_hip": {
+      "correct": 73,
+      "pck": 0.9605263157894737,
+      "total": 76
+    },
+    "left_knee": {
+      "correct": 70,
+      "pck": 0.9210526315789473,
+      "total": 76
+    },
+    "left_shoulder": {
+      "correct": 74,
+      "pck": 0.9736842105263158,
+      "total": 76
+    },
+    "left_wrist": {
+      "correct": 61,
+      "pck": 0.8591549295774648,
+      "total": 71
+    },
+    "nose": {
+      "correct": 54,
+      "pck": 0.9642857142857143,
+      "total": 56
+    },
+    "right_ankle": {
+      "correct": 71,
+      "pck": 0.9342105263157895,
+      "total": 76
+    },
+    "right_elbow": {
+      "correct": 66,
+      "pck": 0.88,
+      "total": 75
+    },
+    "right_hip": {
+      "correct": 73,
+      "pck": 0.9605263157894737,
+      "total": 76
+    },
+    "right_knee": {
+      "correct": 71,
+      "pck": 0.9342105263157895,
+      "total": 76
+    },
+    "right_shoulder": {
+      "correct": 74,
+      "pck": 0.9736842105263158,
+      "total": 76
+    },
+    "right_wrist": {
+      "correct": 62,
+      "pck": 0.8985507246376812,
+      "total": 69
+    }
+  },
+  "routeFolder": "midnight-lightning",
+  "runTs": "20260717-232501",
+  "scannerFrameIntervalSec": 0.10000000000000142,
+  "schemaVersion": 1,
+  "setupHash": "a6687778309fa12b9450c9f29220f6f9986c9bd903c67b7ac73c1bb0760d3b9c",
+  "truthHash": "85ccb65d83bc41ce1ba822c798d38ab3bf23d40c7026b8ce33696da936dec278",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "Midnight_Lightning__V8___Camp_4___Yosemite_NP_20260711-124745"
+}

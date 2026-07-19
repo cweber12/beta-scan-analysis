@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 38,
+    "scannerMissingFrames": 1024,
+    "torsoUndefinedFrames": 51,
+    "truthFramesAbsent": 492,
+    "truthFramesTotal": 1605
+  },
+  "joinToleranceSec": 0.050000000000000044,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 1,
+      "pck": 0.037037037037037035,
+      "total": 27
+    },
+    "left_elbow": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    },
+    "left_hip": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    },
+    "left_knee": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    },
+    "left_shoulder": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    },
+    "left_wrist": {
+      "correct": 0,
+      "pck": 0.0,
+      "total": 28
+    },
+    "nose": {
+      "correct": 1,
+      "pck": 0.045454545454545456,
+      "total": 22
+    },
+    "right_ankle": {
+      "correct": 1,
+      "pck": 0.04,
+      "total": 25
+    },
+    "right_elbow": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    },
+    "right_hip": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    },
+    "right_knee": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    },
+    "right_shoulder": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    },
+    "right_wrist": {
+      "correct": 1,
+      "pck": 0.02631578947368421,
+      "total": 38
+    }
+  },
+  "routeFolder": "midnight-lightning",
+  "runTs": "20260717-232111",
+  "scannerFrameIntervalSec": 0.10000000000000009,
+  "schemaVersion": 1,
+  "setupHash": "e11638b7b5df384c373cd92e861f4f4f9c87d5539a1a2e0ff8c28c60b4c550d5",
+  "truthHash": "6466b30f3e24c03bfc0e2fee0d651528c2aae7d1761f762c9f27890bbd5ebd54",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "Adam_Ondra_flashes_Midnight_Lightning_20260711-141243"
+}

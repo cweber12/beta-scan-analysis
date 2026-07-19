@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 131,
+    "scannerMissingFrames": 430,
+    "torsoUndefinedFrames": 18,
+    "truthFramesAbsent": 13,
+    "truthFramesTotal": 592
+  },
+  "joinToleranceSec": 0.05000000000000071,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 120,
+      "pck": 0.916030534351145,
+      "total": 131
+    },
+    "left_elbow": {
+      "correct": 105,
+      "pck": 0.813953488372093,
+      "total": 129
+    },
+    "left_hip": {
+      "correct": 126,
+      "pck": 0.9618320610687023,
+      "total": 131
+    },
+    "left_knee": {
+      "correct": 121,
+      "pck": 0.9236641221374046,
+      "total": 131
+    },
+    "left_shoulder": {
+      "correct": 127,
+      "pck": 0.9694656488549618,
+      "total": 131
+    },
+    "left_wrist": {
+      "correct": 111,
+      "pck": 0.8604651162790697,
+      "total": 129
+    },
+    "nose": {
+      "correct": 124,
+      "pck": 0.9763779527559056,
+      "total": 127
+    },
+    "right_ankle": {
+      "correct": 87,
+      "pck": 0.7631578947368421,
+      "total": 114
+    },
+    "right_elbow": {
+      "correct": 105,
+      "pck": 0.8333333333333334,
+      "total": 126
+    },
+    "right_hip": {
+      "correct": 129,
+      "pck": 0.9847328244274809,
+      "total": 131
+    },
+    "right_knee": {
+      "correct": 84,
+      "pck": 0.7924528301886793,
+      "total": 106
+    },
+    "right_shoulder": {
+      "correct": 125,
+      "pck": 0.9541984732824428,
+      "total": 131
+    },
+    "right_wrist": {
+      "correct": 110,
+      "pck": 0.8870967741935484,
+      "total": 124
+    }
+  },
+  "routeFolder": "midnight-lightning",
+  "runTs": "20260718-080334",
+  "scannerFrameIntervalSec": 0.10000000000000142,
+  "schemaVersion": 1,
+  "setupHash": "93a0ce14a2d9eb710a39843cbd37296c5336cce6ecd0fc3f418a83aa441e33b0",
+  "truthHash": "963b65c552cd6e09d4f01ab86f81691ae52ba6a380323c97bc386a006b9506b2",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "The_Mandala__v12__Bishop__CA_20260711-141532"
+}

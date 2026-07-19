@@ -1,0 +1,102 @@
+{
+  "counts": {
+    "matchedFrames": 48,
+    "scannerMissingFrames": 0,
+    "torsoUndefinedFrames": 4,
+    "truthFramesAbsent": 2,
+    "truthFramesTotal": 54
+  },
+  "joinToleranceSec": 0.5,
+  "jointSet": [
+    "nose",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle"
+  ],
+  "metric": "PCK@0.5-torso",
+  "perJoint": {
+    "left_ankle": {
+      "correct": 37,
+      "pck": 0.7872340425531915,
+      "total": 47
+    },
+    "left_elbow": {
+      "correct": 41,
+      "pck": 0.9111111111111111,
+      "total": 45
+    },
+    "left_hip": {
+      "correct": 45,
+      "pck": 0.9375,
+      "total": 48
+    },
+    "left_knee": {
+      "correct": 44,
+      "pck": 0.9166666666666666,
+      "total": 48
+    },
+    "left_shoulder": {
+      "correct": 45,
+      "pck": 0.9375,
+      "total": 48
+    },
+    "left_wrist": {
+      "correct": 34,
+      "pck": 0.8717948717948718,
+      "total": 39
+    },
+    "nose": {
+      "correct": 40,
+      "pck": 0.9302325581395349,
+      "total": 43
+    },
+    "right_ankle": {
+      "correct": 33,
+      "pck": 0.7857142857142857,
+      "total": 42
+    },
+    "right_elbow": {
+      "correct": 19,
+      "pck": 0.5588235294117647,
+      "total": 34
+    },
+    "right_hip": {
+      "correct": 44,
+      "pck": 0.9166666666666666,
+      "total": 48
+    },
+    "right_knee": {
+      "correct": 33,
+      "pck": 0.7857142857142857,
+      "total": 42
+    },
+    "right_shoulder": {
+      "correct": 44,
+      "pck": 0.9166666666666666,
+      "total": 48
+    },
+    "right_wrist": {
+      "correct": 28,
+      "pck": 0.8,
+      "total": 35
+    }
+  },
+  "routeFolder": "midnight-lightning",
+  "runTs": "20260717-231222",
+  "scannerFrameIntervalSec": 1.0,
+  "schemaVersion": 1,
+  "setupHash": "6afe2689e57dbfc41b619d2429fd5f7f30da07987417d6c7484de1c9bc3ff4fc",
+  "truthHash": "be8a4c047f4082633a9c6871060797cb0c6c2e28cc864718e893e0b95db38ddb",
+  "truthSetupHashSource": "truth",
+  "truthSource": "ground-truth",
+  "videoKey": "The_Mandala_V12_uncut_Bishop__CA__bouldering__cl_20260711-141635"
+}
