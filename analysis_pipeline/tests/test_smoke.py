@@ -767,12 +767,70 @@ def test_version_regression_never_deltas_across_truth_revisions():
         assert any("routeW/vidW" in f for f in ctx["version_flags"])
 
 
+# --------------------------------------------------------------------------- #
+# stale-run orphan pruning (issue #32)
+# --------------------------------------------------------------------------- #
+
+def test_evaluate_prune_removes_stale_run_orphan_keeps_history():
+    """A record whose run is setupHash-skipped AND whose truthHash8 is no longer
+    current is a stale-run orphan and is pruned; a superseded-truth record whose run
+    still pairs is truth-revision history and is retained; the live record stays."""
+
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeP" / "vidP"
+        _write_bundle_meta(vdir, setup_hash="sh_cur")
+        # Current truth self-reports groundTruthHash "abcdef1234567890" -> hash8 abcdef12.
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        # A live run that pairs under the current setup.
+        _write_pose_run(vdir, "20260101-000001", "sh_cur", _scanner_frames_for_pck())
+        # A stale run whose setupHash no longer matches -> evaluate skips it this run.
+        _write_pose_run(vdir, "20260101-000002", "sh_STALE", _scanner_frames_for_pck())
+
+        # First pass writes the live record for run ...0001 vs abcdef12.
+        summary0 = ev.evaluate(root)
+        assert len(summary0.written) == 1
+        eval_dir = vdir / "evaluations"
+        live_name = "20260101-000001_vs_abcdef12.json"
+        assert (eval_dir / live_name).exists()
+
+        # Seed two extra records on disk:
+        #  - an orphan for the stale run against an OLD truth hash (run no longer
+        #    pairs, hash not current) -> must be pruned.
+        orphan_name = "20260101-000002_vs_deadbeef.json"
+        (eval_dir / orphan_name).write_text(json.dumps({"stale": True}), encoding="utf-8")
+        #  - truth-revision history for the LIVE run against an old truth hash (run
+        #    still pairs) -> must be retained.
+        history_name = "20260101-000001_vs_99998888.json"
+        (eval_dir / history_name).write_text(json.dumps({"old": True}), encoding="utf-8")
+
+        # Dry run: reports the orphan, deletes nothing.
+        dry = ev.evaluate(root, prune=False)
+        assert len(dry.orphans) == 1
+        assert dry.orphans[0].record_path.name == orphan_name
+        assert not dry.orphans[0].removed
+        assert not dry.pruned
+        assert (eval_dir / orphan_name).exists()  # still there after dry run
+
+        # Prune: deletes only the orphan; history and the live record survive.
+        wet = ev.evaluate(root, prune=True)
+        assert len(wet.pruned) == 1
+        assert wet.pruned[0].record_path.name == orphan_name
+        assert not (eval_dir / orphan_name).exists()
+        assert (eval_dir / history_name).exists()
+        assert (eval_dir / live_name).exists()
+
+
 def _run_all():
     fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
            test_crossmatch_reducers, test_pipeline_end_to_end_renders_report,
            test_evaluate_pck_exact_and_edge_cases,
            test_evaluate_setuphash_mismatch_is_skipped,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
+           test_evaluate_prune_removes_stale_run_orphan_keeps_history,
            test_analysis_report_includes_eval_trend_sections,
            test_version_regression_delta_isolated_to_injected_joint,
            test_version_regression_never_deltas_across_truth_revisions]
