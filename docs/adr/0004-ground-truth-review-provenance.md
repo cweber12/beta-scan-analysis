@@ -1,7 +1,14 @@
 # ADR 0004 - Ground Truth review provenance separates agreement from accuracy
 
-- Status: Accepted
+- Status: Accepted (superseded in part by ADR 0005)
 - Date: 2026-07-15
+
+> **Note (2026-07-20):** ADR 0005 supersedes the weighting of
+> `human-flagged-absent` below. The manual-absent button has been removed and
+> ViTPose auto-absence is now reliable, so manual absent flags are deprecated: they
+> are **excluded from scoring** (not accuracy-tier evidence) and presence comes from
+> ViTPose's `state`, never the flag. The vocabulary, `setupHash` provenance, and the
+> `auto` / `human-flagged-wrong` decisions in this ADR still stand.
 
 ## Context
 

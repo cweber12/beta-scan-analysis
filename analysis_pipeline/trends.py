@@ -196,8 +196,8 @@ def _build_frame_joint_rows(
 
         scored_frames: list[dict[str, Any]] = []
         for tf in truth.frames:
-            if tf.flagged_wrong:
-                continue  # known-bad seed (issue #11): never a trend row
+            if tf.excluded:
+                continue  # known-bad seed or deprecated manual flag (ADR 0005)
             if not tf.present:
                 continue
             torso = torso_length(tf.joints)

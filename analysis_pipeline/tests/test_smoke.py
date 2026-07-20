@@ -382,27 +382,27 @@ def test_evaluate_pck_exact_and_edge_cases():
         assert rec["jointSet"] == ev.COCO_CORE_JOINTS
 
         counts = rec["counts"]
-        # The t3 frame is human-flagged-absent (accuracy-tier evidence); the rest
-        # are auto, and there are no flagged-wrong seeds to skip.
+        # The t3 frame is a deprecated manual absent flag (ADR 0005): excluded from
+        # scoring and reported in agreementSkipped. The rest are auto; there are no
+        # flagged-wrong seeds, and nothing is accuracy-tier evidence.
         assert counts == {"truthFramesTotal": 5, "truthFramesPresent": 4,
-                          "truthFramesAbsent": 1, "truthFramesVerified": 1,
+                          "truthFramesAbsent": 1, "truthFramesVerified": 0,
                           "review": {"auto": 4, "flaggedWrong": 0, "flaggedAbsent": 1},
-                          "agreementSkipped": {"flaggedWrong": 0}}
+                          "agreementSkipped": {"flaggedWrong": 0, "flaggedAbsent": 1}}
         assert rec["scannerFrameIntervalSec"] == 1.0
         assert rec["joinToleranceSec"] == 0.5
 
         agr = rec["agreement"]
-        # Frame accounting: t1/t2/t4 matched present, t3 matched absent, t9 has no
-        # scanner sample within tolerance (unobserved, not undetected). The one
-        # flagged-absent frame is agreement evidence too, so verifiedFrames counts it.
+        # Frame accounting: t1/t2/t4 matched present, t9 has no scanner sample within
+        # tolerance (unobserved). The t3 manual-absent frame is excluded entirely, so
+        # it never reaches the presence 2x2 despite the scanner hallucinating there.
         assert agr["frames"] == {
-            "truthFrames": 5, "verifiedFrames": 1,
-            "matchedPresent": 3, "matchedAbsent": 1,
+            "truthFrames": 4, "verifiedFrames": 0,
+            "matchedPresent": 3, "matchedAbsent": 0,
             "unmatchedPresent": 1, "unmatchedAbsent": 0,
             "torsoUndefined": 1, "scoreable": 2}
-        # Presence 2x2: the scanner hallucinated a full pose on the absent frame.
         assert agr["presence"] == {"presentDetected": 3, "presentUndetected": 0,
-                                   "absentDetected": 1, "absentUndetected": 0}
+                                   "absentDetected": 0, "absentUndetected": 0}
 
         pj = agr["perJoint"]
         # nose wrong in frame2 -> 1/2; its normalized dists are [0, 0.2/0.3].
@@ -429,18 +429,17 @@ def test_evaluate_pck_exact_and_edge_cases():
         assert agg["normDist"] == {"n": 25, "median": 0.0, "p90": 0.0}
         assert agg["coverage"] == {"emitted": 38, "frames": 39, "rate": 0.974359}
 
-        # Accuracy tier: the lone human-flagged-absent frame (t3) is the only
-        # accuracy-tier evidence. The scanner hallucinated a pose there, so its
-        # presence 2x2 records a false positive — but there are no present frames,
-        # hence no joint accuracy signal (nobody drags joints).
+        # Accuracy tier: no trustworthy human attestation exists (ADR 0005 retired
+        # manual-absent as evidence), so the block is present with explicit zero
+        # counts and null metrics — represented, never dropped.
         acc = rec["accuracy"]
         assert acc["frames"] == {
-            "truthFrames": 1, "verifiedFrames": 1,
-            "matchedPresent": 0, "matchedAbsent": 1,
+            "truthFrames": 0, "verifiedFrames": 0,
+            "matchedPresent": 0, "matchedAbsent": 0,
             "unmatchedPresent": 0, "unmatchedAbsent": 0,
             "torsoUndefined": 0, "scoreable": 0}
         assert acc["presence"] == {"presentDetected": 0, "presentUndetected": 0,
-                                   "absentDetected": 1, "absentUndetected": 0}
+                                   "absentDetected": 0, "absentUndetected": 0}
         assert acc["perJoint"]["nose"] == {
             "pck": {"correct": 0, "total": 0, "value": None},
             "normDist": {"n": 0, "median": None, "p90": None},
@@ -512,14 +511,15 @@ def test_evaluate_vitpose_fallback_when_no_ground_truth():
 
 
 def test_evaluate_review_provenance_routing():
-    """Issue #11: flagged-wrong seeds are excluded from every tier and only surface
-    in skip accounting; a frame whose review field is missing degrades to auto."""
+    """Issue #11 / ADR 0005: both flagged-wrong seeds and deprecated manual absent
+    flags are excluded from every tier and surface only in skip accounting; a frame
+    whose review field is missing degrades to auto."""
 
     from analysis_pipeline import evaluate as ev
 
     # Frames at 1s spacing: t1 auto (present, exact), t2 human-flagged-wrong (present
     # but its seed joints are deliberately off — must never be scored), t3 legacy
-    # (no review field -> auto), t4 human-flagged-absent (climber gone).
+    # (no review field -> auto), t4 human-flagged-absent (deprecated, excluded).
     bad = {n: (x + 5.0, y + 5.0) for n, (x, y) in _TRUTH_JOINTS.items()}
     doc = {
         "version": 1, "jointSet": list(_TRUTH_JOINTS),
@@ -557,27 +557,28 @@ def test_evaluate_review_provenance_routing():
         assert len(summary.written) == 1
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
-        # Per-category counts and skip accounting.
+        # Per-category counts and skip accounting: both flag classes are skipped.
         assert rec["counts"]["review"] == {"auto": 2, "flaggedWrong": 1,
                                             "flaggedAbsent": 1}
-        assert rec["counts"]["agreementSkipped"] == {"flaggedWrong": 1}
-        assert rec["counts"]["truthFramesVerified"] == 1
+        assert rec["counts"]["agreementSkipped"] == {"flaggedWrong": 1,
+                                                     "flaggedAbsent": 1}
+        assert rec["counts"]["truthFramesVerified"] == 0
 
-        # Agreement excludes the flagged-wrong seed entirely: only t1 and t3 (auto)
-        # are scoreable present frames, and the bad t2 joints never enter PCK — a
-        # perfect 2/2 despite the scanner "matching" the known-bad seed at t2.
+        # Agreement excludes both the flagged-wrong seed and the manual absent flag:
+        # only t1 and t3 (auto) are scoreable present frames, and the bad t2 joints
+        # never enter PCK — a perfect 2/2 despite the scanner "matching" the seed.
         agr = rec["agreement"]
         assert agr["frames"]["scoreable"] == 2
         assert agr["aggregate"]["pck"]["value"] == 1.0
-        # t4 flagged-absent: scanner hallucination is a presence false positive.
-        assert agr["presence"]["absentDetected"] == 1
+        # t4's manual-absent flag is excluded, so its hallucination is NOT scored.
+        assert agr["presence"]["absentDetected"] == 0
 
-        # Accuracy tier is exactly the flagged-absent frame and its false positive.
+        # Accuracy tier is empty: no trustworthy human attestation exists (ADR 0005).
         acc = rec["accuracy"]
-        assert acc["frames"]["truthFrames"] == 1
+        assert acc["frames"]["truthFrames"] == 0
         assert acc["presence"] == {"presentDetected": 0, "presentUndetected": 0,
-                                   "absentDetected": 1, "absentUndetected": 0}
-        assert acc["aggregate"]["pck"]["value"] is None  # no present frames, no joints
+                                   "absentDetected": 0, "absentUndetected": 0}
+        assert acc["aggregate"]["pck"]["value"] is None
 
 
 def test_evaluate_legacy_ground_truth_without_review_all_auto():
@@ -611,7 +612,8 @@ def test_evaluate_legacy_ground_truth_without_review_all_auto():
         assert rec["counts"]["review"] == {"auto": 2, "flaggedWrong": 0,
                                            "flaggedAbsent": 0}
         assert rec["counts"]["truthFramesVerified"] == 0
-        assert rec["counts"]["agreementSkipped"] == {"flaggedWrong": 0}
+        assert rec["counts"]["agreementSkipped"] == {"flaggedWrong": 0,
+                                                    "flaggedAbsent": 0}
         assert rec["agreement"]["frames"]["truthFrames"] == 2
         assert rec["accuracy"]["frames"]["truthFrames"] == 0
 
