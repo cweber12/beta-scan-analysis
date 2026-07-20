@@ -150,11 +150,26 @@ class Pairing:
 
 
 @dataclass
+class Orphan:
+    """An on-disk evaluation record whose run no longer pairs and whose truth hash is
+    no longer current — a stale-run leftover (issue #32). ``removed`` is True only when
+    ``evaluate(prune=True)`` actually deleted it; a dry run reports it without deleting."""
+
+    route_folder: str
+    video_key: str
+    run_ts: str
+    truth_hash8: str
+    record_path: Path
+    removed: bool = False
+
+
+@dataclass
 class EvalSummary:
     """Everything the CLI needs to print a run summary."""
 
     pairings: list[Pairing] = field(default_factory=list)
     truthless_videos: list[str] = field(default_factory=list)  # bundles with no truth
+    orphans: list[Orphan] = field(default_factory=list)  # stale-run records (issue #32)
 
     @property
     def written(self) -> list[Pairing]:
@@ -163,6 +178,10 @@ class EvalSummary:
     @property
     def skipped(self) -> list[Pairing]:
         return [p for p in self.pairings if p.status == "skipped"]
+
+    @property
+    def pruned(self) -> list[Orphan]:
+        return [o for o in self.orphans if o.removed]
 
 
 # --------------------------------------------------------------------------- #
@@ -479,8 +498,55 @@ def _iter_pose_runs(detections_dir: Path):
         yield run_ts, setup_hash, data.get("frames", []) or []
 
 
-def evaluate(analysis_root: Path) -> EvalSummary:
-    """Walk the bundle tree, pair every pose Run with truth, write eval records."""
+def _parse_record_name(name: str) -> tuple[str, str] | None:
+    """Split an ``<run_ts>_vs_<truthHash8>.json`` record name into its parts.
+
+    ``run_ts`` itself contains a hyphen (``20260719-205259``) but never ``_vs_``, so a
+    right partition on the separator is unambiguous. Returns ``None`` for any name that
+    doesn't fit the pattern — never touch a file we didn't write."""
+
+    if not name.endswith(".json"):
+        return None
+    run_ts, sep, truth_hash8 = name[:-len(".json")].rpartition("_vs_")
+    if not sep or not run_ts or not truth_hash8:
+        return None
+    return run_ts, truth_hash8
+
+
+def _prune_orphans(eval_dir: Path, paired_run_ts: set[str], current_truth_hash8: str,
+                   route_folder: str, video_key: str, prune: bool) -> list[Orphan]:
+    """Find (and, when ``prune``, delete) stale-run orphan records in one bundle.
+
+    A record is an orphan only when **both** its ``run_ts`` no longer pairs this run
+    (setupHash-skipped, or the pose file is gone) **and** its ``truthHash8`` is not the
+    bundle's current truth hash. A record whose run still pairs is kept even on an older
+    truth hash — that is intentional truth-revision history (issue #32 out-of-scope note),
+    not an orphan. A live record written this run carries the current hash and is kept."""
+
+    orphans: list[Orphan] = []
+    if not eval_dir.is_dir():
+        return orphans
+    for record_path in sorted(eval_dir.glob("*.json")):
+        parsed = _parse_record_name(record_path.name)
+        if parsed is None:
+            continue
+        run_ts, truth_hash8 = parsed
+        if run_ts in paired_run_ts or truth_hash8 == current_truth_hash8:
+            continue
+        removed = False
+        if prune:
+            record_path.unlink()
+            removed = True
+        orphans.append(Orphan(route_folder, video_key, run_ts, truth_hash8,
+                              record_path, removed))
+    return orphans
+
+
+def evaluate(analysis_root: Path, prune: bool = False) -> EvalSummary:
+    """Walk the bundle tree, pair every pose Run with truth, write eval records.
+
+    When ``prune`` is set, also delete stale-run orphan records (issue #32); with it
+    unset, orphans are still reported (dry run) but nothing is deleted."""
 
     summary = EvalSummary()
 
@@ -500,6 +566,7 @@ def evaluate(analysis_root: Path) -> EvalSummary:
         # else the bundle setup.json it was authored against (ADR 0004).
         effective_setup_hash = truth.setup_hash or setup.get("setupHash", "")
         truth_hash8 = truth.truth_hash[:8]
+        paired_run_ts: set[str] = set()
 
         for run_ts, pose_setup_hash, pose_frames in _iter_pose_runs(video_dir / "detections"):
             if pose_setup_hash != effective_setup_hash:
@@ -530,8 +597,13 @@ def evaluate(analysis_root: Path) -> EvalSummary:
             record_path = eval_dir / f"{run_ts}_vs_{truth_hash8}.json"
             record_path.write_text(
                 json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            paired_run_ts.add(run_ts)
             summary.pairings.append(Pairing(
                 route_folder, video_key, run_ts, truth.source, "written",
                 record_path=record_path))
+
+        summary.orphans.extend(_prune_orphans(
+            video_dir / "evaluations", paired_run_ts, truth_hash8,
+            route_folder, video_key, prune))
 
     return summary

@@ -92,10 +92,10 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True,
     return outputs
 
 
-def run_evaluate(analysis_root: Path) -> None:
+def run_evaluate(analysis_root: Path, prune: bool = False) -> None:
     """Pair pose Runs with bundle truth, write eval records, print a summary."""
 
-    summary = evaluate(analysis_root)
+    summary = evaluate(analysis_root, prune=prune)
     print(f"wrote {len(summary.written)} evaluation record(s) "
           f"from {analysis_root}")
     for p in summary.written:
@@ -105,6 +105,12 @@ def run_evaluate(analysis_root: Path) -> None:
         print(f"skipped {len(summary.skipped)} pair(s):")
         for p in summary.skipped:
             print(f"  {p.route_folder}/{p.video_key} {p.run_ts}: {p.reason}")
+    if summary.orphans:
+        verb = "pruned" if prune else "would prune"
+        print(f"{verb} {len(summary.orphans)} stale-run orphan record(s)"
+              + ("" if prune else " (dry run; pass --prune to remove)") + ":")
+        for o in summary.orphans:
+            print(f"  {o.route_folder}/{o.video_key} -> {o.record_path.name}")
     if summary.truthless_videos:
         print(f"no truth for {len(summary.truthless_videos)} bundle(s) "
               "(no ground-truth.json or vitpose.json)")
@@ -132,11 +138,15 @@ def main(argv: list[str] | None = None) -> None:
         "evaluate", help="write detection-vs-truth evaluation records into the bundles")
     p_ev.add_argument("analysis_root", nargs="?", default="analysis", type=Path,
                       help="root of the analysis/ bundle tree (default: analysis)")
+    p_ev.add_argument("--prune", action="store_true",
+                      help="delete stale-run orphan evaluation records (records whose "
+                           "run no longer pairs and whose truth hash is no longer "
+                           "current); without it, orphans are only reported (dry run)")
 
     args = parser.parse_args(argv)
 
     if args.command == "evaluate":
-        run_evaluate(args.analysis_root.resolve())
+        run_evaluate(args.analysis_root.resolve(), prune=args.prune)
         return
 
     # Default (no subcommand) and the explicit "analysis" subcommand both build the
