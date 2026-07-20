@@ -338,7 +338,9 @@ def _ground_truth_doc(setup_hash: str | None) -> dict:
 
 
 def _scanner_frames_for_pck() -> list:
-    """Frame @1.0 matches truth exactly; @2.0 offsets nose and thins left_wrist."""
+    """@1.0 matches truth exactly; @2.0 offsets nose and thins left_wrist;
+    @3.0 hallucinates a pose on the truth-absent frame; @4.0 matches the
+    torso-undefined truth frame (coverage evidence, not PCK/distance)."""
 
     f1 = {"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)}
     off = dict(_TRUTH_JOINTS)
@@ -346,7 +348,8 @@ def _scanner_frames_for_pck() -> list:
     off.pop("left_wrist")          # thinned scanner joint -> a miss
     f2 = {"timestamp": 2.0, "keypoints": _kp_list(off)}
     f3 = {"timestamp": 3.0, "keypoints": _kp_list(_TRUTH_JOINTS)}  # truth absent here
-    return [f1, f2, f3]
+    f4 = {"timestamp": 4.0, "keypoints": _kp_list(_TRUTH_JOINTS)}  # torso-undefined
+    return [f1, f2, f3, f4]
 
 
 def test_evaluate_pck_exact_and_edge_cases():
@@ -366,8 +369,9 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION
-        assert rec["metric"] == "PCK@0.5-torso"
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 2
+        assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
+                                  "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
         assert rec["truthSource"] == "ground-truth"
         assert rec["truthHash"] == "abcdef1234567890"
@@ -375,23 +379,64 @@ def test_evaluate_pck_exact_and_edge_cases():
         assert rec["jointSet"] == ev.COCO_CORE_JOINTS
 
         counts = rec["counts"]
-        assert counts["truthFramesTotal"] == 5
-        assert counts["truthFramesAbsent"] == 1
-        assert counts["torsoUndefinedFrames"] == 1
-        assert counts["matchedFrames"] == 2
-        assert counts["scannerMissingFrames"] == 1
+        assert counts == {"truthFramesTotal": 5, "truthFramesPresent": 4,
+                          "truthFramesAbsent": 1, "truthFramesVerified": 0}
         assert rec["scannerFrameIntervalSec"] == 1.0
         assert rec["joinToleranceSec"] == 0.5
 
-        pj = rec["perJoint"]
-        # nose wrong in frame2 -> 1/2; left_wrist thinned in frame2 -> 1/2.
-        assert pj["nose"] == {"correct": 1, "total": 2, "pck": 0.5}
-        assert pj["left_wrist"] == {"correct": 1, "total": 2, "pck": 0.5}
-        # every other core joint matched exactly in both frames -> 2/2.
+        agr = rec["agreement"]
+        # Frame accounting: t1/t2/t4 matched present, t3 matched absent, t9 has no
+        # scanner sample within tolerance (unobserved, not undetected).
+        assert agr["frames"] == {
+            "truthFrames": 5, "verifiedFrames": 0,
+            "matchedPresent": 3, "matchedAbsent": 1,
+            "unmatchedPresent": 1, "unmatchedAbsent": 0,
+            "torsoUndefined": 1, "scoreable": 2}
+        # Presence 2x2: the scanner hallucinated a full pose on the absent frame.
+        assert agr["presence"] == {"presentDetected": 3, "presentUndetected": 0,
+                                   "absentDetected": 1, "absentUndetected": 0}
+
+        pj = agr["perJoint"]
+        # nose wrong in frame2 -> 1/2; its normalized dists are [0, 0.2/0.3].
+        assert pj["nose"]["pck"] == {"correct": 1, "total": 2, "value": 0.5}
+        assert pj["nose"]["normDist"] == {"n": 2, "median": 0.333333, "p90": 0.6}
+        assert pj["nose"]["coverage"] == {"emitted": 3, "frames": 3, "rate": 1.0}
+        # left_wrist thinned in frame2 -> a PCK miss AND a coverage gap; the one
+        # emitted observation is exact so its distances collapse to zero.
+        assert pj["left_wrist"]["pck"] == {"correct": 1, "total": 2, "value": 0.5}
+        assert pj["left_wrist"]["normDist"] == {"n": 1, "median": 0.0, "p90": 0.0}
+        assert pj["left_wrist"]["coverage"] == {"emitted": 2, "frames": 3,
+                                                "rate": 0.666667}
+        # every other core joint matched exactly on both scoreable frames.
         for name in ev.COCO_CORE_JOINTS:
             if name in ("nose", "left_wrist"):
                 continue
-            assert pj[name] == {"correct": 2, "total": 2, "pck": 1.0}, name
+            assert pj[name]["pck"] == {"correct": 2, "total": 2, "value": 1.0}, name
+            assert pj[name]["normDist"] == {"n": 2, "median": 0.0, "p90": 0.0}, name
+            assert pj[name]["coverage"] == {"emitted": 3, "frames": 3,
+                                            "rate": 1.0}, name
+
+        agg = agr["aggregate"]
+        assert agg["pck"] == {"correct": 24, "total": 26, "value": 0.923077}
+        assert agg["normDist"] == {"n": 25, "median": 0.0, "p90": 0.0}
+        assert agg["coverage"] == {"emitted": 38, "frames": 39, "rate": 0.974359}
+
+        # Accuracy tier: no human-verified frames exist, so the block is present
+        # with explicit zero counts and null metrics — represented, never dropped.
+        acc = rec["accuracy"]
+        assert acc["frames"] == {
+            "truthFrames": 0, "verifiedFrames": 0,
+            "matchedPresent": 0, "matchedAbsent": 0,
+            "unmatchedPresent": 0, "unmatchedAbsent": 0,
+            "torsoUndefined": 0, "scoreable": 0}
+        assert acc["presence"] == {"presentDetected": 0, "presentUndetected": 0,
+                                   "absentDetected": 0, "absentUndetected": 0}
+        assert acc["perJoint"]["nose"] == {
+            "pck": {"correct": 0, "total": 0, "value": None},
+            "normDist": {"n": 0, "median": None, "p90": None},
+            "coverage": {"emitted": 0, "frames": 0, "rate": None}}
+        assert acc["aggregate"]["pck"]["value"] is None
+        assert acc["aggregate"]["normDist"] == {"n": 0, "median": None, "p90": None}
 
         # Idempotent filename: rerun overwrites, no second file.
         summary2 = ev.evaluate(root)
@@ -443,9 +488,17 @@ def test_evaluate_vitpose_fallback_when_no_ground_truth():
         # vitpose hash is content-derived (no groundTruthHash), 64-hex sha256.
         assert len(rec["truthHash"]) == 64
         assert rec["counts"]["truthFramesAbsent"] == 1  # the empty-keypoints frame
-        assert rec["counts"]["matchedFrames"] == 1
+        agr = rec["agreement"]
+        assert agr["frames"]["matchedPresent"] == 1
+        # the scanner posed the seeded-absent frame -> presence false positive.
+        assert agr["presence"]["absentDetected"] == 1
         # perfect match on the one scored frame.
-        assert rec["perJoint"]["nose"] == {"correct": 1, "total": 1, "pck": 1.0}
+        assert agr["perJoint"]["nose"]["pck"] == {"correct": 1, "total": 1,
+                                                  "value": 1.0}
+        assert agr["perJoint"]["nose"]["normDist"] == {"n": 1, "median": 0.0,
+                                                       "p90": 0.0}
+        # vitpose truth is a machine seed: never accuracy-tier evidence.
+        assert rec["accuracy"]["frames"]["truthFrames"] == 0
 
 
 def _run_all():

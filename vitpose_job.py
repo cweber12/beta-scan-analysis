@@ -250,6 +250,11 @@ def bundle_dir_for(analysis_root: Path, route_folder: str, video_key: str) -> Pa
 _ASSOC_BASE = 0.08
 _ASSOC_PER_FRAME = 0.04
 _ASSOC_MAX = 0.18
+# Hard per-step area-consistency gate for association. The seed box can be tight
+# while a foreground passer fills a much larger fraction of frame; when centers
+# are nearby, motion-only ranking can otherwise latch onto the passer in one hop.
+_ASSOC_AREA_MIN_RATIO = 1.0 / 3.0
+_ASSOC_AREA_MAX_RATIO = 3.0
 _REACQUIRE_AREA_MIN_RATIO = 1.0 / 3.0
 _REACQUIRE_AREA_MAX_RATIO = 3.0
 
@@ -369,6 +374,9 @@ def _seed_climber(
     the earliest containing frame, then nearest center over the clip. Seed candidates
     must pass the expanded crop gate when a climber crop is present.
 
+    Note: this is a seed-time gate only. Per-frame identity tracking uses motion,
+    appearance, and area-consistency gating in ``_best_candidate``.
+
     Without a tap: seed from the first box of the most prominent persistent track
     inside the crop.
     """
@@ -447,6 +455,8 @@ def _best_candidate(
         area_pen = 0.0
         if prev.area > 0.0 and box.area > 0.0:
             ratio = box.area / prev.area
+            if not (_ASSOC_AREA_MIN_RATIO <= ratio <= _ASSOC_AREA_MAX_RATIO):
+                continue
             if long_gap and not (
                 _REACQUIRE_AREA_MIN_RATIO <= ratio <= _REACQUIRE_AREA_MAX_RATIO
             ):

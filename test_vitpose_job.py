@@ -217,6 +217,48 @@ def test_climber_track_reacquire_rejects_large_area_jump_after_gap():
     assert set(traj.keys()) == {0}
 
 
+def test_climber_track_rejects_foreground_runner_area_jump_on_consecutive_frame():
+    # Regression: a foreground runner can pass close to the climber's center while
+    # being much larger in frame. Even with no appearance features, the stitcher
+    # must reject that abrupt area jump instead of switching identities.
+    history = [
+        FrameTracks(0.1 * i, {1: Box(0.30 + 0.01 * i, 0.50, 0.10, 0.20)})
+        for i in range(6)
+    ]
+    history.append(
+        FrameTracks(
+            0.6,
+            {
+                1: Box(0.50, 0.50, 0.10, 0.20),
+                9: Box(0.29, 0.32, 0.24, 0.50),
+            },
+        )
+    )
+    history.append(FrameTracks(0.7, {9: Box(0.30, 0.31, 0.24, 0.50)}))
+    history.append(FrameTracks(0.8, {9: Box(0.31, 0.30, 0.24, 0.50)}))
+
+    traj = build_climber_track(history, Point(0.35, 0.58, t=0.0), None)
+    assert set(traj.keys()) == {0, 1, 2, 3, 4, 5}
+
+
+def test_climber_track_keeps_absent_gap_until_climber_reappears_after_runner_cross():
+    # Documented behavior: when only an oversized foreground runner is available,
+    # the stitcher should mark frames absent (no wrong-person pickup) and resume
+    # once a size-consistent climber box reappears.
+    history = [
+        FrameTracks(0.1 * i, {1: Box(0.30 + 0.01 * i, 0.50, 0.10, 0.20)})
+        for i in range(6)
+    ]
+    history += [
+        FrameTracks(0.6 + 0.1 * j, {9: Box(0.29 + 0.01 * j, 0.32, 0.24, 0.50)})
+        for j in range(3)
+    ]
+    history.append(FrameTracks(0.9, {22: Box(0.37, 0.49, 0.10, 0.20)}))
+
+    traj = build_climber_track(history, Point(0.35, 0.58, t=0.0), None)
+    assert set(traj.keys()) == {0, 1, 2, 3, 4, 5, 9}
+
+
 def test_no_tap_crop_filter_out_produces_empty_trajectory_and_artifact_frames():
     history = [
         FrameTracks(0.0, {1: Box(0.60, 0.40, 0.10, 0.10)}),
