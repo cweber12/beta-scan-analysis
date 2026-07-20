@@ -22,13 +22,23 @@ joints, so a missing joint is a counted signal, not a skip). All distances are
 normalized by the **truth** torso length (shoulder-midpoint to hip-midpoint) —
 never the scanner's — so a collapsed detection cannot shrink its own scale.
 
-Every record carries two tiers sharing the same pairing work: ``agreement`` over
-all truth frames, ``accuracy`` over human-verified truth frames only. Both blocks
-always carry their frame counts so an agreement number can never masquerade as
-accuracy. The review contract (issue #5) has no positive human-attestation value
-yet — ``verified: true`` in ground-truth.json means "nobody objected", not "a human
-attested this" — so the accuracy tier is structurally present but empty today.
-Routing of ``human-flagged-*`` frames is issue #11's scope.
+Every record carries two tiers sharing the same pairing work (issue #11 routes the
+review provenance from ADR 0004 into them):
+
+- ``auto`` frames are unchallenged ViTPose scaffold — agreement-tier evidence only.
+- ``human-flagged-absent`` frames are human-attested presence negatives: a scanner
+  detection there is a presence false positive. They feed *both* tiers, so they are
+  the only accuracy-tier evidence today (nobody drags joints, so there is still no
+  accuracy-tier *joint* signal — the presence 2x2 is what the accuracy tier gains).
+- ``human-flagged-wrong`` frames carry a known-bad seed skeleton; comparing against
+  it poisons the numbers, so they are excluded from *every* tier's scoring and only
+  surface in the record's ``agreementSkipped`` accounting.
+
+Both blocks always carry their frame counts so an agreement number can never
+masquerade as accuracy, and ``counts.review`` reports the per-category breakdown.
+Legacy ground-truth without a ``review`` field degrades gracefully: every frame is
+treated as ``auto``. Never gate on the ground-truth ``verified`` flag — under
+auto-accept it means "nobody objected", not "a human attested this".
 """
 
 from __future__ import annotations
@@ -45,13 +55,13 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 # Evaluation record schema version. Bump on any record-shape change.
 SCHEMA_VERSION = 2
 
-# Review values that mark a frame as human-attested (accuracy-tier evidence).
-# The agreed vocabulary (issue #5) is auto / human-flagged-wrong /
-# human-flagged-absent — none attests joint positions, so this set names only the
-# *future* positive value and the accuracy tier stays empty until it exists
-# (second-model verification is issue #12). Never gate on the ground-truth
-# ``verified`` flag: under auto-accept it means "nobody objected".
-HUMAN_VERIFIED_REVIEWS = frozenset({"human-verified"})
+# Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
+# outside this set — including a missing field on legacy artifacts — normalizes to
+# ``auto``, so old truth degrades gracefully to agreement-tier evidence.
+REVIEW_AUTO = "auto"
+REVIEW_FLAGGED_WRONG = "human-flagged-wrong"
+REVIEW_FLAGGED_ABSENT = "human-flagged-absent"
+REVIEW_VOCAB = frozenset({REVIEW_AUTO, REVIEW_FLAGGED_WRONG, REVIEW_FLAGGED_ABSENT})
 
 # The 13 shared COCO core joints (ADR 0003 / ground-truth jointSet). Every truth
 # source and the scanner pose name these identically, so we join by name.
@@ -82,7 +92,25 @@ class TruthFrame:
     timestamp: float
     present: bool  # a Climber is present in this frame (scorable)
     joints: dict[str, tuple[float, float]]  # name -> (x, y), present+non-occluded only
-    verified: bool = False  # review value in HUMAN_VERIFIED_REVIEWS (accuracy tier)
+    review: str = REVIEW_AUTO  # normalized provenance (ADR 0004)
+
+    @property
+    def flagged_wrong(self) -> bool:
+        """Human marked the seed pose wrong: known-bad, excluded from every tier."""
+        return self.review == REVIEW_FLAGGED_WRONG
+
+    @property
+    def flagged_absent(self) -> bool:
+        """Human attested the climber absent: a real presence negative."""
+        return self.review == REVIEW_FLAGGED_ABSENT
+
+    @property
+    def verified(self) -> bool:
+        """Accuracy-tier eligible — human-attested truth. Only a flagged-absent
+        frame supplies usable human truth today (a presence negative); a
+        flagged-wrong frame attests only that the seed is bad (feeds no tier), and
+        an ``auto`` frame is unchallenged scaffold, never attestation."""
+        return self.review == REVIEW_FLAGGED_ABSENT
 
 
 @dataclass
@@ -138,7 +166,13 @@ def _truth_from_ground_truth(doc: dict[str, Any]) -> TruthDoc:
 
     frames: list[TruthFrame] = []
     for fr in doc.get("frames", []):
-        present = fr.get("state", "present") == "present"
+        review = fr.get("review")
+        review = review if review in REVIEW_VOCAB else REVIEW_AUTO
+        # A human absent-flag is the presence authority (issue #11): it overrides
+        # whatever ``state`` the auto scaffold carried, so a scanner detection there
+        # scores as a presence false positive.
+        present = (fr.get("state", "present") == "present"
+                   and review != REVIEW_FLAGGED_ABSENT)
         joints: dict[str, tuple[float, float]] = {}
         raw = fr.get("joints", {}) or {}
         for name, j in raw.items():
@@ -149,9 +183,8 @@ def _truth_from_ground_truth(doc: dict[str, Any]) -> TruthDoc:
             x, y = j.get("x"), j.get("y")
             if x is not None and y is not None:
                 joints[name] = (float(x), float(y))
-        verified = fr.get("review") in HUMAN_VERIFIED_REVIEWS
         frames.append(TruthFrame(float(fr.get("timestamp", 0.0)), present, joints,
-                                 verified=verified))
+                                 review=review))
     truth_hash = doc.get("groundTruthHash") or _content_hash(doc)
     return TruthDoc("ground-truth", doc.get("setupHash") or "", truth_hash, frames)
 
@@ -370,9 +403,10 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[st
     """Compute the full metric set for one pose Run against one truth doc.
 
     Returns the record body (counts + agreement/accuracy tiers); provenance is
-    stamped by the caller. Both tiers share the same frame pairing; accuracy only
-    considers human-verified truth frames (empty until the review contract grows a
-    positive attestation value).
+    stamped by the caller. Both tiers share the same frame pairing. ``human-flagged-
+    wrong`` frames are a known-bad seed and are excluded from both tiers' scoring
+    (surfaced only in ``counts.agreementSkipped``); ``human-flagged-absent`` frames
+    are human-attested presence negatives and are the only accuracy-tier evidence.
     """
 
     scanner_ts = sorted(float(f.get("timestamp", 0.0)) for f in pose_frames)
@@ -391,6 +425,12 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[st
                 tf, True, _pose_frame_joints(by_ts[scanner_ts[idx]])))
 
     n_present = sum(1 for p in pairs if p.truth.present)
+    n_wrong = sum(1 for p in pairs if p.truth.flagged_wrong)
+    n_absent_flag = sum(1 for p in pairs if p.truth.flagged_absent)
+    n_verified = sum(1 for p in pairs if p.truth.verified)
+    # Agreement drops only the known-bad seeds; accuracy keeps human-attested truth.
+    agreement_pairs = [p for p in pairs if not p.truth.flagged_wrong]
+    accuracy_pairs = [p for p in pairs if p.truth.verified]
     return {
         "joinToleranceSec": tol,
         "scannerFrameIntervalSec": interval,
@@ -398,10 +438,13 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[st
             "truthFramesTotal": len(pairs),
             "truthFramesPresent": n_present,
             "truthFramesAbsent": len(pairs) - n_present,
-            "truthFramesVerified": sum(1 for p in pairs if p.truth.verified),
+            "truthFramesVerified": n_verified,
+            "review": {"auto": len(pairs) - n_wrong - n_absent_flag,
+                       "flaggedWrong": n_wrong, "flaggedAbsent": n_absent_flag},
+            "agreementSkipped": {"flaggedWrong": n_wrong},
         },
-        "agreement": _score_tier(pairs),
-        "accuracy": _score_tier([p for p in pairs if p.truth.verified]),
+        "agreement": _score_tier(agreement_pairs),
+        "accuracy": _score_tier(accuracy_pairs),
     }
 
 
