@@ -6,7 +6,9 @@ The analysis command reads committed evaluation records under each bundle's
 - per-joint failure ranking with bootstrap CIs (frame/joint unit),
 - within-video condition trends (size, speed, edge proximity) vs joint error,
 - cross-video descriptive splits (resolution, panning, source type) with CIs,
-- coverage/shame accounting (truthless bundles, stale setup runs).
+- coverage/shame accounting (truthless bundles, stale setup runs),
+- scanner appVersion run-over-run regression tracking (issue #10): consecutive
+  versions delta'd per joint over a truth-hash-matched video pool.
 
 This module never writes evaluation records and never calls the evaluate
 subcommand; it only consumes existing artifacts in the bundle tree.
@@ -21,9 +23,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
-from .discovery import _iter_video_dirs, _load_json
+from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 from .evaluate import (
     COCO_CORE_JOINTS,
     _dist,
@@ -103,6 +106,32 @@ def _iter_eval_records(analysis_root: Path) -> list[EvalRecord]:
     return sorted(latest_by_run.values(), key=lambda r: (r.route_folder, r.video_key, r.run_ts))
 
 
+def _load_pose_runs(video_dir: Path) -> dict[str, tuple[str, list[dict[str, Any]]]]:
+    """Map ``run_ts -> (scanner appVersion, pose frames)`` for one bundle.
+
+    The appVersion (a scanner commit hash) lives only in the pose envelope's
+    diagnostics — evaluation records don't carry it — so version tracking
+    resolves it from the detection files at trend time.
+    """
+
+    out: dict[str, tuple[str, list[dict[str, Any]]]] = {}
+    detections_dir = video_dir / "detections"
+    if not detections_dir.is_dir():
+        return out
+    for stem, kinds in _pair_stems(detections_dir).items():
+        if "pose" not in kinds:
+            continue
+        try:
+            env = _load_json(kinds["pose"])
+        except Exception:
+            continue
+        data = _unwrap(env)
+        run_ts = str(env.get("run_ts", stem))
+        app_version = str((data.get("diagnostics") or {}).get("appVersion") or "")
+        out[run_ts] = (app_version, data.get("frames", []) or [])
+    return out
+
+
 def _bundle_meta(video_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     metadata = _load_json(video_dir / "metadata.json")
     setup_path = video_dir / "setup.json"
@@ -130,7 +159,11 @@ def _frame_bbox_metrics(joints: dict[str, tuple[float, float]]) -> tuple[float, 
     return bbox_h, edge_dist
 
 
-def _build_frame_joint_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataFrame:
+def _build_frame_joint_rows(
+    analysis_root: Path,
+    recs: list[EvalRecord],
+    pose_cache: dict[tuple[str, str], dict[str, tuple[str, list[dict[str, Any]]]]],
+) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for rec in recs:
         video_dir = analysis_root / rec.route_folder / rec.video_key
@@ -143,8 +176,8 @@ def _build_frame_joint_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.D
             # Keep trend analysis anchored to the same truth revision as the record.
             continue
 
-        pose_runs = {run_ts: frames for run_ts, _, frames in _iter_pose_runs(video_dir / "detections")}
-        pose_frames = pose_runs.get(rec.run_ts)
+        pose_runs = pose_cache.get((rec.route_folder, rec.video_key), {})
+        app_version, pose_frames = pose_runs.get(rec.run_ts, ("", None))
         if pose_frames is None:
             continue
 
@@ -210,6 +243,8 @@ def _build_frame_joint_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.D
                     "route_folder": rec.route_folder,
                     "video_key": rec.video_key,
                     "run_ts": rec.run_ts,
+                    "app_version": app_version,
+                    "truth_hash": truth.truth_hash,
                     "source_type": source_type,
                     "resolution": resolution,
                     "panning": panning_label,
@@ -344,6 +379,170 @@ def _cross_video_splits(recs: list[EvalRecord], analysis_root: Path) -> pd.DataF
     return pd.DataFrame(out_rows)
 
 
+def _bootstrap_rate_delta(a: list[int], b: list[int],
+                          n_boot: int = N_BOOT) -> tuple[float, float, float]:
+    """Delta of means ``b - a`` for 0/1 outcomes with a percentile bootstrap CI.
+
+    Resampling n iid 0/1 values and taking the mean is Binomial(n, p̂)/n, so the
+    bootstrap draws come straight from the binomial (vectorised, deterministic).
+    """
+
+    rng = np.random.default_rng(BOOT_SEED)
+    na, nb = len(a), len(b)
+    pa, pb = sum(a) / na, sum(b) / nb
+    draws = rng.binomial(nb, pb, n_boot) / nb - rng.binomial(na, pa, n_boot) / na
+    lo, hi = np.quantile(draws, [0.025, 0.975])
+    return (pb - pa, float(lo), float(hi))
+
+
+def _bootstrap_median_delta(a: list[float], b: list[float],
+                            n_boot: int = N_BOOT) -> tuple[float, float, float]:
+    """Delta of medians ``b - a`` with a percentile bootstrap CI."""
+
+    rng = np.random.default_rng(BOOT_SEED)
+
+    def boot_medians(vals: list[float]) -> np.ndarray:
+        v = np.asarray(vals, dtype=float)
+        n = len(v)
+        out = np.empty(n_boot)
+        batch = max(1, 20_000_000 // n)  # cap the index matrix at ~20M cells
+        i = 0
+        while i < n_boot:
+            j = min(n_boot, i + batch)
+            out[i:j] = np.median(v[rng.integers(0, n, size=(j - i, n))], axis=1)
+            i = j
+        return out
+
+    draws = boot_medians(b) - boot_medians(a)
+    lo, hi = np.quantile(draws, [0.025, 0.975])
+    delta = float(np.median(np.asarray(b)) - np.median(np.asarray(a)))
+    return (delta, float(lo), float(hi))
+
+
+_ALL_JOINTS = "(all joints)"
+
+
+def _version_regression(
+    recs: list[EvalRecord],
+    frame_joint_df: pd.DataFrame,
+    app_versions: dict[tuple[str, str, str], str],
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+    """Group eval records by scanner appVersion and delta consecutive versions.
+
+    Versions are ordered by first-seen run timestamp. For each consecutive pair
+    the comparison pool is restricted to ``(video, truthHash)`` combos with
+    records on *both* sides — a truth revision must never masquerade as a
+    scanner change — and per-joint PCK / median-error deltas carry bootstrap
+    CIs so noise at small n reads as noise. Videos where both versions ran but
+    never under the same truth are flagged as mixed-truth and excluded.
+    """
+
+    flags: list[str] = []
+    by_version: dict[str, list[EvalRecord]] = {}
+    unknown = 0
+    for rec in recs:
+        av = app_versions.get((rec.route_folder, rec.video_key, rec.run_ts), "")
+        if not av:
+            unknown += 1
+            continue
+        by_version.setdefault(av, []).append(rec)
+    if unknown:
+        flags.append(
+            f"{unknown} evaluation record(s) without a scanner appVersion "
+            "(pose diagnostics missing) excluded from version tracking")
+
+    ordered = sorted(by_version, key=lambda v: min(r.run_ts for r in by_version[v]))
+    overview = pd.DataFrame([{
+        "app_version": v,
+        "first_run_ts": min(r.run_ts for r in by_version[v]),
+        "last_run_ts": max(r.run_ts for r in by_version[v]),
+        "n_records": len(by_version[v]),
+        "n_videos": len({(r.route_folder, r.video_key) for r in by_version[v]}),
+    } for v in ordered])
+
+    if frame_joint_df.empty:
+        pool_key = pd.Series(dtype=object)
+    else:
+        pool_key = pd.Series(
+            list(zip(frame_joint_df["route_folder"], frame_joint_df["video_key"],
+                     frame_joint_df["truth_hash"])),
+            index=frame_joint_df.index)
+
+    delta_rows: list[dict[str, Any]] = []
+    for va, vb in zip(ordered, ordered[1:]):
+        truths: list[dict[tuple[str, str], set[str]]] = []
+        for version in (va, vb):
+            per_video: dict[tuple[str, str], set[str]] = {}
+            for r in by_version[version]:
+                if r.truth_hash:
+                    per_video.setdefault((r.route_folder, r.video_key), set()).add(r.truth_hash)
+            truths.append(per_video)
+        truths_a, truths_b = truths
+
+        comparable: set[tuple[str, str, str]] = set()
+        for vid in sorted(set(truths_a) & set(truths_b)):
+            shared = truths_a[vid] & truths_b[vid]
+            if shared:
+                comparable.update((vid[0], vid[1], th) for th in shared)
+            else:
+                flags.append(
+                    f"{va} → {vb}: {vid[0]}/{vid[1]} has runs from both versions "
+                    "but never under the same truth revision — excluded (mixed truth)")
+        if not comparable:
+            flags.append(f"{va} → {vb}: no videos with both versions under a "
+                         "shared truth revision — no deltas computed")
+            continue
+        if frame_joint_df.empty:
+            continue
+
+        n_videos = len({(r, k) for r, k, _ in comparable})
+        in_pool = pool_key.isin(comparable)
+        sub_a = frame_joint_df[(frame_joint_df["app_version"] == va) & in_pool]
+        sub_b = frame_joint_df[(frame_joint_df["app_version"] == vb) & in_pool]
+        for tier in ("agreement", "accuracy"):
+            ta = sub_a[sub_a["tier"] == tier]
+            tb = sub_b[sub_b["tier"] == tier]
+            if ta.empty or tb.empty:
+                continue
+            for joint in [_ALL_JOINTS, *COCO_CORE_JOINTS]:
+                ja = ta if joint == _ALL_JOINTS else ta[ta["joint"] == joint]
+                jb = tb if joint == _ALL_JOINTS else tb[tb["joint"] == joint]
+                a_correct = ja["correct"].astype(int).tolist()
+                b_correct = jb["correct"].astype(int).tolist()
+                if not a_correct or not b_correct:
+                    continue
+                pck_delta, pck_lo, pck_hi = _bootstrap_rate_delta(a_correct, b_correct)
+                a_dist = ja["norm_dist"].dropna().tolist()
+                b_dist = jb["norm_dist"].dropna().tolist()
+                if a_dist and b_dist:
+                    med_a = float(np.median(a_dist))
+                    med_b = float(np.median(b_dist))
+                    med_delta, med_lo, med_hi = _bootstrap_median_delta(a_dist, b_dist)
+                else:
+                    med_a = med_b = med_delta = med_lo = med_hi = math.nan
+                delta_rows.append({
+                    "from_version": va,
+                    "to_version": vb,
+                    "tier": tier,
+                    "joint": joint,
+                    "n_videos": n_videos,
+                    "n_from": len(a_correct),
+                    "n_to": len(b_correct),
+                    "pck_from": sum(a_correct) / len(a_correct),
+                    "pck_to": sum(b_correct) / len(b_correct),
+                    "pck_delta": pck_delta,
+                    "pck_ci_low": pck_lo,
+                    "pck_ci_high": pck_hi,
+                    "med_from": med_a,
+                    "med_to": med_b,
+                    "med_delta": med_delta,
+                    "med_ci_low": med_lo,
+                    "med_ci_high": med_hi,
+                })
+
+    return overview, pd.DataFrame(delta_rows), flags
+
+
 def _shame_lists(analysis_root: Path) -> tuple[list[str], list[str]]:
     no_truth: list[str] = []
     stale_runs: list[str] = []
@@ -367,8 +566,20 @@ def _shame_lists(analysis_root: Path) -> tuple[list[str], list[str]]:
 
 def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     recs = _iter_eval_records(analysis_root)
-    frame_joint_df = _build_frame_joint_rows(analysis_root, recs)
+    pose_cache: dict[tuple[str, str], dict[str, tuple[str, list[dict[str, Any]]]]] = {}
+    for rec in recs:
+        vid = (rec.route_folder, rec.video_key)
+        if vid not in pose_cache:
+            pose_cache[vid] = _load_pose_runs(analysis_root / rec.route_folder / rec.video_key)
+    app_versions = {
+        (route, key, run_ts): av
+        for (route, key), runs in pose_cache.items()
+        for run_ts, (av, _) in runs.items()
+    }
+    frame_joint_df = _build_frame_joint_rows(analysis_root, recs, pose_cache)
     joint_rank = _joint_ranking(frame_joint_df)
+    version_overview, version_deltas, version_flags = _version_regression(
+        recs, frame_joint_df, app_versions)
     cond_df = pd.concat(
         [
             _condition_bands(frame_joint_df, "size_frac"),
@@ -396,6 +607,9 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "joint_rank": joint_rank,
         "condition_bands": cond_df,
         "cross_video_splits": split_df,
+        "version_overview": version_overview,
+        "version_deltas": version_deltas,
+        "version_flags": version_flags,
         "truthless_bundles": no_truth,
         "stale_runs": stale_runs,
         "verified_frames_total": verified_total,
@@ -414,6 +628,8 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_joint_ranking.csv": ctx.get("joint_rank"),
         "eval_condition_bands.csv": ctx.get("condition_bands"),
         "eval_cross_video_splits.csv": ctx.get("cross_video_splits"),
+        "eval_version_overview.csv": ctx.get("version_overview"),
+        "eval_version_deltas.csv": ctx.get("version_deltas"),
     }
     for name, table in tables.items():
         if isinstance(table, pd.DataFrame) and not table.empty:

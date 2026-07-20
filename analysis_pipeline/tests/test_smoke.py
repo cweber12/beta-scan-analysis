@@ -291,12 +291,15 @@ def _kp_list(joints: dict) -> list:
     return [{"name": n, "x": x, "y": y, "score": 0.9} for n, (x, y) in joints.items()]
 
 
-def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list) -> None:
+def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list,
+                    app_version: str = "") -> None:
     det = video_dir / "detections"
     det.mkdir(parents=True, exist_ok=True)
+    diagnostics = {"appVersion": app_version} if app_version else {}
     env = {"video_key": video_dir.name, "route_folder": video_dir.parent.name,
            "run_ts": stem, "type": "pose",
-           "data": {"setupHash": setup_hash, "diagnostics": {}, "frames": frames}}
+           "data": {"setupHash": setup_hash, "diagnostics": diagnostics,
+                    "frames": frames}}
     (det / f"{stem}_pose.json").write_text(json.dumps(env), encoding="utf-8")
 
 
@@ -534,6 +537,7 @@ def test_analysis_report_includes_eval_trend_sections():
         outputs = cli.run(root, out, decode=False)
         html_text = outputs["html"].read_text(encoding="utf-8")
         for header in (
+            "Scanner version regression (appVersion run-over-run)",
             "Per-joint failure ranking (frame/joint unit)",
             "Within-video frame-level conditions vs error",
             "Cross-video descriptive splits",
@@ -546,13 +550,118 @@ def test_analysis_report_includes_eval_trend_sections():
         assert (out / "eval_joint_ranking.csv").exists()
 
 
+# --------------------------------------------------------------------------- #
+# appVersion run-over-run regression tracking (issue #10)
+# --------------------------------------------------------------------------- #
+
+def test_version_regression_delta_isolated_to_injected_joint():
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeV" / "vidV"
+        _write_bundle_meta(vdir, setup_hash="sh_v")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+
+        # v1 (aaa1111): nose off by 0.2 (norm 0.667 > 0.5 -> wrong) on every
+        # scoreable frame; every other joint exact. v2 (bbb2222): all exact —
+        # a known injected improvement on exactly one joint. Both versions
+        # sample t=9.0 too so no truth frame is left unmatched (an unmatched
+        # present frame counts as a miss in the frame/joint rows).
+        bad = dict(_TRUTH_JOINTS)
+        bad["nose"] = (0.7, 0.2)
+        frames_v1 = [{"timestamp": t, "keypoints": _kp_list(bad)}
+                     for t in (1.0, 2.0, 9.0)]
+        frames_v2 = [{"timestamp": t, "keypoints": _kp_list(_TRUTH_JOINTS)}
+                     for t in (1.0, 2.0, 9.0)]
+        _write_pose_run(vdir, "20260101-000001", "sh_v", frames_v1,
+                        app_version="aaa1111")
+        _write_pose_run(vdir, "20260102-000001", "sh_v", frames_v2,
+                        app_version="bbb2222")
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 2
+
+        ctx = trends.build_trend_context(root)
+        overview = ctx["version_overview"]
+        # Ordered by first-seen run timestamp.
+        assert list(overview["app_version"]) == ["aaa1111", "bbb2222"]
+        assert list(overview["n_records"]) == [1, 1]
+
+        deltas = ctx["version_deltas"]
+        assert not deltas.empty
+        assert set(deltas["tier"]) == {"agreement"}  # no verified truth frames
+        assert (deltas["from_version"] == "aaa1111").all()
+        assert (deltas["to_version"] == "bbb2222").all()
+
+        by_joint = deltas.set_index("joint")
+        nose = by_joint.loc["nose"]
+        assert nose["pck_from"] == 0.0 and nose["pck_to"] == 1.0
+        assert nose["pck_delta"] == 1.0
+        # Degenerate p=0 vs p=1 -> every bootstrap draw is +1: CI excludes 0.
+        assert nose["pck_ci_low"] == 1.0 and nose["pck_ci_high"] == 1.0
+        assert abs(nose["med_delta"] - (-0.666667)) < 1e-4
+
+        # The injected improvement shows on nose only; every other joint is flat.
+        for joint in ev.COCO_CORE_JOINTS:
+            if joint == "nose":
+                continue
+            row = by_joint.loc[joint]
+            assert row["pck_delta"] == 0.0, joint
+            assert row["med_delta"] == 0.0, joint
+
+        # Pooled row reflects the three recovered nose observations (36/39 -> 39/39).
+        pooled = by_joint.loc["(all joints)"]
+        assert abs(pooled["pck_delta"] - 3 / 39) < 1e-9
+        assert ctx["version_flags"] == []
+
+
+def test_version_regression_never_deltas_across_truth_revisions():
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeW" / "vidW"
+        _write_bundle_meta(vdir, setup_hash="sh_w")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+
+        # Current-truth run from the newer version evaluates normally; the older
+        # version's run is setup-stale so evaluate skips it today.
+        _write_pose_run(vdir, "20260102-000001", "sh_w", _scanner_frames_for_pck(),
+                        app_version="bbb2222")
+        _write_pose_run(vdir, "20260101-000001", "sh_OLD", _scanner_frames_for_pck(),
+                        app_version="aaa1111")
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 1
+
+        # The older version's committed record was evaluated against a different
+        # (since-revised) truth: same video, disjoint truthHash.
+        old_rec = {"schemaVersion": 2, "routeFolder": "routeW", "videoKey": "vidW",
+                   "runTs": "20260101-000001", "truthHash": "ffff0000ffff0000"}
+        (vdir / "evaluations" / "20260101-000001_vs_ffff0000.json").write_text(
+            json.dumps(old_rec), encoding="utf-8")
+
+        ctx = trends.build_trend_context(root)
+        assert list(ctx["version_overview"]["app_version"]) == ["aaa1111", "bbb2222"]
+        # Never delta'd across truth revisions: no rows, and the pair is flagged.
+        assert ctx["version_deltas"].empty
+        assert any("mixed truth" in f for f in ctx["version_flags"])
+        assert any("routeW/vidW" in f for f in ctx["version_flags"])
+
+
 def _run_all():
     fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
            test_crossmatch_reducers, test_pipeline_end_to_end_renders_report,
            test_evaluate_pck_exact_and_edge_cases,
            test_evaluate_setuphash_mismatch_is_skipped,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
-           test_analysis_report_includes_eval_trend_sections]
+           test_analysis_report_includes_eval_trend_sections,
+           test_version_regression_delta_isolated_to_injected_joint,
+           test_version_regression_never_deltas_across_truth_revisions]
     for fn in fns:
         fn()
         print(f"PASS {fn.__name__}")
