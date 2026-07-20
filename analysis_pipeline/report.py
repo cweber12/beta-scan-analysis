@@ -375,6 +375,74 @@ def _cross_video_split_table(df: pd.DataFrame) -> str:
     )
 
 
+def _version_overview_table(df: pd.DataFrame) -> str:
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return ("<p class='muted'>No evaluation records carry a scanner appVersion "
+                "yet.</p>")
+    rows = []
+    for _, r in df.iterrows():
+        rows.append(
+            "<tr>"
+            f"<td><code>{_esc(r['app_version'])}</code></td>"
+            f"<td>{_esc(r['first_run_ts'])}</td>"
+            f"<td>{_esc(r['last_run_ts'])}</td>"
+            f"<td>{int(r['n_records'])}</td>"
+            f"<td>{int(r['n_videos'])}</td>"
+            "</tr>"
+        )
+    return (
+        "<div class='tablewrap'><table><thead><tr>"
+        "<th>appVersion</th><th>first run</th><th>last run</th>"
+        "<th>eval records</th><th>videos</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def _delta_cell(delta: float, lo: float, hi: float, *, lower_is_better: bool) -> str:
+    """Render a delta with its CI, coloured only when the CI excludes zero."""
+
+    if delta is None or (isinstance(delta, float) and math.isnan(delta)):
+        return "<td>–</td><td>–</td>"
+    cls = ""
+    if lo > 0 or hi < 0:
+        improved = (hi < 0) if lower_is_better else (lo > 0)
+        cls = " class='sig-good'" if improved else " class='sig-bad'"
+    sign = "+" if delta >= 0 else ""
+    return (f"<td{cls}>{sign}{_fmt(delta, 3)}</td>"
+            f"<td>[{_fmt(lo, 3)}, {_fmt(hi, 3)}]</td>")
+
+
+def _version_delta_table(df: pd.DataFrame) -> str:
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return ("<p class='muted'>No consecutive scanner versions share a truth "
+                "revision on any bundle yet — deltas need evaluation records from "
+                "at least two appVersions on the same video under the same truth.</p>")
+    rows = []
+    for _, r in df.iterrows():
+        rows.append(
+            "<tr>"
+            f"<td><code>{_esc(r['from_version'])}</code> → <code>{_esc(r['to_version'])}</code></td>"
+            f"<td>{_tier_badge(str(r['tier']))}</td>"
+            f"<td>{_esc(r['joint'])}</td>"
+            f"<td>{int(r['n_from'])} / {int(r['n_to'])}</td>"
+            f"<td>{_fmt(r['pck_from'], 3)} → {_fmt(r['pck_to'], 3)}</td>"
+            + _delta_cell(r["pck_delta"], r["pck_ci_low"], r["pck_ci_high"],
+                          lower_is_better=False)
+            + f"<td>{_fmt(r['med_from'], 3)} → {_fmt(r['med_to'], 3)}</td>"
+            + _delta_cell(r["med_delta"], r["med_ci_low"], r["med_ci_high"],
+                          lower_is_better=True)
+            + "</tr>"
+        )
+    return (
+        "<div class='tablewrap'><table><thead><tr>"
+        "<th>version pair</th><th>tier</th><th>joint</th><th>n from / to</th>"
+        "<th>PCK@0.5-torso</th><th>ΔPCK</th><th>95% CI</th>"
+        "<th>median err</th><th>Δmedian</th><th>95% CI</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
 def _shame_list_html(items: list[str], empty_text: str) -> str:
     if not items:
         return f"<p class='muted'>{_esc(empty_text)}</p>"
@@ -634,6 +702,7 @@ th{color:var(--ink2);font-weight:600}
 .vc-metrics{font-size:12.5px;font-weight:600}.vc-cond{font-size:12px;margin:2px 0 6px}
 .flag{display:inline-block;background:color-mix(in srgb,var(--accent) 16%,transparent);border:1px solid var(--accent);border-radius:6px;padding:1px 6px;font-size:11px;margin:2px 4px 0 0}
 .flag.tier{text-transform:uppercase;letter-spacing:0.03em;font-weight:700}
+.sig-good{color:#1baf7a;font-weight:700}.sig-bad{color:#e34948;font-weight:700}
 .tl{display:flex;align-items:center;gap:10px;margin:3px 0}.tl-label{font-size:11px;color:var(--ink2);width:180px;flex:0 0 180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 footer{margin-top:40px;color:var(--muted);font-size:12px}
 """
@@ -712,6 +781,20 @@ def build_report_html(ctx: dict[str, Any]) -> str:
             (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
             (str(ctx.get("verified_records", 0)), "records with verified truth"),
         ]),
+
+        "<h2>Scanner version regression (appVersion run-over-run)</h2>",
+        "<p class='sub'>Evaluation records grouped by the scanner commit "
+        "(<code>appVersion</code> from the pose diagnostics), ordered by first-seen "
+        "run timestamp. Consecutive versions are delta'd per joint over the videos "
+        "both versions evaluated <em>under the same truth revision</em> — a truth "
+        "change never masquerades as a scanner change. Deltas are coloured only "
+        "when the bootstrap 95% CI excludes zero (green = improved, red = "
+        "regressed); ΔPCK &gt; 0 and Δmedian &lt; 0 are improvements.</p>",
+        _version_overview_table(ctx.get("version_overview", pd.DataFrame())),
+        _version_delta_table(ctx.get("version_deltas", pd.DataFrame())),
+        "<h3>Version-tracking flags</h3>",
+        _shame_list_html(ctx.get("version_flags", []),
+                         "No mixed-truth or unversioned records."),
 
         "<h2>Per-joint failure ranking (frame/joint unit)</h2>",
         "<p class='sub'>Joint ranking uses frame/joint evidence with bootstrap "
