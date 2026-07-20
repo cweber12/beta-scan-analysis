@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import crossmatch, report, stats
+from . import crossmatch, report, stats, trends
 from .discovery import discover_runs
 from .evaluate import evaluate
 from .frames import build_frame_table
@@ -79,9 +79,16 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True,
         "run_table_display": _display_run_table(run_df),
     }
 
+    trend_ctx = trends.build_trend_context(analysis_root)
+    ctx.update(trend_ctx)
+
     outputs = report.write_outputs(out_dir, run_df, frame_df, ctx)
+    outputs.update(trends.write_trend_tables(out_dir, trend_ctx))
     print(f"wrote {outputs['html']}")
     print(f"wrote {outputs['run_csv']} and {outputs['frame_csv']}")
+    if trend_ctx.get("eval_count", 0):
+        print(f"loaded {trend_ctx['eval_count']} evaluation record(s)")
+        print(f"verified truth frames: {trend_ctx.get('verified_frames_total', 0)}")
     return outputs
 
 

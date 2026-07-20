@@ -501,12 +501,58 @@ def test_evaluate_vitpose_fallback_when_no_ground_truth():
         assert rec["accuracy"]["frames"]["truthFrames"] == 0
 
 
+def test_analysis_report_includes_eval_trend_sections():
+    from analysis_pipeline import cli
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        out = Path(tmp) / "reports"
+
+        # One scored bundle -> evaluation record exists.
+        v_ok = root / "routeT" / "vidT"
+        _write_bundle_meta(v_ok, setup_hash="sh_ok")
+        (v_ok / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        _write_pose_run(v_ok, "20260101-010101", "sh_ok", _scanner_frames_for_pck())
+
+        # One truthless bundle -> appears in shame list.
+        v_no_truth = root / "routeT" / "vidNoTruth"
+        _write_bundle_meta(v_no_truth, setup_hash="sh_nt")
+
+        # One stale setup run -> appears in shame list.
+        v_stale = root / "routeT" / "vidStale"
+        _write_bundle_meta(v_stale, setup_hash="sh_truth")
+        (v_stale / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        _write_pose_run(v_stale, "20260101-020202", "sh_old", _scanner_frames_for_pck())
+
+        # Seed committed evaluation records once, then run analysis.
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 1
+
+        outputs = cli.run(root, out, decode=False)
+        html_text = outputs["html"].read_text(encoding="utf-8")
+        for header in (
+            "Per-joint failure ranking (frame/joint unit)",
+            "Within-video frame-level conditions vs error",
+            "Cross-video descriptive splits",
+            "Shame lists",
+        ):
+            assert header in html_text, f"missing report section: {header}"
+
+        assert "routeT/vidNoTruth" in html_text
+        assert "routeT/vidStale" in html_text
+        assert (out / "eval_joint_ranking.csv").exists()
+
+
 def _run_all():
     fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
            test_crossmatch_reducers, test_pipeline_end_to_end_renders_report,
            test_evaluate_pck_exact_and_edge_cases,
            test_evaluate_setuphash_mismatch_is_skipped,
-           test_evaluate_vitpose_fallback_when_no_ground_truth]
+           test_evaluate_vitpose_fallback_when_no_ground_truth,
+           test_analysis_report_includes_eval_trend_sections]
     for fn in fns:
         fn()
         print(f"PASS {fn.__name__}")
