@@ -12,6 +12,13 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+To reproduce the exact known-good environment instead (pinned versions, including the
+CUDA torch wheels), install from the lockfile:
+
+```powershell
+pip install -r requirements.lock
+```
+
 Install `ffmpeg` on Windows for the best download and frame-extraction behavior (it also
 provides `ffprobe`, used to read technical metadata from local imports):
 
