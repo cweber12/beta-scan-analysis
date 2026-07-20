@@ -261,6 +261,16 @@ seed you build Ground Truth from) and the `evaluations/` records it derives. The
 harness-side work is tracked as issues #3–#12 on `cweber12/beta-scan-analysis`;
 the scanner-side requirements below correspond to **issue #5** there.
 
+> **Amended 2026-07-20 by harness ADR 0005 (issue #11).** The manual **"absent"**
+> button was removed from the scanner harness and ViTPose auto-absence proved
+> reliable, so `human-flagged-absent` is **deprecated**: the harness no longer
+> treats it as presence truth, presence is taken from ViTPose's `state`, and the
+> accuracy tier stays empty until a second pose model lands (#12). The migration
+> steps for the scanner are in the companion delta doc
+> **[scanner-review-provenance-adr0005.md](scanner-review-provenance-adr0005.md)** —
+> read it before touching the review-flag code. The table and rules below are the
+> current (post-0005) contract.
+
 ### What the harness gives you: `vitpose.json`
 
 Unchanged from ADR 0003, plus one new field:
@@ -285,12 +295,16 @@ and warns.
 
 ### What you must write: `ground-truth.json` additions
 
-The scanner is moving to **auto-accepting** seeded frames, with the human only
-flagging frames as *absent* or *wrong*. That inverts what `verified: true` means —
-from "a human attested this" to "nobody objected" — so auto-accepted frames MUST
-be distinguishable from human-reviewed ones, or the harness's accuracy tier
-becomes ViTPose grading itself (the circularity your `docs/adr/0019` and our
-ADR 0003 both exist to prevent).
+The scanner **auto-accepts** seeded frames, with the human now only flagging a
+frame as *wrong* (the "absent" button was removed — ADR 0005). That inverts what
+`verified: true` means — from "a human attested this" to "nobody objected" — so
+auto-accepted frames MUST be distinguishable from human-reviewed ones, or the
+harness's accuracy tier becomes ViTPose grading itself (the circularity your
+`docs/adr/0019` and our ADR 0003 both exist to prevent).
+
+Absence is no longer a human judgement: ViTPose auto-detects it reliably (every
+frame with no seeded landmarks → `state: "absent"`), so **you set `state` from the
+seed, and the harness reads presence from `state`** — never from a review flag.
 
 Two required additions:
 
@@ -314,18 +328,24 @@ Two required additions:
 }
 ```
 
-`review` values and their exact semantics:
+`review` values and their exact semantics (post-ADR 0005):
 
 | value | meaning | how the harness scores it |
 | --- | --- | --- |
-| `"auto"` | seeded and auto-accepted; no human looked at it | agreement-tier evidence only — never accuracy |
-| `"human-flagged-wrong"` | human says the seed skeleton is wrong (but climber present) | excluded from joint metrics entirely (known-bad seed); counted in skip accounting |
-| `"human-flagged-absent"` | human says no climber is in this frame | becomes presence truth: `state` must be `absent`, and a scanner detection here scores as a false positive |
-| `"human"` (if you ever support editing) | human moved joints / attested the frame | accuracy-tier evidence |
+| `"auto"` | seeded and auto-accepted; no human looked at it | agreement-tier evidence. If `state: "absent"` (no seeded landmarks), it is the presence-negative signal — a scanner detection here scores as a false positive |
+| `"human-flagged-wrong"` | human says the seed skeleton is wrong (but climber present) | excluded from **all** scoring (known-bad seed); counted in skip accounting |
+| `"human-flagged-absent"` | **deprecated** — the removed absent button; legacy frames only, do not emit | excluded from **all** scoring, exactly like `human-flagged-wrong`; presence still comes from `state` |
+| `"human"` (if you ever support joint editing) | human moved joints / attested the frame | accuracy-tier evidence (not yet consumed; see #12) |
 
 Rules:
 
+- Emit only `"auto"` and `"human-flagged-wrong"`. **Do not write new
+  `"human-flagged-absent"` frames** — the button is gone and the harness excludes
+  them from scoring. Absence is expressed by `state: "absent"` on an `"auto"` frame.
 - Every frame carries `review`. Old files without it are treated as all-`auto`.
+- Presence is `state`, never the review flag. Set `state: "absent"` whenever the
+  seed had no landmarks (`vitpose.json` `keypoints: []`); the harness never infers
+  absence from a flag.
 - `setupHash` is copied from the `vitpose.json` you seeded from. If the user
   redraws crops (new `setupHash` in `setup.json`), the old Ground Truth no longer
   pairs with new scans — request a fresh ViTPose job and re-seed rather than
@@ -352,12 +372,15 @@ Rules:
 truth file (`ground-truth.json`, else `vitpose.json`), joins timestamps
 (nearest scanner frame within half a frame interval), and writes per-pair records
 under `evaluations/`: per-joint `PCK@0.5-torso`, median/p90 torso-normalized
-distance, presence 2×2, joint coverage — split into `agreement` (auto frames) vs
-`accuracy` (human frames) tiers, torso length always from the truth skeleton.
-Trend reports correlate error with frame-level conditions (climber size, movement
-speed, edge proximity) and track appVersion deltas. A future phase adds a second
-independent pose model so cross-model agreement can auto-populate the accuracy
-tier (issue #12).
+distance, presence 2×2, joint coverage — split into an `agreement` tier
+(`auto` frames, including `auto` absences) and an `accuracy` tier, torso length
+always from the truth skeleton. Under ADR 0005 both `human-flagged-wrong` and
+`human-flagged-absent` frames are excluded from scoring and only appear in each
+record's `counts.review` + `counts.agreementSkipped`; the `accuracy` tier is
+present but **empty** (no trustworthy human attestation exists yet). Trend reports
+correlate error with frame-level conditions (climber size, movement speed, edge
+proximity) and track appVersion deltas. A future phase adds a second independent
+pose model so cross-model agreement can populate the accuracy tier (issue #12).
 
 ---
 

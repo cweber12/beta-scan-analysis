@@ -382,22 +382,27 @@ def test_evaluate_pck_exact_and_edge_cases():
         assert rec["jointSet"] == ev.COCO_CORE_JOINTS
 
         counts = rec["counts"]
+        # The t3 frame is a deprecated manual absent flag (ADR 0005): excluded from
+        # scoring and reported in agreementSkipped. The rest are auto; there are no
+        # flagged-wrong seeds, and nothing is accuracy-tier evidence.
         assert counts == {"truthFramesTotal": 5, "truthFramesPresent": 4,
-                          "truthFramesAbsent": 1, "truthFramesVerified": 0}
+                          "truthFramesAbsent": 1, "truthFramesVerified": 0,
+                          "review": {"auto": 4, "flaggedWrong": 0, "flaggedAbsent": 1},
+                          "agreementSkipped": {"flaggedWrong": 0, "flaggedAbsent": 1}}
         assert rec["scannerFrameIntervalSec"] == 1.0
         assert rec["joinToleranceSec"] == 0.5
 
         agr = rec["agreement"]
-        # Frame accounting: t1/t2/t4 matched present, t3 matched absent, t9 has no
-        # scanner sample within tolerance (unobserved, not undetected).
+        # Frame accounting: t1/t2/t4 matched present, t9 has no scanner sample within
+        # tolerance (unobserved). The t3 manual-absent frame is excluded entirely, so
+        # it never reaches the presence 2x2 despite the scanner hallucinating there.
         assert agr["frames"] == {
-            "truthFrames": 5, "verifiedFrames": 0,
-            "matchedPresent": 3, "matchedAbsent": 1,
+            "truthFrames": 4, "verifiedFrames": 0,
+            "matchedPresent": 3, "matchedAbsent": 0,
             "unmatchedPresent": 1, "unmatchedAbsent": 0,
             "torsoUndefined": 1, "scoreable": 2}
-        # Presence 2x2: the scanner hallucinated a full pose on the absent frame.
         assert agr["presence"] == {"presentDetected": 3, "presentUndetected": 0,
-                                   "absentDetected": 1, "absentUndetected": 0}
+                                   "absentDetected": 0, "absentUndetected": 0}
 
         pj = agr["perJoint"]
         # nose wrong in frame2 -> 1/2; its normalized dists are [0, 0.2/0.3].
@@ -424,8 +429,9 @@ def test_evaluate_pck_exact_and_edge_cases():
         assert agg["normDist"] == {"n": 25, "median": 0.0, "p90": 0.0}
         assert agg["coverage"] == {"emitted": 38, "frames": 39, "rate": 0.974359}
 
-        # Accuracy tier: no human-verified frames exist, so the block is present
-        # with explicit zero counts and null metrics — represented, never dropped.
+        # Accuracy tier: no trustworthy human attestation exists (ADR 0005 retired
+        # manual-absent as evidence), so the block is present with explicit zero
+        # counts and null metrics — represented, never dropped.
         acc = rec["accuracy"]
         assert acc["frames"] == {
             "truthFrames": 0, "verifiedFrames": 0,
@@ -501,6 +507,114 @@ def test_evaluate_vitpose_fallback_when_no_ground_truth():
         assert agr["perJoint"]["nose"]["normDist"] == {"n": 1, "median": 0.0,
                                                        "p90": 0.0}
         # vitpose truth is a machine seed: never accuracy-tier evidence.
+        assert rec["accuracy"]["frames"]["truthFrames"] == 0
+
+
+def test_evaluate_review_provenance_routing():
+    """Issue #11 / ADR 0005: both flagged-wrong seeds and deprecated manual absent
+    flags are excluded from every tier and surface only in skip accounting; a frame
+    whose review field is missing degrades to auto."""
+
+    from analysis_pipeline import evaluate as ev
+
+    # Frames at 1s spacing: t1 auto (present, exact), t2 human-flagged-wrong (present
+    # but its seed joints are deliberately off — must never be scored), t3 legacy
+    # (no review field -> auto), t4 human-flagged-absent (deprecated, excluded).
+    bad = {n: (x + 5.0, y + 5.0) for n, (x, y) in _TRUTH_JOINTS.items()}
+    doc = {
+        "version": 1, "jointSet": list(_TRUTH_JOINTS),
+        "groundTruthHash": "beef1234beef5678",
+        "frames": [
+            {"frameIndex": 1, "timestamp": 1.0, "state": "present", "review": "auto",
+             "joints": {n: {"x": x, "y": y, "occluded": False}
+                        for n, (x, y) in _TRUTH_JOINTS.items()}},
+            {"frameIndex": 2, "timestamp": 2.0, "state": "present",
+             "review": "human-flagged-wrong",
+             "joints": {n: {"x": x, "y": y, "occluded": False}
+                        for n, (x, y) in bad.items()}},
+            {"frameIndex": 3, "timestamp": 3.0, "state": "present",  # no review field
+             "joints": {n: {"x": x, "y": y, "occluded": False}
+                        for n, (x, y) in _TRUTH_JOINTS.items()}},
+            {"frameIndex": 4, "timestamp": 4.0, "state": "absent",
+             "review": "human-flagged-absent", "joints": {}},
+        ],
+    }
+    scanner = [
+        {"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},  # exact on t1
+        {"timestamp": 2.0, "keypoints": _kp_list(_TRUTH_JOINTS)},  # correct, but t2 seed is bad
+        {"timestamp": 3.0, "keypoints": _kp_list(_TRUTH_JOINTS)},  # exact on t3
+        {"timestamp": 4.0, "keypoints": _kp_list(_TRUTH_JOINTS)},  # hallucination on absent t4
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeR" / "vidR"
+        _write_bundle_meta(vdir, setup_hash="sh_r")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000020", "sh_r", scanner)
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 1
+        rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
+
+        # Per-category counts and skip accounting: both flag classes are skipped.
+        assert rec["counts"]["review"] == {"auto": 2, "flaggedWrong": 1,
+                                            "flaggedAbsent": 1}
+        assert rec["counts"]["agreementSkipped"] == {"flaggedWrong": 1,
+                                                     "flaggedAbsent": 1}
+        assert rec["counts"]["truthFramesVerified"] == 0
+
+        # Agreement excludes both the flagged-wrong seed and the manual absent flag:
+        # only t1 and t3 (auto) are scoreable present frames, and the bad t2 joints
+        # never enter PCK — a perfect 2/2 despite the scanner "matching" the seed.
+        agr = rec["agreement"]
+        assert agr["frames"]["scoreable"] == 2
+        assert agr["aggregate"]["pck"]["value"] == 1.0
+        # t4's manual-absent flag is excluded, so its hallucination is NOT scored.
+        assert agr["presence"]["absentDetected"] == 0
+
+        # Accuracy tier is empty: no trustworthy human attestation exists (ADR 0005).
+        acc = rec["accuracy"]
+        assert acc["frames"]["truthFrames"] == 0
+        assert acc["presence"] == {"presentDetected": 0, "presentUndetected": 0,
+                                   "absentDetected": 0, "absentUndetected": 0}
+        assert acc["aggregate"]["pck"]["value"] is None
+
+
+def test_evaluate_legacy_ground_truth_without_review_all_auto():
+    """Issue #11: a ground-truth file with no review field on any frame degrades to
+    all-auto — agreement-tier evidence, empty accuracy tier, nothing skipped."""
+
+    from analysis_pipeline import evaluate as ev
+
+    doc = {
+        "version": 1, "jointSet": list(_TRUTH_JOINTS),
+        "groundTruthHash": "1eac1eac1eac1eac",
+        "frames": [
+            {"frameIndex": 1, "timestamp": 1.0, "state": "present",
+             "joints": {n: {"x": x, "y": y, "occluded": False}
+                        for n, (x, y) in _TRUTH_JOINTS.items()}},
+            {"frameIndex": 2, "timestamp": 2.0, "state": "absent", "joints": {}},
+        ],
+    }
+    scanner = [{"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
+               {"timestamp": 2.0, "keypoints": []}]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeL" / "vidL"
+        _write_bundle_meta(vdir, setup_hash="sh_l")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000021", "sh_l", scanner)
+
+        rec = json.loads(ev.evaluate(root).written[0].record_path
+                         .read_text(encoding="utf-8"))
+        assert rec["counts"]["review"] == {"auto": 2, "flaggedWrong": 0,
+                                           "flaggedAbsent": 0}
+        assert rec["counts"]["truthFramesVerified"] == 0
+        assert rec["counts"]["agreementSkipped"] == {"flaggedWrong": 0,
+                                                    "flaggedAbsent": 0}
+        assert rec["agreement"]["frames"]["truthFrames"] == 2
         assert rec["accuracy"]["frames"]["truthFrames"] == 0
 
 
