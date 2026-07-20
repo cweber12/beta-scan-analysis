@@ -292,6 +292,96 @@ def _cat_table(cat: pd.DataFrame) -> str:
     )
 
 
+def _tier_badge(tier: str) -> str:
+    label = "agreement" if tier == "agreement" else "accuracy"
+    return f"<span class='flag tier'>{_esc(label)}</span>"
+
+
+def _joint_ranking_table(df: pd.DataFrame) -> str:
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return "<p class='muted'>No evaluation-backed per-joint ranking available yet.</p>"
+    rows = []
+    for _, r in df.iterrows():
+        rows.append(
+            "<tr>"
+            f"<td>{_tier_badge(str(r['tier']))}</td>"
+            f"<td>{_esc(r['joint'])}</td>"
+            f"<td>{int(r['n'])}</td>"
+            f"<td>{_fmt(r['pck'])}</td>"
+            f"<td>[{_fmt(r['ci_low'])}, {_fmt(r['ci_high'])}]</td>"
+            f"<td>{_fmt(r['failure_rate'])}</td>"
+            "</tr>"
+        )
+    return (
+        "<div class='tablewrap'><table><thead><tr>"
+        "<th>tier</th><th>joint</th><th>frame/joint n</th><th>PCK@0.5-torso</th>"
+        "<th>bootstrap 95% CI</th><th>failure rate</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def _condition_table(df: pd.DataFrame) -> str:
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return "<p class='muted'>No frame/joint condition trend rows available yet.</p>"
+    name_map = {
+        "size_frac": "climber size in frame (truth bbox height fraction)",
+        "speed": "movement speed (inter-frame truth displacement)",
+        "edge_dist": "edge distance (smaller = closer to frame edge)",
+    }
+    rows = []
+    for _, r in df.sort_values(["condition", "tier", "band"]).iterrows():
+        rng = f"[{_fmt(r['band_min'])}, {_fmt(r['band_max'])}]"
+        rows.append(
+            "<tr>"
+            f"<td>{_tier_badge(str(r['tier']))}</td>"
+            f"<td>{_esc(name_map.get(str(r['condition']), str(r['condition'])))}</td>"
+            f"<td>band {int(r['band'])}</td>"
+            f"<td>{int(r['n'])}</td>"
+            f"<td>{_esc(rng)}</td>"
+            f"<td>{_fmt(r['failure_rate'])}</td>"
+            f"<td>[{_fmt(r['ci_low'])}, {_fmt(r['ci_high'])}]</td>"
+            "</tr>"
+        )
+    return (
+        "<div class='tablewrap'><table><thead><tr>"
+        "<th>tier</th><th>condition</th><th>quantile band</th><th>frame/joint n</th>"
+        "<th>band range</th><th>failure rate</th><th>bootstrap 95% CI</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def _cross_video_split_table(df: pd.DataFrame) -> str:
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return "<p class='muted'>No cross-video split summary available yet.</p>"
+    rows = []
+    for _, r in df.sort_values(["split", "metric", "tier", "value"]).iterrows():
+        rows.append(
+            "<tr>"
+            f"<td>{_tier_badge(str(r['tier']))}</td>"
+            f"<td>{_esc(r['split'])}</td>"
+            f"<td>{_esc(r['value'])}</td>"
+            f"<td>{_esc(r['metric'])}</td>"
+            f"<td>{int(r['n_runs'])}</td>"
+            f"<td>{_fmt(r['mean'])}</td>"
+            f"<td>[{_fmt(r['ci_low'])}, {_fmt(r['ci_high'])}]</td>"
+            "</tr>"
+        )
+    return (
+        "<div class='tablewrap'><table><thead><tr>"
+        "<th>tier</th><th>split</th><th>value</th><th>metric</th><th>n runs</th>"
+        "<th>mean</th><th>bootstrap 95% CI</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def _shame_list_html(items: list[str], empty_text: str) -> str:
+    if not items:
+        return f"<p class='muted'>{_esc(empty_text)}</p>"
+    rows = "".join(f"<tr><td>{_esc(v)}</td></tr>" for v in items)
+    return f"<div class='tablewrap'><table><tbody>{rows}</tbody></table></div>"
+
+
 # --- new sections: overview, failure cards, ORB matrix, frame timeline -------
 _SOURCE_COLORS = {
     "raw": "#1baf7a", "interpolated": "#eda100", "filled": "#eb6834",
@@ -543,6 +633,7 @@ th{color:var(--ink2);font-weight:600}
 .vc-body{padding:10px 12px}.vc-body h4{margin:0 0 2px}.vc-route{font-size:12px;margin-bottom:6px}
 .vc-metrics{font-size:12.5px;font-weight:600}.vc-cond{font-size:12px;margin:2px 0 6px}
 .flag{display:inline-block;background:color-mix(in srgb,var(--accent) 16%,transparent);border:1px solid var(--accent);border-radius:6px;padding:1px 6px;font-size:11px;margin:2px 4px 0 0}
+.flag.tier{text-transform:uppercase;letter-spacing:0.03em;font-weight:700}
 .tl{display:flex;align-items:center;gap:10px;margin:3px 0}.tl-label{font-size:11px;color:var(--ink2);width:180px;flex:0 0 180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 footer{margin-top:40px;color:var(--muted);font-size:12px}
 """
@@ -613,6 +704,35 @@ def build_report_html(ctx: dict[str, Any]) -> str:
     ]
 
     parts += [
+        "<h2>Evaluation trend accounting</h2>",
+        "<p class='sub'>Two-tier accounting from committed evaluation records. "
+        "Every value is explicitly tagged as agreement or accuracy.</p>",
+        _stat_tiles([
+            (str(ctx.get("eval_count", 0)), "evaluation records"),
+            (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
+            (str(ctx.get("verified_records", 0)), "records with verified truth"),
+        ]),
+
+        "<h2>Per-joint failure ranking (frame/joint unit)</h2>",
+        "<p class='sub'>Joint ranking uses frame/joint evidence with bootstrap "
+        "95% CIs (no per-video correlation coefficients).</p>",
+        _joint_ranking_table(ctx.get("joint_rank", pd.DataFrame())),
+
+        "<h2>Within-video frame-level conditions vs error</h2>",
+        "<p class='sub'>Frame/joint rows are grouped into quantile bands by "
+        "condition; table reports failure rates and bootstrap CIs by tier.</p>",
+        _condition_table(ctx.get("condition_bands", pd.DataFrame())),
+
+        "<h2>Cross-video descriptive splits</h2>",
+        f"<p class='sub'>{_esc(ctx.get('confound_caveat', ''))}</p>",
+        _cross_video_split_table(ctx.get("cross_video_splits", pd.DataFrame())),
+
+        "<h2>Shame lists</h2>",
+        "<h3>Bundles with no truth</h3>",
+        _shame_list_html(ctx.get("truthless_bundles", []), "No truthless bundles."),
+        "<h3>Stale setup runs</h3>",
+        _shame_list_html(ctx.get("stale_runs", []), "No setup-hash stale runs."),
+
         "<h2>Per-run derived predictors → outcomes (pooled, n small)</h2>",
         "<p class='sub'>Pooled Pearson across runs — descriptive only at this corpus size.</p>",
         "<div class='chartscroll'>", svg_effect_bars(ctx["run_corr"], "per-run effect sizes"), "</div>",

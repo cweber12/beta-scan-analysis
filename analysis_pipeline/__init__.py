@@ -8,4 +8,4 @@ The corpus is deliberately treated as *exploratory*: the run is the independent
 unit, and everything is reported effect-size first. See the plan / report banner.
 """
 
-__all__ = ["discovery", "frames", "runs", "stats", "report"]
+__all__ = ["discovery", "frames", "runs", "stats", "report", "trends"]
