@@ -1,8 +1,8 @@
 {
   "version": 1,
   "setupHash": "61cffee09ae1628f8aa71de3b453358534ae4085097c9f083daf97c1b7c818ef",
-  "computedAt": "2026-07-19T12:22:43",
-  "source": "backfill",
+  "computedAt": "2026-07-21T15:47:42",
+  "source": "endpoint",
   "regionStats": {
     "sampledFrames": 30,
     "panning": false,
@@ -19,20 +19,20 @@
       },
       "dominantColors": [
         {
-          "fraction": 0.5671,
+          "fraction": 0.5638,
           "lab": [
-            38.53,
+            38.47,
             8.77,
             8.67
           ],
           "rgbHex": "#6c564e"
         },
         {
-          "fraction": 0.301,
+          "fraction": 0.3044,
           "lab": [
-            55.18,
-            7.67,
-            10.32
+            55.1,
+            7.69,
+            10.3
           ],
           "rgbHex": "#967f72"
         },
@@ -87,5 +87,13 @@
     "wall_contrast": "high",
     "motion_blur": "high",
     "camera_stability": "steady"
+  },
+  "cameraAngle": {
+    "estimate": "level",
+    "shoulderHipRatio": 1.5065,
+    "torsoAspect": 1.7,
+    "framesUsed": 687,
+    "source": "vitpose",
+    "setupHash": "61cffee09ae1628f8aa71de3b453358534ae4085097c9f083daf97c1b7c818ef"
   }
 }

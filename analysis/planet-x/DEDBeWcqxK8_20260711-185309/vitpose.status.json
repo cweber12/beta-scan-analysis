@@ -1,11 +1,11 @@
 {
-  "jobId": "783fa1691f9446df9978f2fc166cb354",
+  "jobId": "2c7451e3e5ab42b4a84b09d775785b57",
   "status": "done",
-  "updated_at": "2026-07-19T14:11:08",
+  "updated_at": "2026-07-21T15:47:48",
   "timings": {
-    "track_s": 78.09,
-    "pose_s": 44.18,
-    "total_s": 122.31
+    "track_s": 35.46,
+    "pose_s": 30.8,
+    "total_s": 66.47
   },
   "device": "cuda",
   "warnings": [
@@ -27,17 +27,74 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 13,
-      "timestamp": 0.4337666666666667,
-      "sourceFrame": 13,
+      "frameIndex": 12,
+      "timestamp": 0.40040000000000003,
+      "sourceFrame": 12,
       "box": {
-        "x": 0.5208907127380371,
-        "y": 0.5268915295600891,
-        "w": 0.1530817747116089,
-        "h": 0.2506457567214966,
-        "cx": 0.5974316000938416,
-        "cy": 0.6522144079208374
+        "x": 0.5199463069438934,
+        "y": 0.53509471565485,
+        "w": 0.15659302473068237,
+        "h": 0.2452736347913742,
+        "cx": 0.5982428193092346,
+        "cy": 0.6577315330505371
       }
+    },
+    "stitch": {
+      "stitchedFrames": 1390,
+      "idSwitches": [
+        {
+          "sourceFrame": 32,
+          "from": 180,
+          "to": 184
+        },
+        {
+          "sourceFrame": 106,
+          "from": 184,
+          "to": 186
+        },
+        {
+          "sourceFrame": 736,
+          "from": 186,
+          "to": 220
+        },
+        {
+          "sourceFrame": 743,
+          "from": 220,
+          "to": 219
+        },
+        {
+          "sourceFrame": 1137,
+          "from": 219,
+          "to": 266
+        },
+        {
+          "sourceFrame": 1145,
+          "from": 266,
+          "to": 219
+        },
+        {
+          "sourceFrame": 1209,
+          "from": 219,
+          "to": 273
+        },
+        {
+          "sourceFrame": 1279,
+          "from": 273,
+          "to": 285
+        },
+        {
+          "sourceFrame": 1643,
+          "from": 285,
+          "to": 314
+        }
+      ],
+      "jumps": [
+        {
+          "sourceFrame": 1643,
+          "dist": 0.1159
+        }
+      ],
+      "reseeds": []
     }
   }
 }

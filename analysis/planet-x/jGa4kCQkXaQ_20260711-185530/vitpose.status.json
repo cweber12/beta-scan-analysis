@@ -1,20 +1,20 @@
 {
-  "jobId": "cdb3ed48c5484d09b806becb99738c9a",
+  "jobId": "121200949eec42339356a000158b2dd0",
   "status": "done",
-  "updated_at": "2026-07-17T14:39:59",
+  "updated_at": "2026-07-21T15:46:42",
   "timings": {
-    "track_s": 57.48,
-    "pose_s": 81.47,
-    "total_s": 139.18
+    "track_s": 48.83,
+    "pose_s": 67.62,
+    "total_s": 116.65
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
     "historyFrames": 2639,
     "tap": {
-      "x": 0.4501217246628323,
-      "y": 0.8004807947738386,
-      "t": 10.87
+      "x": 0.4766690518821409,
+      "y": 0.6878262478241592,
+      "t": 17.72
     },
     "crop": {
       "x": 0.4063009938476664,
@@ -24,104 +24,95 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 342,
-      "timestamp": 11.4,
-      "sourceFrame": 342,
+      "frameIndex": 524,
+      "timestamp": 17.466666666666665,
+      "sourceFrame": 524,
       "box": {
-        "x": 0.43320225551724434,
-        "y": 0.6916705369949341,
-        "w": 0.04423394054174423,
-        "h": 0.24769973754882812,
-        "cx": 0.45531922578811646,
-        "cy": 0.8155204057693481
+        "x": 0.447022944688797,
+        "y": 0.5388883054256439,
+        "w": 0.06964564323425293,
+        "h": 0.28687626123428345,
+        "cx": 0.48184576630592346,
+        "cy": 0.6823264360427856
       }
     },
     "stitch": {
-      "stitchedFrames": 2298,
+      "stitchedFrames": 2297,
       "idSwitches": [
         {
           "sourceFrame": 2,
-          "from": 2,
-          "to": 3
+          "from": 73,
+          "to": 74
         },
         {
-          "sourceFrame": 375,
-          "from": 3,
-          "to": 25
+          "sourceFrame": 369,
+          "from": 74,
+          "to": 96
         },
         {
           "sourceFrame": 390,
-          "from": 25,
-          "to": 29
+          "from": 96,
+          "to": 100
         },
         {
           "sourceFrame": 481,
-          "from": 29,
-          "to": 41
+          "from": 100,
+          "to": 112
         },
         {
           "sourceFrame": 521,
-          "from": 41,
-          "to": 48
+          "from": 112,
+          "to": 119
         },
         {
           "sourceFrame": 1538,
-          "from": 48,
-          "to": 84
+          "from": 119,
+          "to": 155
         },
         {
           "sourceFrame": 1580,
-          "from": 84,
-          "to": 48
+          "from": 155,
+          "to": 119
         },
         {
           "sourceFrame": 1606,
-          "from": 48,
-          "to": 84
+          "from": 119,
+          "to": 155
         },
         {
           "sourceFrame": 1640,
-          "from": 84,
-          "to": 48
+          "from": 155,
+          "to": 119
         },
         {
           "sourceFrame": 2051,
-          "from": 48,
-          "to": 101
+          "from": 119,
+          "to": 172
         },
         {
           "sourceFrame": 2072,
-          "from": 101,
-          "to": 48
+          "from": 172,
+          "to": 119
         }
       ],
       "jumps": [],
       "reseeds": [
         {
-          "frameIndex": 387,
-          "sourceFrame": 387,
-          "timestamp": 12.9,
+          "frameIndex": 493,
+          "sourceFrame": 493,
+          "timestamp": 16.433333333333334,
           "reason": "appearance-mismatch-streak",
-          "discarded": 8,
+          "discarded": 6,
           "recovered": 5,
           "restored": 0
         },
         {
-          "frameIndex": 495,
-          "sourceFrame": 495,
-          "timestamp": 16.5,
+          "frameIndex": 388,
+          "sourceFrame": 388,
+          "timestamp": 12.933333333333334,
           "reason": "appearance-mismatch-streak",
-          "discarded": 31,
-          "recovered": 7,
-          "restored": 0
-        },
-        {
-          "frameIndex": 500,
-          "sourceFrame": 500,
-          "timestamp": 16.666666666666668,
-          "reason": "appearance-mismatch-streak",
-          "discarded": 141,
-          "recovered": 120,
+          "discarded": 9,
+          "recovered": 5,
           "restored": 0
         }
       ]
