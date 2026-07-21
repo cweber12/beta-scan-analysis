@@ -29,15 +29,36 @@ separate commit prefixed `data:` — e.g. `data: add <route> detection bundle`. 
 data bundles with code changes in the same commit. The `.gitignore` already excludes the
 video binaries, so `git add analysis/` stages only the queryable JSON/PNG record.
 If there are existing `analysis/` changes in the current worktree while working an
-issue, commit them on the current issue branch as part of that issue's work. Keep the
-data in its own `data:` commit, but do not defer it to a separate branch or leave it
-uncommitted when the issue branch is pushed or merged.
+issue, commit them on the current issue branch as part of that issue's work — but only
+while that branch is still open and the data fits its scope (see **Branch, PR & sync
+flow**). Keep the data in its own `data:` commit, and don't leave it uncommitted when
+you push the branch. If the branch's PR has already merged, or the data is a distinct
+concern, put it on a fresh branch instead.
 
 **General git rules** (also in the harness defaults):
 - If on the default branch (`main`), create a feature branch before committing.
 - End every commit message with:
   `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
 - Only push when explicitly asked.
+
+## Branch, PR & sync flow
+
+The agent pushes and opens PRs; **only the human merges**. Follow this lifecycle so
+branches and `main` never drift:
+
+1. **Start clean.** Before new work: `git checkout main && git pull`, then branch
+   from an up-to-date `main`.
+2. **One branch = one PR = one concern.** Don't grow a PR's scope after it's opened
+   without flagging it. If unrelated `analysis/` data appears mid-issue, prefer a
+   separate branch/PR over appending it to a code PR under review.
+3. **A merged branch is frozen.** Never push new commits to a branch whose PR is
+   closed/merged — GitHub can't reopen it and the commits get orphaned. New work =
+   a fresh branch off updated `main`.
+4. **After a merge, sync and clean:** `git checkout main && git pull`, delete the
+   merged branch locally (`git branch -d <b>`) and on the remote
+   (`git push origin --delete <b>`), then `git remote prune origin`.
+5. **Before pushing, confirm the target branch isn't already merged**
+   (`gh pr view <branch>`); if it is, start a fresh branch.
 
 ## Code quality
 
