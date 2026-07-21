@@ -59,7 +59,7 @@ from typing import Any
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 
 # Evaluation record schema version. Bump on any record-shape change.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -89,6 +89,17 @@ COCO_CORE_JOINTS = [
 
 # PCK threshold as a fraction of truth torso length.
 PCK_TORSO_FRACTION = 0.5
+
+# Low-confidence truth gate (measure-first, "fit thresholds before prefill").
+# A truth frame's visible-joint count (non-occluded core joints, i.e. ViTPose was
+# confident) is a data-quality proxy: an ``occluded`` joint just means low seed
+# ``score``, not geometric occlusion. v1 only *measures* the distribution (the
+# ``visibleJoints`` histogram) and lists thin frames in the report worklist; it
+# excludes nothing. Setting this to an int activates the gate seam in ``_score_tier``
+# — excluding thin frames from PCK/normDist only (presence + coverage are counted
+# first) and surfacing them in ``frames.lowVisibility``. Fit N on #15-conforming
+# bundles before enabling, so it is not fit on the #34 wrong-subject truth.
+MIN_VISIBLE_JOINTS: int | None = None
 
 
 @dataclass
@@ -347,17 +358,26 @@ def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
     the presence 2x2 needs only a matched frame. Unmatched frames are counted,
     never silently dropped — sparse scanner sampling is "unobserved", not
     "undetected".
+
+    ``visibleJoints`` is a positional histogram (index i == matched-present frames
+    whose truth had i non-occluded core joints; sums to ``matchedPresent``) — the
+    measure-first fit input for ``MIN_VISIBLE_JOINTS``. With that gate disabled (v1)
+    nothing is excluded and ``frames.lowVisibility`` stays 0.
     """
 
     frames = {"truthFrames": 0, "verifiedFrames": 0,
               "matchedPresent": 0, "matchedAbsent": 0,
               "unmatchedPresent": 0, "unmatchedAbsent": 0,
-              "torsoUndefined": 0, "scoreable": 0}
+              "lowVisibility": 0, "torsoUndefined": 0, "scoreable": 0}
     presence = {"presentDetected": 0, "presentUndetected": 0,
                 "absentDetected": 0, "absentUndetected": 0}
     cov = {j: 0 for j in COCO_CORE_JOINTS}
     pck = {j: {"correct": 0, "total": 0} for j in COCO_CORE_JOINTS}
     dists: dict[str, list[float]] = {j: [] for j in COCO_CORE_JOINTS}
+    # Visible-joint histogram over matched-present frames: index i == frames whose
+    # truth had i non-occluded core joints. Sums to ``matchedPresent``. The fit
+    # input for MIN_VISIBLE_JOINTS.
+    vis_hist = [0] * (len(COCO_CORE_JOINTS) + 1)
 
     for p in pairs:
         tf = p.truth
@@ -373,8 +393,16 @@ def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
         presence[key] += 1
         if not tf.present:
             continue
+        visible = len(tf.joints)
+        vis_hist[visible] += 1
         for j in COCO_CORE_JOINTS:
             cov[j] += j in p.scanner
+        # Low-confidence truth gate seam (disabled in v1: MIN_VISIBLE_JOINTS is
+        # None). Presence + coverage above have already counted this frame; a thin
+        # truth frame is excluded from PCK/normDist only, mirroring torsoUndefined.
+        if MIN_VISIBLE_JOINTS is not None and visible < MIN_VISIBLE_JOINTS:
+            frames["lowVisibility"] += 1
+            continue
         torso = torso_length(tf.joints)
         if torso is None:
             frames["torsoUndefined"] += 1
@@ -414,6 +442,10 @@ def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
     agg_cov_frames = cov_frames * len(COCO_CORE_JOINTS)
     return {
         "frames": frames,
+        # Positional histogram: index i == matched-present frames whose truth had i
+        # non-occluded core joints (len == 14, i.e. 0..13). A list, not a dict, so it
+        # stays index-ordered under the record writer's key sorting.
+        "visibleJoints": vis_hist,
         "presence": presence,
         "perJoint": per_joint,
         "aggregate": {

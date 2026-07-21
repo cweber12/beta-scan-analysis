@@ -372,7 +372,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 2
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 3
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -400,9 +400,17 @@ def test_evaluate_pck_exact_and_edge_cases():
             "truthFrames": 4, "verifiedFrames": 0,
             "matchedPresent": 3, "matchedAbsent": 0,
             "unmatchedPresent": 1, "unmatchedAbsent": 0,
-            "torsoUndefined": 1, "scoreable": 2}
+            "lowVisibility": 0, "torsoUndefined": 1, "scoreable": 2}
         assert agr["presence"] == {"presentDetected": 3, "presentUndetected": 0,
                                    "absentDetected": 0, "absentUndetected": 0}
+
+        # Visible-joint histogram over the 3 matched-present frames (measure-first,
+        # excludes nothing): t1/t2 carry all 13 truth joints, t4 drops right_hip
+        # (torso-undefined) -> 12. Positional list over 0..13; sum == matchedPresent.
+        assert len(agr["visibleJoints"]) == 14
+        assert agr["visibleJoints"][13] == 2 and agr["visibleJoints"][12] == 1
+        assert sum(agr["visibleJoints"]) == agr["frames"]["matchedPresent"] == 3
+        assert agr["frames"]["lowVisibility"] == 0  # gate disabled in v1
 
         pj = agr["perJoint"]
         # nose wrong in frame2 -> 1/2; its normalized dists are [0, 0.2/0.3].
@@ -437,7 +445,8 @@ def test_evaluate_pck_exact_and_edge_cases():
             "truthFrames": 0, "verifiedFrames": 0,
             "matchedPresent": 0, "matchedAbsent": 0,
             "unmatchedPresent": 0, "unmatchedAbsent": 0,
-            "torsoUndefined": 0, "scoreable": 0}
+            "lowVisibility": 0, "torsoUndefined": 0, "scoreable": 0}
+        assert sum(acc["visibleJoints"]) == 0
         assert acc["presence"] == {"presentDetected": 0, "presentUndetected": 0,
                                    "absentDetected": 0, "absentUndetected": 0}
         assert acc["perJoint"]["nose"] == {
@@ -651,6 +660,7 @@ def test_analysis_report_includes_eval_trend_sections():
         outputs = cli.run(root, out, decode=False)
         html_text = outputs["html"].read_text(encoding="utf-8")
         for header in (
+            "Low-confidence truth (visible-joint measurement)",
             "Scanner version regression (appVersion run-over-run)",
             "Per-joint failure ranking (frame/joint unit)",
             "Within-video frame-level conditions vs error",
@@ -662,6 +672,60 @@ def test_analysis_report_includes_eval_trend_sections():
         assert "routeT/vidNoTruth" in html_text
         assert "routeT/vidStale" in html_text
         assert (out / "eval_joint_ranking.csv").exists()
+        assert (out / "eval_low_confidence_worklist.csv").exists()
+
+
+def test_low_confidence_visible_measurement_and_worklist():
+    """Occluded truth joints (low ViTPose confidence) shrink a frame's visible-joint
+    count. v1 measures the distribution and lists the thinnest frames worst-first,
+    but excludes nothing from scoring."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    # t1: all 13 joints confident. t2: both wrists occluded -> 11 visible (they are
+    # dropped from the scored joints but the frame is still scoreable). Both matched.
+    occ = {"left_wrist", "right_wrist"}
+    doc = {
+        "version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": "c0ffee00c0ffee00",
+        "frames": [
+            {"frameIndex": 1, "timestamp": 1.0, "state": "present", "review": "auto",
+             "joints": {n: {"x": x, "y": y, "occluded": False}
+                        for n, (x, y) in _TRUTH_JOINTS.items()}},
+            {"frameIndex": 2, "timestamp": 2.0, "state": "present", "review": "auto",
+             "joints": {n: {"x": x, "y": y, "occluded": n in occ}
+                        for n, (x, y) in _TRUTH_JOINTS.items()}},
+        ],
+    }
+    scanner = [{"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
+               {"timestamp": 2.0, "keypoints": _kp_list(_TRUTH_JOINTS)}]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeLC" / "vidLC"
+        _write_bundle_meta(vdir, setup_hash="sh_lc")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000030", "sh_lc", scanner)
+
+        summary = ev.evaluate(root)
+        rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
+        vj = rec["agreement"]["visibleJoints"]
+        assert vj[13] == 1 and vj[11] == 1
+        assert sum(vj) == rec["agreement"]["frames"]["matchedPresent"] == 2
+        # Occluded wrists were dropped from scoring but the frame was NOT excluded.
+        assert rec["agreement"]["frames"]["lowVisibility"] == 0
+        assert rec["agreement"]["frames"]["scoreable"] == 2
+
+        ctx = trends.build_trend_context(root)
+        hist = ctx["visible_histogram"]
+        assert hist[13] == 1 and hist[11] == 1 and sum(hist) == 2
+
+        wl = ctx["low_conf_worklist"]
+        assert not wl.empty and len(wl) == 2
+        # Worst-first: the 11-visible frame leads and names its occluded joints.
+        top = wl.iloc[0]
+        assert int(top["visible"]) == 11
+        assert "left_wrist" in top["occluded_joints"] and "right_wrist" in top["occluded_joints"]
 
 
 # --------------------------------------------------------------------------- #
@@ -832,6 +896,7 @@ def _run_all():
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
            test_analysis_report_includes_eval_trend_sections,
+           test_low_confidence_visible_measurement_and_worklist,
            test_version_regression_delta_isolated_to_injected_joint,
            test_version_regression_never_deltas_across_truth_revisions]
     for fn in fns:
