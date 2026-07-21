@@ -566,6 +566,69 @@ def _shame_lists(analysis_root: Path) -> tuple[list[str], list[str]]:
     return no_truth, stale_runs
 
 
+# Worklist rows to surface in the report (the truth re-review queue is long; the
+# CSV keeps the full list, the HTML shows the worst K).
+LOW_CONF_WORKLIST_TOP_K = 40
+
+
+def _visible_histogram(recs: list[EvalRecord]) -> list[int]:
+    """Corpus visible-joint histogram, index ``i`` == matched-present frames whose
+    truth carried ``i`` non-occluded core joints, pooled across records from each
+    agreement tier's ``visibleJoints``. This is the measure-first fit input for
+    ``evaluate.MIN_VISIBLE_JOINTS`` — the exact population the gate would act on
+    (matched-present frames). Records predating schema v3 simply contribute nothing.
+    """
+
+    hist = [0] * (len(COCO_CORE_JOINTS) + 1)
+    for rec in recs:
+        vj = (rec.data.get("agreement") or {}).get("visibleJoints") or []
+        if not isinstance(vj, list):
+            continue  # pre-v3 records carried no positional histogram
+        for i, v in enumerate(vj):
+            if 0 <= i < len(hist):
+                hist[i] += int(v)
+    return hist
+
+
+def _low_confidence_worklist(analysis_root: Path) -> pd.DataFrame:
+    """Present truth frames ranked by fewest visible (non-occluded) core joints —
+    the re-seed / re-review queue for low-confidence truth.
+
+    Truth-side and per-bundle (independent of scanner runs), so a bundle's frames
+    are listed once regardless of how many pose runs it has. Excluded frames
+    (flagged-wrong / deprecated manual-absent) are skipped. A frame's occluded
+    joints are the core joints ``load_truth`` dropped as occluded (ADR 0004),
+    i.e. the ones ViTPose was not confident about.
+    """
+
+    rows: list[dict[str, Any]] = []
+    for video_dir in _iter_video_dirs(analysis_root):
+        truth = load_truth(video_dir)
+        if truth is None:
+            continue
+        metadata = _load_json(video_dir / "metadata.json")
+        route = str(metadata.get("route_folder") or video_dir.parent.name)
+        key = str(metadata.get("video_key") or video_dir.name)
+        for tf in truth.frames:
+            if tf.excluded or not tf.present:
+                continue
+            occluded = [j for j in COCO_CORE_JOINTS if j not in tf.joints]
+            rows.append({
+                "route_folder": route,
+                "video_key": key,
+                "timestamp": tf.timestamp,
+                "visible": len(tf.joints),
+                "occluded_joints": ", ".join(occluded),
+            })
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    return df.sort_values(
+        ["visible", "route_folder", "video_key", "timestamp"],
+        ascending=True,
+    ).reset_index(drop=True)
+
+
 def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     recs = _iter_eval_records(analysis_root)
     pose_cache: dict[tuple[str, str], dict[str, tuple[str, list[dict[str, Any]]]]] = {}
@@ -592,6 +655,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     ) if not frame_joint_df.empty else pd.DataFrame()
     split_df = _cross_video_splits(recs, analysis_root)
     no_truth, stale_runs = _shame_lists(analysis_root)
+    visible_hist = _visible_histogram(recs)
+    low_conf_worklist = _low_confidence_worklist(analysis_root)
 
     verified_total = 0
     verified_records = 0
@@ -614,6 +679,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "version_flags": version_flags,
         "truthless_bundles": no_truth,
         "stale_runs": stale_runs,
+        "visible_histogram": visible_hist,
+        "low_conf_worklist": low_conf_worklist,
         "verified_frames_total": verified_total,
         "verified_records": verified_records,
         "confound_caveat": (
@@ -632,6 +699,7 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_cross_video_splits.csv": ctx.get("cross_video_splits"),
         "eval_version_overview.csv": ctx.get("version_overview"),
         "eval_version_deltas.csv": ctx.get("version_deltas"),
+        "eval_low_confidence_worklist.csv": ctx.get("low_conf_worklist"),
     }
     for name, table in tables.items():
         if isinstance(table, pd.DataFrame) and not table.empty:

@@ -488,6 +488,66 @@ def svg_histogram(values: list[float], lo: float = 0.0, hi: float = 1.0,
     return "".join(parts)
 
 
+def _median_visible(hist: list[int]) -> str:
+    """Median visible-joint count from a pre-binned histogram (index == count)."""
+
+    total = sum(hist)
+    if not total:
+        return "–"
+    mid, cum = total / 2, 0
+    for i, c in enumerate(hist):
+        cum += c
+        if cum >= mid:
+            return str(i)
+    return str(len(hist) - 1)
+
+
+def _low_confidence_html(ctx: dict[str, Any]) -> str:
+    """Low-confidence truth: the visible-joint distribution (fit input for the
+    measure-first gate) + a worst-first re-review worklist. Excludes nothing in
+    v1 — see ``evaluate.MIN_VISIBLE_JOINTS``."""
+
+    from .evaluate import MIN_VISIBLE_JOINTS
+    from .trends import LOW_CONF_WORKLIST_TOP_K
+
+    hist = ctx.get("visible_histogram") or []
+    total = sum(int(c) for c in hist)
+    if total == 0:
+        return ("<p class='muted'>No matched-present truth frames measured yet "
+                "(needs schema-v3 evaluation records).</p>")
+
+    # Expand the pre-binned histogram back to values for svg_histogram — one
+    # integer-wide bin per visible-count (0..13), so bins == len(hist).
+    values = [i for i, c in enumerate(hist) for _ in range(int(c))]
+    chart = svg_histogram(
+        values, lo=0.0, hi=float(len(hist)), bins=len(hist),
+        highlight_below=(None if MIN_VISIBLE_JOINTS is None else float(MIN_VISIBLE_JOINTS)))
+    gate = ("no gate set — v1 measures only (fit N on #15-conforming bundles first)"
+            if MIN_VISIBLE_JOINTS is None else
+            f"gate active: &lt; {MIN_VISIBLE_JOINTS} visible joints excluded from PCK/normDist")
+
+    tiles = _stat_tiles([
+        (str(total), "matched-present frames measured"),
+        (_median_visible(hist), "median visible joints"),
+    ])
+
+    worklist = ctx.get("low_conf_worklist")
+    table = "<p class='muted'>(worklist empty)</p>"
+    if isinstance(worklist, pd.DataFrame) and not worklist.empty:
+        shown = worklist.head(LOW_CONF_WORKLIST_TOP_K)
+        table = _df_to_table(shown)
+        if len(worklist) > len(shown):
+            table += (f"<p class='muted'>Showing the worst {len(shown)} of "
+                      f"{len(worklist)} present truth frames — full list in "
+                      "<code>eval_low_confidence_worklist.csv</code>.</p>")
+
+    return (
+        f"<p class='sub'>Distribution of visible (non-occluded) core joints over "
+        f"matched-present truth frames — {gate}.</p>"
+        "<div class='chartscroll'>" + chart + "</div>" + tiles
+        + "<h3>Re-review worklist (fewest visible joints first)</h3>" + table)
+
+
 def _stat_tiles(tiles: list[tuple[str, str]]) -> str:
     return "<div class='card'>" + "".join(
         f"<span class='stat'><b>{_esc(v)}</b>{_esc(lbl)}</span>" for v, lbl in tiles
@@ -781,6 +841,14 @@ def build_report_html(ctx: dict[str, Any]) -> str:
             (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
             (str(ctx.get("verified_records", 0)), "records with verified truth"),
         ]),
+
+        "<h2>Low-confidence truth (visible-joint measurement)</h2>",
+        "<p class='sub'>An <code>occluded</code> truth joint means ViTPose was not "
+        "confident (low seed <code>score</code>), not that it is geometrically hidden. "
+        "This measures how many core joints each present frame was confident about — the "
+        "fit input for a future exclusion gate — and lists the thinnest frames as a "
+        "re-seed queue. It excludes nothing today (measure-first).</p>",
+        _low_confidence_html(ctx),
 
         "<h2>Scanner version regression (appVersion run-over-run)</h2>",
         "<p class='sub'>Evaluation records grouped by the scanner commit "
