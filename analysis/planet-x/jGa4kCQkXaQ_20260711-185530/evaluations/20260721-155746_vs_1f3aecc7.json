@@ -18,6 +18,7 @@
       }
     },
     "frames": {
+      "lowVisibility": 0,
       "matchedAbsent": 0,
       "matchedPresent": 0,
       "scoreable": 0,
@@ -255,265 +256,298 @@
       "absentUndetected": 0,
       "presentDetected": 0,
       "presentUndetected": 0
-    }
+    },
+    "visibleJoints": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
   },
   "agreement": {
     "aggregate": {
       "coverage": {
-        "emitted": 9028,
-        "frames": 10101,
-        "rate": 0.893773
+        "emitted": 8545,
+        "frames": 9568,
+        "rate": 0.893081
       },
       "normDist": {
-        "median": 5.185287,
-        "n": 8817,
-        "p90": 8.106793
+        "median": 0.101626,
+        "n": 8031,
+        "p90": 0.568348
       },
       "pck": {
-        "correct": 1284,
-        "total": 9738,
-        "value": 0.131855
+        "correct": 7080,
+        "total": 8941,
+        "value": 0.791858
       }
     },
     "frames": {
-      "matchedAbsent": 1,
-      "matchedPresent": 777,
-      "scoreable": 777,
-      "torsoUndefined": 0,
+      "lowVisibility": 0,
+      "matchedAbsent": 42,
+      "matchedPresent": 736,
+      "scoreable": 717,
+      "torsoUndefined": 19,
       "truthFrames": 881,
-      "unmatchedAbsent": 0,
-      "unmatchedPresent": 103,
+      "unmatchedAbsent": 74,
+      "unmatchedPresent": 29,
       "verifiedFrames": 0
     },
     "perJoint": {
       "left_ankle": {
         "coverage": {
-          "emitted": 682,
-          "frames": 777,
-          "rate": 0.877735
+          "emitted": 644,
+          "frames": 736,
+          "rate": 0.875
         },
         "normDist": {
-          "median": 5.65965,
-          "n": 624,
-          "p90": 8.564448
+          "median": 0.090179,
+          "n": 616,
+          "p90": 0.61638
         },
         "pck": {
-          "correct": 56,
-          "total": 709,
-          "value": 0.078984
+          "correct": 551,
+          "total": 708,
+          "value": 0.778249
         }
       },
       "left_elbow": {
         "coverage": {
-          "emitted": 371,
-          "frames": 777,
-          "rate": 0.477477
+          "emitted": 358,
+          "frames": 736,
+          "rate": 0.486413
         },
         "normDist": {
-          "median": 5.898493,
-          "n": 362,
-          "p90": 8.481854
+          "median": 0.179665,
+          "n": 314,
+          "p90": 1.238077
         },
         "pck": {
-          "correct": 42,
-          "total": 703,
-          "value": 0.059744
+          "correct": 228,
+          "total": 649,
+          "value": 0.35131
         }
       },
       "left_hip": {
         "coverage": {
-          "emitted": 777,
-          "frames": 777,
+          "emitted": 736,
+          "frames": 736,
           "rate": 1.0
         },
         "normDist": {
-          "median": 5.209575,
-          "n": 777,
-          "p90": 8.035894
+          "median": 0.119174,
+          "n": 717,
+          "p90": 0.387139
         },
         "pck": {
-          "correct": 127,
-          "total": 777,
-          "value": 0.163449
+          "correct": 669,
+          "total": 717,
+          "value": 0.933054
         }
       },
       "left_knee": {
         "coverage": {
-          "emitted": 662,
-          "frames": 777,
-          "rate": 0.851995
+          "emitted": 621,
+          "frames": 736,
+          "rate": 0.84375
         },
         "normDist": {
-          "median": 5.514755,
-          "n": 644,
-          "p90": 8.545275
+          "median": 0.093597,
+          "n": 594,
+          "p90": 0.566282
         },
         "pck": {
-          "correct": 41,
-          "total": 759,
-          "value": 0.054018
+          "correct": 522,
+          "total": 704,
+          "value": 0.741477
         }
       },
       "left_shoulder": {
         "coverage": {
-          "emitted": 777,
-          "frames": 777,
+          "emitted": 736,
+          "frames": 736,
           "rate": 1.0
         },
         "normDist": {
-          "median": 5.011481,
-          "n": 777,
-          "p90": 7.821831
+          "median": 0.109234,
+          "n": 717,
+          "p90": 0.468135
         },
         "pck": {
-          "correct": 127,
-          "total": 777,
-          "value": 0.163449
+          "correct": 656,
+          "total": 717,
+          "value": 0.914923
         }
       },
       "left_wrist": {
         "coverage": {
-          "emitted": 421,
-          "frames": 777,
-          "rate": 0.541828
+          "emitted": 391,
+          "frames": 736,
+          "rate": 0.53125
         },
         "normDist": {
-          "median": 6.46394,
-          "n": 392,
-          "p90": 8.833201
+          "median": 0.224013,
+          "n": 306,
+          "p90": 1.827098
         },
         "pck": {
-          "correct": 16,
-          "total": 671,
-          "value": 0.023845
+          "correct": 209,
+          "total": 586,
+          "value": 0.356655
         }
       },
       "nose": {
         "coverage": {
-          "emitted": 777,
-          "frames": 777,
+          "emitted": 736,
+          "frames": 736,
           "rate": 1.0
         },
         "normDist": {
-          "median": 4.836261,
-          "n": 745,
-          "p90": 7.623276
+          "median": 0.10639,
+          "n": 574,
+          "p90": 0.345808
         },
         "pck": {
-          "correct": 120,
-          "total": 745,
-          "value": 0.161074
+          "correct": 554,
+          "total": 574,
+          "value": 0.965157
         }
       },
       "right_ankle": {
         "coverage": {
-          "emitted": 777,
-          "frames": 777,
+          "emitted": 736,
+          "frames": 736,
           "rate": 1.0
         },
         "normDist": {
-          "median": 5.302036,
-          "n": 714,
-          "p90": 8.401935
+          "median": 0.054867,
+          "n": 717,
+          "p90": 0.436709
         },
         "pck": {
-          "correct": 126,
-          "total": 714,
-          "value": 0.176471
+          "correct": 652,
+          "total": 717,
+          "value": 0.909344
         }
       },
       "right_elbow": {
         "coverage": {
-          "emitted": 757,
-          "frames": 777,
-          "rate": 0.97426
+          "emitted": 720,
+          "frames": 736,
+          "rate": 0.978261
         },
         "normDist": {
-          "median": 4.917112,
-          "n": 757,
-          "p90": 7.762723
+          "median": 0.120912,
+          "n": 699,
+          "p90": 0.933061
         },
         "pck": {
-          "correct": 128,
-          "total": 777,
-          "value": 0.164736
+          "correct": 549,
+          "total": 715,
+          "value": 0.767832
         }
       },
       "right_hip": {
         "coverage": {
-          "emitted": 777,
-          "frames": 777,
+          "emitted": 736,
+          "frames": 736,
           "rate": 1.0
         },
         "normDist": {
-          "median": 5.208344,
-          "n": 777,
-          "p90": 8.02633
+          "median": 0.08709,
+          "n": 717,
+          "p90": 0.399936
         },
         "pck": {
-          "correct": 127,
-          "total": 777,
-          "value": 0.163449
+          "correct": 673,
+          "total": 717,
+          "value": 0.938633
         }
       },
       "right_knee": {
         "coverage": {
-          "emitted": 777,
-          "frames": 777,
+          "emitted": 736,
+          "frames": 736,
           "rate": 1.0
         },
         "normDist": {
-          "median": 5.449485,
-          "n": 777,
-          "p90": 8.209926
+          "median": 0.06149,
+          "n": 717,
+          "p90": 0.410747
         },
         "pck": {
-          "correct": 126,
-          "total": 777,
-          "value": 0.162162
+          "correct": 656,
+          "total": 717,
+          "value": 0.914923
         }
       },
       "right_shoulder": {
         "coverage": {
-          "emitted": 777,
-          "frames": 777,
+          "emitted": 736,
+          "frames": 736,
           "rate": 1.0
         },
         "normDist": {
-          "median": 4.852378,
-          "n": 777,
-          "p90": 7.778264
+          "median": 0.08824,
+          "n": 717,
+          "p90": 0.447439
         },
         "pck": {
-          "correct": 127,
-          "total": 777,
-          "value": 0.163449
+          "correct": 672,
+          "total": 717,
+          "value": 0.937238
         }
       },
       "right_wrist": {
         "coverage": {
-          "emitted": 696,
-          "frames": 777,
-          "rate": 0.895753
+          "emitted": 659,
+          "frames": 736,
+          "rate": 0.89538
         },
         "normDist": {
-          "median": 5.133932,
-          "n": 694,
-          "p90": 7.62497
+          "median": 0.145321,
+          "n": 626,
+          "p90": 1.26594
         },
         "pck": {
-          "correct": 121,
-          "total": 775,
-          "value": 0.156129
+          "correct": 489,
+          "total": 703,
+          "value": 0.69559
         }
       }
     },
     "presence": {
-      "absentDetected": 1,
+      "absentDetected": 42,
       "absentUndetected": 0,
-      "presentDetected": 777,
+      "presentDetected": 736,
       "presentUndetected": 0
-    }
+    },
+    "visibleJoints": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      6,
+      9,
+      4,
+      25,
+      63,
+      175,
+      454
+    ]
   },
   "counts": {
     "agreementSkipped": {
@@ -525,8 +559,8 @@
       "flaggedAbsent": 0,
       "flaggedWrong": 0
     },
-    "truthFramesAbsent": 1,
-    "truthFramesPresent": 880,
+    "truthFramesAbsent": 116,
+    "truthFramesPresent": 765,
     "truthFramesTotal": 881,
     "truthFramesVerified": 0
   },
@@ -554,11 +588,11 @@
     "jointCoverage"
   ],
   "routeFolder": "planet-x",
-  "runTs": "20260717-233321",
+  "runTs": "20260721-155746",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 2,
-  "setupHash": "aa4fa08c23bf46db7ad540fb68e32b3269dca12b36d9e742c9dc71f3bc04117d",
-  "truthHash": "d8ddd80f1c33b717a4a03a10df568ed251e47bb484f43c6ef8314ff0a84646d3",
+  "schemaVersion": 3,
+  "setupHash": "790b2eef4bdf19652960fa578dd8c21d3ff97b758859e732d13b831f78763531",
+  "truthHash": "1f3aecc7c8adbd432c8b3e73736e5cc109e2ca841d3c311b91e08b4d5c25ace9",
   "truthSetupHashSource": "truth",
   "truthSource": "ground-truth",
   "videoKey": "jGa4kCQkXaQ_20260711-185530"

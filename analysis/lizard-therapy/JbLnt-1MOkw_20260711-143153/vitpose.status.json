@@ -1,20 +1,20 @@
 {
-  "jobId": "2d857f388a6840ec9fcef7aa26d957af",
+  "jobId": "b14e4904ebfa4dd7825c0448e359c249",
   "status": "done",
-  "updated_at": "2026-07-16T06:50:16",
+  "updated_at": "2026-07-21T11:22:39",
   "timings": {
-    "track_s": 18.96,
-    "pose_s": 1.64,
-    "total_s": 20.6
+    "track_s": 21.36,
+    "pose_s": 14.87,
+    "total_s": 36.35
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
     "historyFrames": 1520,
     "tap": {
-      "x": 0.5321770715497738,
-      "y": 0.44572965219261446,
-      "t": 4.54
+      "x": 0.5060098168641304,
+      "y": 0.4456822389812139,
+      "t": 7.66
     },
     "crop": {
       "x": 0.4071770715497738,
@@ -24,17 +24,144 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 138,
-      "timestamp": 4.6,
-      "sourceFrame": 138,
+      "frameIndex": 240,
+      "timestamp": 8.0,
+      "sourceFrame": 240,
       "box": {
-        "x": 0.4576462283730507,
-        "y": 0.27751101553440094,
-        "w": 0.13197331130504608,
-        "h": 0.28275254368782043,
-        "cx": 0.5236328840255737,
-        "cy": 0.41888728737831116
+        "x": 0.4303603768348694,
+        "y": 0.2772209793329239,
+        "w": 0.14770960807800293,
+        "h": 0.285470575094223,
+        "cx": 0.5042151808738708,
+        "cy": 0.4199562668800354
       }
+    },
+    "stitch": {
+      "stitchedFrames": 1391,
+      "idSwitches": [
+        {
+          "sourceFrame": 10,
+          "from": 27,
+          "to": 29
+        },
+        {
+          "sourceFrame": 104,
+          "from": 29,
+          "to": 34
+        },
+        {
+          "sourceFrame": 218,
+          "from": 34,
+          "to": 58
+        },
+        {
+          "sourceFrame": 259,
+          "from": 58,
+          "to": 49
+        },
+        {
+          "sourceFrame": 541,
+          "from": 49,
+          "to": 86
+        },
+        {
+          "sourceFrame": 547,
+          "from": 86,
+          "to": 49
+        },
+        {
+          "sourceFrame": 710,
+          "from": 49,
+          "to": 91
+        },
+        {
+          "sourceFrame": 713,
+          "from": 91,
+          "to": 49
+        },
+        {
+          "sourceFrame": 811,
+          "from": 49,
+          "to": 100
+        },
+        {
+          "sourceFrame": 822,
+          "from": 100,
+          "to": 49
+        },
+        {
+          "sourceFrame": 860,
+          "from": 49,
+          "to": 105
+        },
+        {
+          "sourceFrame": 888,
+          "from": 105,
+          "to": 111
+        },
+        {
+          "sourceFrame": 901,
+          "from": 111,
+          "to": 105
+        }
+      ],
+      "jumps": [
+        {
+          "sourceFrame": 811,
+          "dist": 0.1791
+        },
+        {
+          "sourceFrame": 860,
+          "dist": 0.1055
+        }
+      ],
+      "reseeds": [
+        {
+          "frameIndex": 860,
+          "sourceFrame": 860,
+          "timestamp": 28.666666666666668,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 21,
+          "recovered": 21,
+          "restored": 0
+        },
+        {
+          "frameIndex": 860,
+          "sourceFrame": 860,
+          "timestamp": 28.666666666666668,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 27,
+          "recovered": 27,
+          "restored": 0
+        },
+        {
+          "frameIndex": 860,
+          "sourceFrame": 860,
+          "timestamp": 28.666666666666668,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 36,
+          "recovered": 36,
+          "restored": 0
+        },
+        {
+          "frameIndex": 860,
+          "sourceFrame": 860,
+          "timestamp": 28.666666666666668,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 108,
+          "recovered": 108,
+          "restored": 0
+        },
+        {
+          "frameIndex": 860,
+          "sourceFrame": 860,
+          "timestamp": 28.666666666666668,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 256,
+          "recovered": 256,
+          "restored": 0
+        }
+      ]
     }
   }
 }
