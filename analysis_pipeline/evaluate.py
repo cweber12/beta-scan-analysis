@@ -129,6 +129,17 @@ CONFORMANCE_R2_MIN = 0.90  # y-axis floor
 CONFORMANCE_R2_MIN_X = 0.75  # x-axis floor (narrow horizontal variance, issue #16)
 CONFORMANCE_MIN_POINTS = 20
 
+# Best-overlap pairing fallback (issue #44 deliverable 4). A *trusted* pairing needs a
+# setupHash-matching pose Run that actually overlaps the truth timeline; a matching Run
+# that samples a disjoint time span pairs to n=0 (the ``IE4T94qX55g`` case) and yields no
+# usable per-frame evidence. When no setupHash-matched Run reaches this many matched,
+# non-excluded present frames, ``evaluate`` falls back to the Run with the most timestamp
+# overlap *regardless of setupHash*, stamps the record ``loosePaired: true``, and keeps it
+# out of trusted pooling. A loose record exists only for the per-frame quality worklist +
+# crops (issue #44 deliverables 1–3) — never for the trusted metrics, which stay
+# setupHash-gated and conforming-only.
+LOOSE_PAIR_MIN_OVERLAP = 3
+
 
 @dataclass
 class TruthFrame:
@@ -186,6 +197,7 @@ class Pairing:
     status: str  # "written" | "skipped"
     reason: str = ""  # populated when skipped
     record_path: Path | None = None
+    loose: bool = False  # a best-overlap fallback pairing (issue #44 deliverable 4)
 
 
 @dataclass
@@ -213,6 +225,10 @@ class EvalSummary:
     @property
     def written(self) -> list[Pairing]:
         return [p for p in self.pairings if p.status == "written"]
+
+    @property
+    def loose(self) -> list[Pairing]:
+        return [p for p in self.pairings if p.status == "written" and p.loose]
 
     @property
     def skipped(self) -> list[Pairing]:
@@ -608,6 +624,15 @@ def record_conforms(record: dict[str, Any]) -> bool:
     return bool(conf["conforms"])
 
 
+def record_trusted(record: dict[str, Any]) -> bool:
+    """Whether an on-disk record may feed the *trusted* pooled metrics: it must both
+    pass the #15 conformance gate and not be a best-overlap loose pairing (issue #44).
+    A loose record still carries per-frame quality worth mining — pooled separately —
+    but its setupHash never matched the truth, so it must stay out of the trusted pool."""
+
+    return record_conforms(record) and not record.get("loosePaired", False)
+
+
 def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[str, Any]:
     """Compute the full metric set for one pose Run against one truth doc.
 
@@ -680,6 +705,27 @@ def _iter_pose_runs(detections_dir: Path):
         yield run_ts, setup_hash, data.get("frames", []) or []
 
 
+def _present_overlap(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> int:
+    """How many non-excluded, present truth frames a pose Run actually overlaps.
+
+    Mirrors the join in ``evaluate_pair`` (nearest scanner frame within half the median
+    scanner interval) but counts only — the selector for the best-overlap fallback
+    (issue #44 deliverable 4). Zero means the Run's samples never land near a scorable
+    truth frame, so it carries no per-frame evidence no matter its setupHash."""
+
+    scanner_ts = sorted(float(f.get("timestamp", 0.0)) for f in pose_frames)
+    if not scanner_ts:
+        return 0
+    tol = _scanner_frame_interval(scanner_ts) / 2
+    count = 0
+    for tf in truth.frames:
+        if tf.excluded or not tf.present:
+            continue
+        if _nearest_within(scanner_ts, tf.timestamp, tol) is not None:
+            count += 1
+    return count
+
+
 def _parse_record_name(name: str) -> tuple[str, str] | None:
     """Split an ``<run_ts>_vs_<truthHash8>.json`` record name into its parts.
 
@@ -724,6 +770,44 @@ def _prune_orphans(eval_dir: Path, paired_run_ts: set[str], current_truth_hash8:
     return orphans
 
 
+def _write_eval_record(video_dir: Path, route_folder: str, video_key: str, run_ts: str,
+                       setup_hash: str, truth: TruthDoc, truth_hash8: str,
+                       body: dict[str, Any], *, loose: bool = False,
+                       loose_reason: str = "") -> Path:
+    """Assemble and write one idempotent evaluation record; return its path.
+
+    Shared by the trusted (setupHash-matched) path and the best-overlap loose fallback
+    (issue #44 deliverable 4). A loose record stamps the pairing Run's *own* setupHash
+    (not the truth's), records why it fell back, and carries ``loosePaired: true`` so
+    downstream pooling can keep it out of the trusted metrics while still mining its
+    per-frame quality (readers fail-open on the absent key for trusted records)."""
+
+    record = {
+        "schemaVersion": SCHEMA_VERSION,
+        "metrics": ["pck@0.5-torso", "normDistMedian", "normDistP90",
+                    "presence2x2", "jointCoverage"],
+        "routeFolder": route_folder,
+        "videoKey": video_key,
+        "runTs": run_ts,
+        "setupHash": setup_hash,
+        "truthSource": truth.source,
+        "truthHash": truth.truth_hash,
+        "truthSetupHashSource": ("loose-overlap" if loose
+                                 else "truth" if truth.setup_hash else "setup.json"),
+        "jointSet": COCO_CORE_JOINTS,
+        **body,
+    }
+    if loose:
+        record["loosePaired"] = True
+        record["loosePairReason"] = loose_reason
+    eval_dir = video_dir / "evaluations"
+    eval_dir.mkdir(exist_ok=True)
+    record_path = eval_dir / f"{run_ts}_vs_{truth_hash8}.json"
+    record_path.write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return record_path
+
+
 def evaluate(analysis_root: Path, prune: bool = False) -> EvalSummary:
     """Walk the bundle tree, pair every pose Run with truth, write eval records.
 
@@ -750,7 +834,9 @@ def evaluate(analysis_root: Path, prune: bool = False) -> EvalSummary:
         truth_hash8 = truth.truth_hash[:8]
         paired_run_ts: set[str] = set()
 
-        for run_ts, pose_setup_hash, pose_frames in _iter_pose_runs(video_dir / "detections"):
+        runs = list(_iter_pose_runs(video_dir / "detections"))
+        best_trusted_overlap = 0
+        for run_ts, pose_setup_hash, pose_frames in runs:
             if pose_setup_hash != effective_setup_hash:
                 summary.pairings.append(Pairing(
                     route_folder, video_key, run_ts, truth.source, "skipped",
@@ -760,29 +846,45 @@ def evaluate(analysis_root: Path, prune: bool = False) -> EvalSummary:
                 continue
 
             body = evaluate_pair(pose_frames, truth)
-            record = {
-                "schemaVersion": SCHEMA_VERSION,
-                "metrics": ["pck@0.5-torso", "normDistMedian", "normDistP90",
-                            "presence2x2", "jointCoverage"],
-                "routeFolder": route_folder,
-                "videoKey": video_key,
-                "runTs": run_ts,
-                "setupHash": effective_setup_hash,
-                "truthSource": truth.source,
-                "truthHash": truth.truth_hash,
-                "truthSetupHashSource": "truth" if truth.setup_hash else "setup.json",
-                "jointSet": COCO_CORE_JOINTS,
-                **body,
-            }
-            eval_dir = video_dir / "evaluations"
-            eval_dir.mkdir(exist_ok=True)
-            record_path = eval_dir / f"{run_ts}_vs_{truth_hash8}.json"
-            record_path.write_text(
-                json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            record_path = _write_eval_record(
+                video_dir, route_folder, video_key, run_ts, effective_setup_hash,
+                truth, truth_hash8, body)
             paired_run_ts.add(run_ts)
+            best_trusted_overlap = max(
+                best_trusted_overlap, body["agreement"]["frames"]["matchedPresent"])
             summary.pairings.append(Pairing(
                 route_folder, video_key, run_ts, truth.source, "written",
                 record_path=record_path))
+
+        # Best-overlap loose fallback (issue #44 deliverable 4): when no trusted pairing
+        # reached the overlap floor, recover per-frame evidence from the Run that
+        # overlaps truth most — even one whose setupHash differs — provided it beats
+        # every trusted Run's overlap. It is written loosePaired and never enters the
+        # trusted pool. Recovers the IE4T94qX55g n=0 case.
+        if best_trusted_overlap < LOOSE_PAIR_MIN_OVERLAP:
+            best_overlap = best_trusted_overlap
+            candidate: tuple[str, str, list[dict[str, Any]]] | None = None
+            for run_ts, pose_setup_hash, pose_frames in runs:
+                if run_ts in paired_run_ts:
+                    continue
+                ov = _present_overlap(pose_frames, truth)
+                if ov > best_overlap:
+                    best_overlap, candidate = ov, (run_ts, pose_setup_hash, pose_frames)
+            if candidate is not None and best_overlap > 0:
+                run_ts, pose_setup_hash, pose_frames = candidate
+                body = evaluate_pair(pose_frames, truth)
+                reason = (
+                    f"no setupHash-matched run overlapped truth "
+                    f"(≥{LOOSE_PAIR_MIN_OVERLAP} present frames); paired best-overlap run "
+                    f"({best_overlap} frames, run setupHash {pose_setup_hash[:8] or '∅'} "
+                    f"vs truth {effective_setup_hash[:8] or '∅'})")
+                record_path = _write_eval_record(
+                    video_dir, route_folder, video_key, run_ts, pose_setup_hash,
+                    truth, truth_hash8, body, loose=True, loose_reason=reason)
+                paired_run_ts.add(run_ts)
+                summary.pairings.append(Pairing(
+                    route_folder, video_key, run_ts, truth.source, "written",
+                    record_path=record_path, loose=True))
 
         summary.orphans.extend(_prune_orphans(
             video_dir / "evaluations", paired_run_ts, truth_hash8,

@@ -591,14 +591,67 @@ def test_evaluate_setuphash_mismatch_is_skipped():
         _write_bundle_meta(vdir, setup_hash="sh_truth")
         (vdir / "ground-truth.json").write_text(
             json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
-        # A stale run whose setupHash != the setup.json the truth was authored under.
-        _write_pose_run(vdir, "20260101-000009", "sh_STALE", _scanner_frames_for_pck())
+        # A stale run whose setupHash != the setup.json the truth was authored under,
+        # AND whose frames sample a disjoint time span (t≈100s) so it never overlaps a
+        # scorable truth frame — the #44 best-overlap fallback finds nothing to recover.
+        stale = [{"timestamp": 100.0 + i, "keypoints": _kp_list(_TRUTH_JOINTS)}
+                 for i in range(4)]
+        _write_pose_run(vdir, "20260101-000009", "sh_STALE", stale)
 
         summary = ev.evaluate(root)
         assert not summary.written
+        assert not summary.loose
         assert len(summary.skipped) == 1
         assert "setupHash mismatch" in summary.skipped[0].reason
         assert not (vdir / "evaluations").exists()
+
+
+def test_evaluate_loose_overlap_pairing_fallback():
+    """Issue #44 deliverable 4: a bundle whose only setupHash-matched run samples a
+    disjoint time span (n=0 overlap) is recovered by loose-pairing the run with the most
+    timestamp overlap — even one whose setupHash differs — stamped loosePaired and held
+    out of the trusted pool. Mirrors the IE4T94qX55g n=0 case."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeLP" / "vidLP"
+        _write_bundle_meta(vdir, setup_hash="sh_cur")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        # Matched run (sh_cur) samples t≈100s — never overlaps truth (t1..t9) -> n=0.
+        matched = [{"timestamp": 100.0 + i, "keypoints": _kp_list(_TRUTH_JOINTS)}
+                   for i in range(3)]
+        _write_pose_run(vdir, "20260101-000001", "sh_cur", matched)
+        # Stale run (sh_OLD) overlaps truth at t1/t2/t4 -> the best-overlap candidate.
+        _write_pose_run(vdir, "20260101-000002", "sh_OLD", _scanner_frames_for_pck())
+
+        summary = ev.evaluate(root)
+        # The matched-but-disjoint run writes a normal (n=0) record; the stale
+        # overlapping run is recovered as a loose pairing.
+        assert len(summary.written) == 2
+        assert len(summary.loose) == 1
+        loose = summary.loose[0]
+        assert loose.run_ts == "20260101-000002"
+
+        rec = json.loads(loose.record_path.read_text(encoding="utf-8"))
+        assert rec["loosePaired"] is True
+        assert rec["setupHash"] == "sh_OLD"  # the run's own hash, not the truth's
+        assert rec["truthSetupHashSource"] == "loose-overlap"
+        assert "best-overlap" in rec["loosePairReason"]
+        assert rec["agreement"]["frames"]["matchedPresent"] == 3
+        assert ev.record_conforms(rec) is True   # a clean identity fit
+        assert ev.record_trusted(rec) is False   # ...but loose -> never trusted
+
+        # Pooled trends hold the loose record out of the trusted pool and name it.
+        ctx = trends.build_trend_context(root)
+        assert ctx["loose_count"] == 1
+        assert ctx["loose_bundles"][0]["video_key"] == "vidLP"
+        # Neither the n=0 matched record nor the loose one feeds trusted pooling here
+        # (the matched record has no scored joints; the loose one is excluded).
+        assert all(not r.data.get("loosePaired") for r in ctx["eval_records"])
 
 
 def test_evaluate_vitpose_fallback_when_no_ground_truth():
@@ -765,16 +818,19 @@ def test_analysis_report_includes_eval_trend_sections():
         v_no_truth = root / "routeT" / "vidNoTruth"
         _write_bundle_meta(v_no_truth, setup_hash="sh_nt")
 
-        # One stale setup run -> appears in shame list.
+        # One stale setup run that still overlaps truth -> appears in the stale shame
+        # list AND is recovered by the #44 best-overlap fallback (loose-paired).
         v_stale = root / "routeT" / "vidStale"
         _write_bundle_meta(v_stale, setup_hash="sh_truth")
         (v_stale / "ground-truth.json").write_text(
             json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
         _write_pose_run(v_stale, "20260101-020202", "sh_old", _scanner_frames_for_pck())
 
-        # Seed committed evaluation records once, then run analysis.
+        # Seed committed evaluation records once, then run analysis. vidT is a trusted
+        # record; vidStale is loose-paired (setupHash mismatch, but overlaps truth).
         summary = ev.evaluate(root)
-        assert len(summary.written) == 1
+        assert len(summary.written) == 2
+        assert len(summary.loose) == 1
 
         outputs = cli.run(root, out, decode=False)
         html_text = outputs["html"].read_text(encoding="utf-8")
@@ -785,11 +841,12 @@ def test_analysis_report_includes_eval_trend_sections():
             "Within-video frame-level conditions vs error",
             "Cross-video descriptive splits",
             "Shame lists",
+            "Loose-paired bundles (#44 best-overlap fallback)",
         ):
             assert header in html_text, f"missing report section: {header}"
 
         assert "routeT/vidNoTruth" in html_text
-        assert "routeT/vidStale" in html_text
+        assert "routeT/vidStale" in html_text  # stale shame list + loose table
         assert (out / "eval_joint_ranking.csv").exists()
         assert (out / "eval_low_confidence_worklist.csv").exists()
 
@@ -1017,6 +1074,7 @@ def _run_all():
            test_evaluate_conformance_gate_and_pooled_quarantine,
            test_conformance_x_axis_has_looser_r2_floor,
            test_evaluate_setuphash_mismatch_is_skipped,
+           test_evaluate_loose_overlap_pairing_fallback,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
            test_analysis_report_includes_eval_trend_sections,

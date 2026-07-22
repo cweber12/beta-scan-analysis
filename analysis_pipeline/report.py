@@ -450,6 +450,22 @@ def _shame_list_html(items: list[str], empty_text: str) -> str:
     return f"<div class='tablewrap'><table><tbody>{rows}</tbody></table></div>"
 
 
+def _loose_table(rows: list[dict[str, Any]]) -> str:
+    """Bundles paired by the #44 best-overlap fallback (held out of trusted pooling)."""
+
+    if not rows:
+        return "<p class='muted'>No loose pairings — every scored run matched a truth setupHash.</p>"
+    head = "<tr><th>route</th><th>video</th><th>run</th><th>reason</th></tr>"
+    body = "".join(
+        f"<tr><td>{_esc(r.get('route_folder'))}</td>"
+        f"<td>{_esc(r.get('video_key'))}</td>"
+        f"<td>{_esc(r.get('run_ts'))}</td>"
+        f"<td>{_esc(r.get('reason'))}</td></tr>"
+        for r in rows
+    )
+    return f"<div class='tablewrap'><table><thead>{head}</thead><tbody>{body}</tbody></table></div>"
+
+
 def _quarantine_table(rows: list[dict[str, Any]]) -> str:
     """Bundles dropped from pooled metrics by the #15 conformance gate."""
 
@@ -857,8 +873,9 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "<p class='sub'>Two-tier accounting from committed evaluation records. "
         "Every value is explicitly tagged as agreement or accuracy.</p>",
         _stat_tiles([
-            (str(ctx.get("eval_count", 0)), "conforming records [pooled]"),
+            (str(ctx.get("eval_count", 0)), "trusted records [pooled]"),
             (str(ctx.get("quarantined_count", 0)), "quarantined records [#15 gate]"),
+            (str(ctx.get("loose_count", 0)), "loose pairings [#44 fallback]"),
             (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
             (str(ctx.get("verified_records", 0)), "records with verified truth"),
         ]),
@@ -900,6 +917,12 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         _cross_video_split_table(ctx.get("cross_video_splits", pd.DataFrame())),
 
         "<h2>Shame lists</h2>",
+        "<h3>Loose-paired bundles (#44 best-overlap fallback)</h3>",
+        "<p class='sub'>Bundles with no setupHash-matched run overlapping truth enough, "
+        "paired instead against the run with the most timestamp overlap. Held out of "
+        "every trusted pooled metric above; their per-frame quality still feeds the "
+        "detection-quality worklist and crops.</p>",
+        _loose_table(ctx.get("loose_bundles", [])),
         "<h3>Quarantined bundles (#15 conformance gate)</h3>",
         "<p class='sub'>Bundles whose truth↔scanner fit falls outside the "
         "near-identity band (<code>scanner = a·truth + b</code>, per axis) — the "

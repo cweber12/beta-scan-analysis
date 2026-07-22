@@ -99,8 +99,12 @@ def run_evaluate(analysis_root: Path, prune: bool = False) -> None:
     print(f"wrote {len(summary.written)} evaluation record(s) "
           f"from {analysis_root}")
     for p in summary.written:
+        tag = " [loosePaired]" if p.loose else ""
         print(f"  {p.route_folder}/{p.video_key} {p.run_ts} "
-              f"vs {p.truth_source} -> {p.record_path.name}")
+              f"vs {p.truth_source} -> {p.record_path.name}{tag}")
+    if summary.loose:
+        print(f"{len(summary.loose)} of those are best-overlap loose pairings "
+              "(excluded from trusted pooling; per-frame quality only)")
     if summary.skipped:
         print(f"skipped {len(summary.skipped)} pair(s):")
         for p in summary.skipped:

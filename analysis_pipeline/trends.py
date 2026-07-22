@@ -36,6 +36,7 @@ from .evaluate import (
     _scanner_frame_interval,
     load_truth,
     record_conforms,
+    record_trusted,
     torso_length,
 )
 
@@ -653,13 +654,34 @@ def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: (r["route_folder"], r["video_key"], r["run_ts"]))
 
 
+def _loose_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
+    """Best-overlap loose pairings (issue #44), flattened for the report's shame
+    accounting: which bundle/run fell back, and why. Held out of the trusted pool but
+    kept for the per-frame quality worklist + crops."""
+
+    rows: list[dict[str, Any]] = []
+    for rec in recs:
+        if not rec.data.get("loosePaired"):
+            continue
+        rows.append({
+            "route_folder": rec.route_folder,
+            "video_key": rec.video_key,
+            "run_ts": rec.run_ts,
+            "reason": str(rec.data.get("loosePairReason") or ""),
+        })
+    return sorted(rows, key=lambda r: (r["route_folder"], r["video_key"], r["run_ts"]))
+
+
 def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     all_recs = _iter_eval_records(analysis_root)
     # Issue #15 gate: quarantine non-conforming bundles (truth mis-tracking) from
-    # every *pooled* derivation below. The records stay on disk and inspectable;
-    # only the aggregation drops them, and the report accounts for them by name.
+    # every *pooled* derivation below. Issue #44: best-overlap loose pairings are
+    # likewise held out of the trusted pool (their setupHash never matched the truth).
+    # Both classes stay on disk and inspectable; only the aggregation drops them, and
+    # the report accounts for each by name.
     quarantined = _quarantined_rows(all_recs)
-    recs = [r for r in all_recs if record_conforms(r.data)]
+    loose_records = _loose_rows(all_recs)
+    recs = [r for r in all_recs if record_trusted(r.data)]
     pose_cache: dict[tuple[str, str], dict[str, tuple[str, list[dict[str, Any]]]]] = {}
     for rec in recs:
         vid = (rec.route_folder, rec.video_key)
@@ -702,6 +724,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "eval_count_total": len(all_recs),
         "quarantined_bundles": quarantined,
         "quarantined_count": len(quarantined),
+        "loose_bundles": loose_records,
+        "loose_count": len(loose_records),
         "frame_joint_df": frame_joint_df,
         "joint_rank": joint_rank,
         "condition_bands": cond_df,
