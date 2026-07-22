@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "setupHash": "702ce8abcd291c96779fd57c5cf8174a0dd189a6ebf964309ba00c611003e2f3",
+  "computedAt": "2026-07-21T22:49:54",
+  "source": "endpoint",
+  "regionStats": {
+    "sampledFrames": 30,
+    "panning": false,
+    "panningFlagged": false,
+    "wall": {
+      "luma": {
+        "mean": 42.646,
+        "std": 11.4023
+      },
+      "rmsContrast": 0.0511,
+      "texture": {
+        "edgeDensity": 0.0164,
+        "laplacianVar": 74.72
+      },
+      "dominantColors": [
+        {
+          "fraction": 0.5979,
+          "lab": [
+            21.87,
+            12.92,
+            0.13
+          ],
+          "rgbHex": "#452d34"
+        },
+        {
+          "fraction": 0.3349,
+          "lab": [
+            12.07,
+            12.84,
+            3.85
+          ],
+          "rgbHex": "#30191b"
+        },
+        {
+          "fraction": 0.0672,
+          "lab": [
+            0.04,
+            0.03,
+            0.0
+          ],
+          "rgbHex": "#000000"
+        }
+      ],
+      "hue": {
+        "meanDeg": 347.7,
+        "concentration": 0.9764
+      },
+      "saturation": {
+        "mean": 99.8008,
+        "std": 36.3247
+      }
+    },
+    "climberWall": {
+      "deltaE": 10.51,
+      "lumaSeparation": 17.66,
+      "frameTimestamp": 1.168
+    },
+    "shadow": {
+      "fraction": {
+        "mean": 0.1762,
+        "std": 0.0474,
+        "min": 0.0,
+        "max": 0.1982
+      },
+      "inOutLumaRatio": 0.519,
+      "inShadowContrast": 0.0164,
+      "outShadowContrast": 0.0409,
+      "blobs": {
+        "count": 2,
+        "largestFraction": 0.892,
+        "meanAreaFraction": 0.0868
+      },
+      "drift": {
+        "range": 0.1982,
+        "firstToLast": 0.0
+      }
+    }
+  },
+  "suggestions": {
+    "shadows": "solid",
+    "climber_contrast": "high",
+    "wall_contrast": "low",
+    "motion_blur": "high",
+    "camera_stability": "steady"
+  }
+}
