@@ -771,6 +771,94 @@ def test_crop_export_selection_and_writes():
         assert by_t[4.0]["crop"] is None   # cap reached before this ok
 
 
+def test_frame_quality_aggregation_pools_all_records():
+    """Issue #44 deliverable 3: per-frame classes are pooled across ALL records —
+    quarantined ones included — into a class-frequency table + worst-first worklist,
+    an independent pool from the conforming-only trusted metrics."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+
+        # Good (conforming) bundle: t1/t2 ok (enough present joints to clear the
+        # conformance point floor), t3 hallucination on an auto-absent frame. The t2
+        # scanner is nudged off t1 so it is not a frozen duplicate.
+        good = root / "routeFA" / "vidGood"
+        _write_bundle_meta(good, setup_hash="sh_g")
+        (good / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": "aaaaaaaa11111111",
+            "frames": [
+                {"frameIndex": 1, "timestamp": 1.0, "state": "present", "review": "auto", "joints": present},
+                {"frameIndex": 2, "timestamp": 2.0, "state": "present", "review": "auto", "joints": present},
+                {"frameIndex": 3, "timestamp": 3.0, "state": "absent", "review": "auto", "joints": {}},
+            ]}), encoding="utf-8")
+        _write_pose_run(good, "20260101-000001", "sh_g", [
+            {"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
+            {"timestamp": 2.0, "keypoints": _kp_list(
+                {n: (x + 0.02, y) for n, (x, y) in _TRUTH_JOINTS.items()})},
+            {"timestamp": 3.0, "keypoints": _kp_list(_TRUTH_JOINTS)}])
+
+        # Bad (non-conforming, quarantined) bundle: scanner is 2x truth -> wrong-subject
+        # on every frame. Quarantined out of the trusted pool but still mined here.
+        bad = root / "routeFA" / "vidBad"
+        _write_bundle_meta(bad, setup_hash="sh_b")
+        (bad / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": "bbbbbbbb22222222",
+            "frames": [{"frameIndex": i, "timestamp": float(i), "state": "present",
+                        "review": "auto", "joints": present} for i in (1, 2, 3)]}),
+            encoding="utf-8")
+        _write_pose_run(bad, "20260101-000002", "sh_b", [
+            {"timestamp": float(i), "keypoints": _kp_list(
+                {n: (2 * x, 2 * y) for n, (x, y) in _TRUTH_JOINTS.items()})}
+            for i in (1, 2, 3)])
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 2
+
+        ctx = trends.build_trend_context(root)
+        # Trusted pool excludes the quarantined bundle; the frame-quality pool keeps it.
+        assert ctx["eval_count"] == 1 and ctx["quarantined_count"] == 1
+        assert ctx["frame_quality_detected"] == 6  # 3 good + 3 bad
+        assert ctx["frame_quality_flagged"] == 4   # 1 hallucination + 3 wrong-subject
+
+        classes = ctx["frame_quality_classes"].set_index("class")["n"].to_dict()
+        assert classes["ok"] == 2
+        assert classes["hallucination-fp"] == 1
+        assert classes["wrong-subject"] == 3
+
+        wl = ctx["frame_quality_worklist"]
+        assert len(wl) == 4  # all flagged frames
+        assert wl.iloc[0]["class"] == "hallucination-fp"  # worst class first
+        assert "crop" in wl.columns
+        assert set(wl["class"]) == {"hallucination-fp", "wrong-subject"}
+
+
+def test_frame_quality_condition_bands_flagged_rate():
+    """Issue #44 deliverable 3: the flagged-frame rate is banded against a Video Stats
+    condition via the same qcut + bootstrap machinery as the geometric trends."""
+
+    from analysis_pipeline import trends
+
+    # 30 rows: the lowest-luma tercile is all flagged, the rest clean.
+    df = pd.DataFrame({
+        "vs_wall_luma_mean": [float(i) for i in range(30)],
+        "flagged": [1 if i < 10 else 0 for i in range(30)],
+    })
+    bands = trends._frame_quality_condition_bands(df, bins=3)
+    assert not bands.empty
+    assert set(bands["condition"]) == {"wall_luma_mean"}
+    assert sorted(bands["band"]) == [1, 2, 3]
+    by_band = bands.set_index("band")["flagged_rate"].to_dict()
+    assert by_band[1] == 1.0            # darkest tercile: every frame flagged
+    assert by_band[2] == 0.0 and by_band[3] == 0.0
+
+    assert trends._frame_quality_condition_bands(pd.DataFrame()).empty
+
+
 def test_evaluate_vitpose_fallback_when_no_ground_truth():
     from analysis_pipeline import evaluate as ev
 
@@ -953,6 +1041,7 @@ def test_analysis_report_includes_eval_trend_sections():
         html_text = outputs["html"].read_text(encoding="utf-8")
         for header in (
             "Low-confidence truth (visible-joint measurement)",
+            "Per-frame detection quality (auto-flagged classes)",
             "Scanner version regression (appVersion run-over-run)",
             "Per-joint failure ranking (frame/joint unit)",
             "Within-video frame-level conditions vs error",
@@ -1194,6 +1283,8 @@ def _run_all():
            test_evaluate_loose_overlap_pairing_fallback,
            test_frame_quality_classification_one_per_class,
            test_crop_export_selection_and_writes,
+           test_frame_quality_aggregation_pools_all_records,
+           test_frame_quality_condition_bands_flagged_rate,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
            test_analysis_report_includes_eval_trend_sections,
