@@ -92,15 +92,20 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True,
     return outputs
 
 
-def run_evaluate(analysis_root: Path, prune: bool = False) -> None:
+def run_evaluate(analysis_root: Path, prune: bool = False,
+                 export_crops: bool = False) -> None:
     """Pair pose Runs with bundle truth, write eval records, print a summary."""
 
-    summary = evaluate(analysis_root, prune=prune)
+    summary = evaluate(analysis_root, prune=prune, export_crops=export_crops)
     print(f"wrote {len(summary.written)} evaluation record(s) "
           f"from {analysis_root}")
     for p in summary.written:
+        tag = " [loosePaired]" if p.loose else ""
         print(f"  {p.route_folder}/{p.video_key} {p.run_ts} "
-              f"vs {p.truth_source} -> {p.record_path.name}")
+              f"vs {p.truth_source} -> {p.record_path.name}{tag}")
+    if summary.loose:
+        print(f"{len(summary.loose)} of those are best-overlap loose pairings "
+              "(excluded from trusted pooling; per-frame quality only)")
     if summary.skipped:
         print(f"skipped {len(summary.skipped)} pair(s):")
         for p in summary.skipped:
@@ -142,11 +147,16 @@ def main(argv: list[str] | None = None) -> None:
                       help="delete stale-run orphan evaluation records (records whose "
                            "run no longer pairs and whose truth hash is no longer "
                            "current); without it, orphans are only reported (dry run)")
+    p_ev.add_argument("--crops", action="store_true",
+                      help="decode the (gitignored) video binaries and export flagged-"
+                           "frame crops into each bundle's crops/ dir (issue #44); "
+                           "best-effort — no-ops without cv2 or the binary")
 
     args = parser.parse_args(argv)
 
     if args.command == "evaluate":
-        run_evaluate(args.analysis_root.resolve(), prune=args.prune)
+        run_evaluate(args.analysis_root.resolve(), prune=args.prune,
+                     export_crops=args.crops)
         return
 
     # Default (no subcommand) and the explicit "analysis" subcommand both build the

@@ -372,7 +372,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 5
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 6
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -591,14 +591,272 @@ def test_evaluate_setuphash_mismatch_is_skipped():
         _write_bundle_meta(vdir, setup_hash="sh_truth")
         (vdir / "ground-truth.json").write_text(
             json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
-        # A stale run whose setupHash != the setup.json the truth was authored under.
-        _write_pose_run(vdir, "20260101-000009", "sh_STALE", _scanner_frames_for_pck())
+        # A stale run whose setupHash != the setup.json the truth was authored under,
+        # AND whose frames sample a disjoint time span (t≈100s) so it never overlaps a
+        # scorable truth frame — the #44 best-overlap fallback finds nothing to recover.
+        stale = [{"timestamp": 100.0 + i, "keypoints": _kp_list(_TRUTH_JOINTS)}
+                 for i in range(4)]
+        _write_pose_run(vdir, "20260101-000009", "sh_STALE", stale)
 
         summary = ev.evaluate(root)
         assert not summary.written
+        assert not summary.loose
         assert len(summary.skipped) == 1
         assert "setupHash mismatch" in summary.skipped[0].reason
         assert not (vdir / "evaluations").exists()
+
+
+def test_evaluate_loose_overlap_pairing_fallback():
+    """Issue #44 deliverable 4: a bundle whose only setupHash-matched run samples a
+    disjoint time span (n=0 overlap) is recovered by loose-pairing the run with the most
+    timestamp overlap — even one whose setupHash differs — stamped loosePaired and held
+    out of the trusted pool. Mirrors the IE4T94qX55g n=0 case."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeLP" / "vidLP"
+        _write_bundle_meta(vdir, setup_hash="sh_cur")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        # Matched run (sh_cur) samples t≈100s — never overlaps truth (t1..t9) -> n=0.
+        matched = [{"timestamp": 100.0 + i, "keypoints": _kp_list(_TRUTH_JOINTS)}
+                   for i in range(3)]
+        _write_pose_run(vdir, "20260101-000001", "sh_cur", matched)
+        # Stale run (sh_OLD) overlaps truth at t1/t2/t4 -> the best-overlap candidate.
+        _write_pose_run(vdir, "20260101-000002", "sh_OLD", _scanner_frames_for_pck())
+
+        summary = ev.evaluate(root)
+        # The matched-but-disjoint run writes a normal (n=0) record; the stale
+        # overlapping run is recovered as a loose pairing.
+        assert len(summary.written) == 2
+        assert len(summary.loose) == 1
+        loose = summary.loose[0]
+        assert loose.run_ts == "20260101-000002"
+
+        rec = json.loads(loose.record_path.read_text(encoding="utf-8"))
+        assert rec["loosePaired"] is True
+        assert rec["setupHash"] == "sh_OLD"  # the run's own hash, not the truth's
+        assert rec["truthSetupHashSource"] == "loose-overlap"
+        assert "best-overlap" in rec["loosePairReason"]
+        assert rec["agreement"]["frames"]["matchedPresent"] == 3
+        assert ev.record_conforms(rec) is True   # a clean identity fit
+        assert ev.record_trusted(rec) is False   # ...but loose -> never trusted
+
+        # Pooled trends hold the loose record out of the trusted pool and name it.
+        ctx = trends.build_trend_context(root)
+        assert ctx["loose_count"] == 1
+        assert ctx["loose_bundles"][0]["video_key"] == "vidLP"
+        # Neither the n=0 matched record nor the loose one feeds trusted pooling here
+        # (the matched record has no scored joints; the loose one is excluded).
+        assert all(not r.data.get("loosePaired") for r in ctx["eval_records"])
+
+
+def test_frame_quality_classification_one_per_class():
+    """Issue #44 deliverable 1: each matched, scanner-detected frame is sorted into one
+    auto class from the scanner↔truth geometry, plus a cross-cutting frozen-stale flag.
+    One synthetic frame per class (ok / hallucination-fp / wrong-subject / distorted /
+    flipped-rotated) + a frozen duplicate."""
+
+    from analysis_pipeline import evaluate as ev
+
+    cy = sum(y for _, y in _TRUTH_JOINTS.values()) / len(_TRUTH_JOINTS)
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    doc = {
+        "version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": "fq00fq00fq00fq00",
+        "frames": [
+            {"frameIndex": 1, "timestamp": 1.0, "state": "present", "review": "auto", "joints": present},
+            {"frameIndex": 2, "timestamp": 2.0, "state": "present", "review": "auto", "joints": present},
+            {"frameIndex": 3, "timestamp": 3.0, "state": "absent", "review": "auto", "joints": {}},
+            {"frameIndex": 4, "timestamp": 4.0, "state": "present", "review": "auto", "joints": present},
+            {"frameIndex": 5, "timestamp": 5.0, "state": "present", "review": "auto", "joints": present},
+            {"frameIndex": 6, "timestamp": 6.0, "state": "present", "review": "auto", "joints": present},
+        ],
+    }
+    # t1/t2 exact (ok; t2 is a frozen duplicate of t1). t3 hallucination on an absent
+    # frame. t4 shifted +0.35 in x (centroid ≈1.17 torso → wrong-subject). t5 zig-zag
+    # x-perturbation (centroid ≈0, residual ≈0.67 torso → distorted). t6 reflected
+    # vertically about the truth centroid (nose below hips → flipped-rotated).
+    exact = _kp_list(_TRUTH_JOINTS)
+    nudged = _kp_list({n: (x + 0.05, y + 0.05) for n, (x, y) in _TRUTH_JOINTS.items()})
+    shifted = _kp_list({n: (x + 0.35, y) for n, (x, y) in _TRUTH_JOINTS.items()})
+    zig = _kp_list({n: (x + (0.2 if i % 2 == 0 else -0.2), y)
+                    for i, (n, (x, y)) in enumerate(_TRUTH_JOINTS.items())})
+    flipped = _kp_list({n: (x, 2 * cy - y) for n, (x, y) in _TRUTH_JOINTS.items()})
+    scanner = [
+        {"timestamp": 1.0, "keypoints": exact},
+        {"timestamp": 2.0, "keypoints": exact},   # identical -> frozen
+        {"timestamp": 3.0, "keypoints": nudged},  # hallucination (truth absent), distinct
+        {"timestamp": 4.0, "keypoints": shifted},
+        {"timestamp": 5.0, "keypoints": zig},
+        {"timestamp": 6.0, "keypoints": flipped},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeFQ" / "vidFQ"
+        _write_bundle_meta(vdir, setup_hash="sh_fq")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000050", "sh_fq", scanner)
+
+        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        fq = rec["frameQuality"]
+        assert fq["detectedFrames"] == 6
+        assert fq["classCounts"] == {"ok": 2, "wrong-subject": 1, "hallucination-fp": 1,
+                                     "flipped-rotated": 1, "distorted": 1}
+        assert fq["flaggedCount"] == 4
+        assert fq["frozenStaleCount"] == 1
+        assert fq["thresholds"]["wrongSubjectCentroid"] == ev.FQ_WRONG_SUBJECT_CENTROID
+
+        by_t = {e["t"]: e for e in fq["frames"]}
+        assert by_t[1.0]["class"] == "ok" and by_t[1.0]["frozenStale"] is False
+        assert by_t[2.0]["class"] == "ok" and by_t[2.0]["frozenStale"] is True
+        assert by_t[3.0]["class"] == "hallucination-fp"
+        assert by_t[4.0]["class"] == "wrong-subject"
+        assert by_t[5.0]["class"] == "distorted"
+        assert by_t[6.0]["class"] == "flipped-rotated"
+        # Every entry carries a crop placeholder for the exporter (deliverable 2).
+        assert all("crop" in e for e in fq["frames"])
+
+
+def test_crop_export_selection_and_writes():
+    """Issue #44 deliverable 2: crops are budgeted worst-first (flagged, then ok to fill
+    the cap); with decode off nothing is written and every crop path stays None; with a
+    frame reader injected, PNGs land in crops/ and the selected frameQuality entries get
+    their crop path stamped in place."""
+
+    import numpy as np
+
+    from analysis_pipeline import crops
+
+    entries = [
+        {"t": 1.0, "class": "ok", "crop": None},
+        {"t": 2.0, "class": "wrong-subject", "crop": None},
+        {"t": 3.0, "class": "distorted", "crop": None},
+        {"t": 4.0, "class": "ok", "crop": None},
+    ]
+    # Selection: flagged first (worst-first budget), then ok to fill the cap.
+    assert [e["class"] for e in crops._select_for_crop(entries, 3)] == \
+        ["wrong-subject", "distorted", "ok"]
+    assert crops._select_for_crop(entries, 1)[0]["class"] == "wrong-subject"
+    assert crops._select_for_crop(entries, 0) == []
+
+    pose_frames = [{"timestamp": e["t"], "keypoints": [
+        {"name": "nose", "x": 0.4, "y": 0.3}, {"name": "left_hip", "x": 0.5, "y": 0.6}]}
+        for e in entries]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        vdir = Path(tmp) / "routeCR" / "vidCR"
+        vdir.mkdir(parents=True)
+
+        # decode off -> best-effort no-op: nothing written, no crops/ dir, paths None.
+        fq_off = {"frames": [dict(e) for e in entries]}
+        assert crops.export_run_crops(vdir, "20260101-000001", pose_frames, fq_off,
+                                      decode=False) == 0
+        assert all(e["crop"] is None for e in fq_off["frames"])
+        assert not (vdir / "crops").exists()
+
+        # Injected reader -> writes PNGs for the selected frames, stamps their paths.
+        gray = np.full((100, 120), 128, dtype=np.uint8)
+        fq = {"frames": [dict(e) for e in entries]}
+        n = crops.export_run_crops(vdir, "20260101-000001", pose_frames, fq,
+                                   decode=True, cap=3, frame_reader=lambda t: gray)
+        assert n == 3
+        assert len(list((vdir / "crops").glob("*.png"))) == 3
+        by_t = {e["t"]: e for e in fq["frames"]}
+        assert by_t[2.0]["crop"].startswith("crops/") and by_t[3.0]["crop"]
+        assert by_t[1.0]["crop"]           # ok at t1 selected to fill the cap
+        assert by_t[4.0]["crop"] is None   # cap reached before this ok
+
+
+def test_frame_quality_aggregation_pools_all_records():
+    """Issue #44 deliverable 3: per-frame classes are pooled across ALL records —
+    quarantined ones included — into a class-frequency table + worst-first worklist,
+    an independent pool from the conforming-only trusted metrics."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+
+        # Good (conforming) bundle: t1/t2 ok (enough present joints to clear the
+        # conformance point floor), t3 hallucination on an auto-absent frame. The t2
+        # scanner is nudged off t1 so it is not a frozen duplicate.
+        good = root / "routeFA" / "vidGood"
+        _write_bundle_meta(good, setup_hash="sh_g")
+        (good / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": "aaaaaaaa11111111",
+            "frames": [
+                {"frameIndex": 1, "timestamp": 1.0, "state": "present", "review": "auto", "joints": present},
+                {"frameIndex": 2, "timestamp": 2.0, "state": "present", "review": "auto", "joints": present},
+                {"frameIndex": 3, "timestamp": 3.0, "state": "absent", "review": "auto", "joints": {}},
+            ]}), encoding="utf-8")
+        _write_pose_run(good, "20260101-000001", "sh_g", [
+            {"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
+            {"timestamp": 2.0, "keypoints": _kp_list(
+                {n: (x + 0.02, y) for n, (x, y) in _TRUTH_JOINTS.items()})},
+            {"timestamp": 3.0, "keypoints": _kp_list(_TRUTH_JOINTS)}])
+
+        # Bad (non-conforming, quarantined) bundle: scanner is 2x truth -> wrong-subject
+        # on every frame. Quarantined out of the trusted pool but still mined here.
+        bad = root / "routeFA" / "vidBad"
+        _write_bundle_meta(bad, setup_hash="sh_b")
+        (bad / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": "bbbbbbbb22222222",
+            "frames": [{"frameIndex": i, "timestamp": float(i), "state": "present",
+                        "review": "auto", "joints": present} for i in (1, 2, 3)]}),
+            encoding="utf-8")
+        _write_pose_run(bad, "20260101-000002", "sh_b", [
+            {"timestamp": float(i), "keypoints": _kp_list(
+                {n: (2 * x, 2 * y) for n, (x, y) in _TRUTH_JOINTS.items()})}
+            for i in (1, 2, 3)])
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 2
+
+        ctx = trends.build_trend_context(root)
+        # Trusted pool excludes the quarantined bundle; the frame-quality pool keeps it.
+        assert ctx["eval_count"] == 1 and ctx["quarantined_count"] == 1
+        assert ctx["frame_quality_detected"] == 6  # 3 good + 3 bad
+        assert ctx["frame_quality_flagged"] == 4   # 1 hallucination + 3 wrong-subject
+
+        classes = ctx["frame_quality_classes"].set_index("class")["n"].to_dict()
+        assert classes["ok"] == 2
+        assert classes["hallucination-fp"] == 1
+        assert classes["wrong-subject"] == 3
+
+        wl = ctx["frame_quality_worklist"]
+        assert len(wl) == 4  # all flagged frames
+        assert wl.iloc[0]["class"] == "hallucination-fp"  # worst class first
+        assert "crop" in wl.columns
+        assert set(wl["class"]) == {"hallucination-fp", "wrong-subject"}
+
+
+def test_frame_quality_condition_bands_flagged_rate():
+    """Issue #44 deliverable 3: the flagged-frame rate is banded against a Video Stats
+    condition via the same qcut + bootstrap machinery as the geometric trends."""
+
+    from analysis_pipeline import trends
+
+    # 30 rows: the lowest-luma tercile is all flagged, the rest clean.
+    df = pd.DataFrame({
+        "vs_wall_luma_mean": [float(i) for i in range(30)],
+        "flagged": [1 if i < 10 else 0 for i in range(30)],
+    })
+    bands = trends._frame_quality_condition_bands(df, bins=3)
+    assert not bands.empty
+    assert set(bands["condition"]) == {"wall_luma_mean"}
+    assert sorted(bands["band"]) == [1, 2, 3]
+    by_band = bands.set_index("band")["flagged_rate"].to_dict()
+    assert by_band[1] == 1.0            # darkest tercile: every frame flagged
+    assert by_band[2] == 0.0 and by_band[3] == 0.0
+
+    assert trends._frame_quality_condition_bands(pd.DataFrame()).empty
 
 
 def test_evaluate_vitpose_fallback_when_no_ground_truth():
@@ -765,31 +1023,36 @@ def test_analysis_report_includes_eval_trend_sections():
         v_no_truth = root / "routeT" / "vidNoTruth"
         _write_bundle_meta(v_no_truth, setup_hash="sh_nt")
 
-        # One stale setup run -> appears in shame list.
+        # One stale setup run that still overlaps truth -> appears in the stale shame
+        # list AND is recovered by the #44 best-overlap fallback (loose-paired).
         v_stale = root / "routeT" / "vidStale"
         _write_bundle_meta(v_stale, setup_hash="sh_truth")
         (v_stale / "ground-truth.json").write_text(
             json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
         _write_pose_run(v_stale, "20260101-020202", "sh_old", _scanner_frames_for_pck())
 
-        # Seed committed evaluation records once, then run analysis.
+        # Seed committed evaluation records once, then run analysis. vidT is a trusted
+        # record; vidStale is loose-paired (setupHash mismatch, but overlaps truth).
         summary = ev.evaluate(root)
-        assert len(summary.written) == 1
+        assert len(summary.written) == 2
+        assert len(summary.loose) == 1
 
         outputs = cli.run(root, out, decode=False)
         html_text = outputs["html"].read_text(encoding="utf-8")
         for header in (
             "Low-confidence truth (visible-joint measurement)",
+            "Per-frame detection quality (auto-flagged classes)",
             "Scanner version regression (appVersion run-over-run)",
             "Per-joint failure ranking (frame/joint unit)",
             "Within-video frame-level conditions vs error",
             "Cross-video descriptive splits",
             "Shame lists",
+            "Loose-paired bundles (#44 best-overlap fallback)",
         ):
             assert header in html_text, f"missing report section: {header}"
 
         assert "routeT/vidNoTruth" in html_text
-        assert "routeT/vidStale" in html_text
+        assert "routeT/vidStale" in html_text  # stale shame list + loose table
         assert (out / "eval_joint_ranking.csv").exists()
         assert (out / "eval_low_confidence_worklist.csv").exists()
 
@@ -1017,6 +1280,11 @@ def _run_all():
            test_evaluate_conformance_gate_and_pooled_quarantine,
            test_conformance_x_axis_has_looser_r2_floor,
            test_evaluate_setuphash_mismatch_is_skipped,
+           test_evaluate_loose_overlap_pairing_fallback,
+           test_frame_quality_classification_one_per_class,
+           test_crop_export_selection_and_writes,
+           test_frame_quality_aggregation_pools_all_records,
+           test_frame_quality_condition_bands_flagged_rate,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
            test_analysis_report_includes_eval_trend_sections,

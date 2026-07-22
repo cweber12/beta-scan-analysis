@@ -36,6 +36,7 @@ from .evaluate import (
     _scanner_frame_interval,
     load_truth,
     record_conforms,
+    record_trusted,
     torso_length,
 )
 
@@ -630,6 +631,162 @@ def _low_confidence_worklist(analysis_root: Path) -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
+# Per-frame quality worklist rows to surface in the HTML (the CSV keeps the full list).
+FRAME_QUALITY_WORKLIST_TOP_K = 40
+
+# The auto classes that count as a detection-quality *failure* (issue #44 deliverable 1);
+# ``ok`` is the only non-failure. ``frozen-stale`` is a cross-cutting flag, not a class.
+_FQ_FLAGGED = frozenset({"wrong-subject", "hallucination-fp", "flipped-rotated", "distorted"})
+
+# Worst-first severity order for the worklist.
+_FQ_SEVERITY = {"hallucination-fp": 0, "wrong-subject": 1, "flipped-rotated": 2,
+                "distorted": 3, "ok": 4}
+
+# A small set of numeric Video Stats conditions (issue #23) to band the per-frame class
+# rate against (issue #44 deliverable 3). Nested key paths into ``video-stats.json``.
+_VS_CONDITION_PATHS = {
+    "wall_luma_mean": ("regionStats", "wall", "luma", "mean"),
+    "wall_rms_contrast": ("regionStats", "wall", "rmsContrast"),
+    "climber_wall_deltaE": ("regionStats", "climberWall", "deltaE"),
+    "shadow_fraction": ("regionStats", "shadow", "fraction", "mean"),
+}
+
+
+def _video_stats_conditions(video_dir: Path) -> dict[str, float]:
+    """Numeric Video Stats condition values for one bundle (issue #23 → #44), or {}."""
+
+    path = video_dir / "video-stats.json"
+    if not path.exists():
+        return {}
+    try:
+        doc = _load_json(path)
+    except Exception:
+        return {}
+    out: dict[str, float] = {}
+    for name, keys in _VS_CONDITION_PATHS.items():
+        cur: Any = doc
+        for k in keys:
+            cur = cur.get(k) if isinstance(cur, dict) else None
+            if cur is None:
+                break
+        if isinstance(cur, (int, float)):
+            out[name] = float(cur)
+    return out
+
+
+def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataFrame:
+    """Pool every record's ``frameQuality`` frames into one long table (issue #44).
+
+    Pooled across **all** records — including #15-quarantined and #44-loose ones —
+    because the frames most worth fixing live in exactly those bundles; the trusted
+    metric pool (conforming, setupHash-matched only) is an independent pool. Each row
+    carries the bundle's Video Stats conditions so the class rate can be banded against
+    them. Records predating schema v6 carry no ``frameQuality`` and contribute nothing."""
+
+    rows: list[dict[str, Any]] = []
+    vs_cache: dict[tuple[str, str], dict[str, float]] = {}
+    for rec in recs:
+        fq = rec.data.get("frameQuality")
+        if not isinstance(fq, dict):
+            continue
+        vid = (rec.route_folder, rec.video_key)
+        if vid not in vs_cache:
+            vs_cache[vid] = _video_stats_conditions(
+                analysis_root / rec.route_folder / rec.video_key)
+        conds = vs_cache[vid]
+        loose = bool(rec.data.get("loosePaired"))
+        conforming = record_conforms(rec.data)
+        for e in fq.get("frames") or []:
+            cls = str(e.get("class") or "ok")
+            rows.append({
+                "route_folder": rec.route_folder,
+                "video_key": rec.video_key,
+                "run_ts": rec.run_ts,
+                "t": e.get("t"),
+                "class": cls,
+                "flagged": int(cls in _FQ_FLAGGED),
+                "frozen_stale": int(bool(e.get("frozenStale"))),
+                "centroid_dist": e.get("centroidDist"),
+                "residual": e.get("residual"),
+                "crop": e.get("crop"),
+                "loose": loose,
+                "conforming": conforming,
+                **{f"vs_{k}": v for k, v in conds.items()},
+            })
+    return pd.DataFrame(rows)
+
+
+def _frame_quality_classes(fq_df: pd.DataFrame) -> pd.DataFrame:
+    """Class-frequency (distractor) table over the pooled per-frame quality rows."""
+
+    if fq_df.empty:
+        return pd.DataFrame()
+    total = len(fq_df)
+    rows: list[dict[str, Any]] = []
+    for cls, g in fq_df.groupby("class"):
+        rows.append({
+            "class": str(cls),
+            "n": int(len(g)),
+            "share": len(g) / total,
+            "frozen_stale": int(g["frozen_stale"].sum()),
+        })
+    return pd.DataFrame(rows).sort_values(
+        ["n", "class"], ascending=[False, True]).reset_index(drop=True)
+
+
+def _frame_quality_worklist(fq_df: pd.DataFrame) -> pd.DataFrame:
+    """Flagged + frozen frames, worst-first — the per-frame re-review / crop queue."""
+
+    if fq_df.empty:
+        return pd.DataFrame()
+    sub = fq_df[(fq_df["flagged"] == 1) | (fq_df["frozen_stale"] == 1)].copy()
+    if sub.empty:
+        return pd.DataFrame()
+    sub["_sev"] = sub["class"].map(lambda c: _FQ_SEVERITY.get(c, 4))
+    sub = sub.sort_values(
+        ["_sev", "centroid_dist"], ascending=[True, False], na_position="last")
+    cols = ["route_folder", "video_key", "run_ts", "t", "class", "frozen_stale",
+            "centroid_dist", "residual", "crop"]
+    return sub[cols].reset_index(drop=True)
+
+
+def _frame_quality_condition_bands(fq_df: pd.DataFrame, bins: int = 3) -> pd.DataFrame:
+    """Flagged-frame rate per Video Stats condition tercile (issue #44 deliverable 3).
+
+    Reuses the condition-band machinery (``pd.qcut`` + ``_bootstrap_rate``) from the
+    within-video trends, but the outcome is the auto ``flagged`` flag and the predictor
+    is a per-bundle Video Stats condition rather than a per-frame geometric one."""
+
+    if fq_df.empty:
+        return pd.DataFrame()
+    cond_cols = [c for c in fq_df.columns if c.startswith("vs_")]
+    rows: list[dict[str, Any]] = []
+    for col in cond_cols:
+        d = fq_df[[col, "flagged"]].dropna()
+        if len(d) < bins * 10:
+            continue
+        try:
+            d = d.assign(_bin=pd.qcut(d[col], q=bins, labels=False, duplicates="drop"))
+        except ValueError:
+            continue
+        for band, bg in d.groupby("_bin"):
+            vals = bg["flagged"].astype(int).tolist()
+            boot = _bootstrap_rate(vals)
+            if boot is None:
+                continue
+            rows.append({
+                "condition": col[len("vs_"):],
+                "band": int(band) + 1,
+                "n": len(vals),
+                "flagged_rate": boot[0],
+                "ci_low": boot[1],
+                "ci_high": boot[2],
+                "band_min": float(bg[col].min()),
+                "band_max": float(bg[col].max()),
+            })
+    return pd.DataFrame(rows)
+
+
 def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
     """Non-conforming records (issue #15 gate), flattened for the report's shame
     accounting: which bundle/run tripped the gate, why, and the offending fit."""
@@ -653,13 +810,34 @@ def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: (r["route_folder"], r["video_key"], r["run_ts"]))
 
 
+def _loose_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
+    """Best-overlap loose pairings (issue #44), flattened for the report's shame
+    accounting: which bundle/run fell back, and why. Held out of the trusted pool but
+    kept for the per-frame quality worklist + crops."""
+
+    rows: list[dict[str, Any]] = []
+    for rec in recs:
+        if not rec.data.get("loosePaired"):
+            continue
+        rows.append({
+            "route_folder": rec.route_folder,
+            "video_key": rec.video_key,
+            "run_ts": rec.run_ts,
+            "reason": str(rec.data.get("loosePairReason") or ""),
+        })
+    return sorted(rows, key=lambda r: (r["route_folder"], r["video_key"], r["run_ts"]))
+
+
 def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     all_recs = _iter_eval_records(analysis_root)
     # Issue #15 gate: quarantine non-conforming bundles (truth mis-tracking) from
-    # every *pooled* derivation below. The records stay on disk and inspectable;
-    # only the aggregation drops them, and the report accounts for them by name.
+    # every *pooled* derivation below. Issue #44: best-overlap loose pairings are
+    # likewise held out of the trusted pool (their setupHash never matched the truth).
+    # Both classes stay on disk and inspectable; only the aggregation drops them, and
+    # the report accounts for each by name.
     quarantined = _quarantined_rows(all_recs)
-    recs = [r for r in all_recs if record_conforms(r.data)]
+    loose_records = _loose_rows(all_recs)
+    recs = [r for r in all_recs if record_trusted(r.data)]
     pose_cache: dict[tuple[str, str], dict[str, tuple[str, list[dict[str, Any]]]]] = {}
     for rec in recs:
         vid = (rec.route_folder, rec.video_key)
@@ -687,6 +865,14 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     visible_hist = _visible_histogram(recs)
     low_conf_worklist = _low_confidence_worklist(analysis_root)
 
+    # Per-frame detection quality (issue #44): pooled across ALL records — quarantined
+    # and loose included — because those bundles hold the frames most worth fixing. This
+    # is an independent pool from the trusted metrics above (conforming-only).
+    fq_df = _frame_quality_rows(analysis_root, all_recs)
+    fq_classes = _frame_quality_classes(fq_df)
+    fq_worklist = _frame_quality_worklist(fq_df)
+    fq_condition_bands = _frame_quality_condition_bands(fq_df)
+
     verified_total = 0
     verified_records = 0
     for rec in recs:
@@ -702,6 +888,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "eval_count_total": len(all_recs),
         "quarantined_bundles": quarantined,
         "quarantined_count": len(quarantined),
+        "loose_bundles": loose_records,
+        "loose_count": len(loose_records),
         "frame_joint_df": frame_joint_df,
         "joint_rank": joint_rank,
         "condition_bands": cond_df,
@@ -713,6 +901,12 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "stale_runs": stale_runs,
         "visible_histogram": visible_hist,
         "low_conf_worklist": low_conf_worklist,
+        "frame_quality_classes": fq_classes,
+        "frame_quality_worklist": fq_worklist,
+        "frame_quality_condition_bands": fq_condition_bands,
+        "frame_quality_detected": int(len(fq_df)),
+        "frame_quality_flagged": int(fq_df["flagged"].sum()) if not fq_df.empty else 0,
+        "frame_quality_frozen": int(fq_df["frozen_stale"].sum()) if not fq_df.empty else 0,
         "verified_frames_total": verified_total,
         "verified_records": verified_records,
         "confound_caveat": (
@@ -735,6 +929,9 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_version_deltas.csv": ctx.get("version_deltas"),
         "eval_low_confidence_worklist.csv": ctx.get("low_conf_worklist"),
         "eval_quarantined_bundles.csv": quarantined_df,
+        "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
+        "eval_frame_quality_worklist.csv": ctx.get("frame_quality_worklist"),
+        "eval_frame_quality_condition_bands.csv": ctx.get("frame_quality_condition_bands"),
     }
     for name, table in tables.items():
         if isinstance(table, pd.DataFrame) and not table.empty:

@@ -14,3 +14,8 @@ analysis/**/*.mov
 analysis/**/*.mkv
 analysis/**/*.webm
 analysis/**/*.avi
+
+# Flagged-frame crop thumbnails (issue #44): derived from the gitignored video
+# binary, referenced by path in the eval record — the JSON record stays tracked,
+# the PNGs do not (same rule as the video binaries above).
+analysis/**/crops/

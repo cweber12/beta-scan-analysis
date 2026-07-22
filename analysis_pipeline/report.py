@@ -450,6 +450,22 @@ def _shame_list_html(items: list[str], empty_text: str) -> str:
     return f"<div class='tablewrap'><table><tbody>{rows}</tbody></table></div>"
 
 
+def _loose_table(rows: list[dict[str, Any]]) -> str:
+    """Bundles paired by the #44 best-overlap fallback (held out of trusted pooling)."""
+
+    if not rows:
+        return "<p class='muted'>No loose pairings — every scored run matched a truth setupHash.</p>"
+    head = "<tr><th>route</th><th>video</th><th>run</th><th>reason</th></tr>"
+    body = "".join(
+        f"<tr><td>{_esc(r.get('route_folder'))}</td>"
+        f"<td>{_esc(r.get('video_key'))}</td>"
+        f"<td>{_esc(r.get('run_ts'))}</td>"
+        f"<td>{_esc(r.get('reason'))}</td></tr>"
+        for r in rows
+    )
+    return f"<div class='tablewrap'><table><thead>{head}</thead><tbody>{body}</tbody></table></div>"
+
+
 def _quarantine_table(rows: list[dict[str, Any]]) -> str:
     """Bundles dropped from pooled metrics by the #15 conformance gate."""
 
@@ -566,6 +582,89 @@ def _low_confidence_html(ctx: dict[str, Any]) -> str:
         f"matched-present truth frames — {gate}.</p>"
         "<div class='chartscroll'>" + chart + "</div>" + tiles
         + "<h3>Re-review worklist (fewest visible joints first)</h3>" + table)
+
+
+def _frame_quality_html(ctx: dict[str, Any]) -> str:
+    """Detection-quality per-frame classes (issue #44): top classes, the conditions the
+    flagged-rate correlates with worst, and a worst-first re-review worklist. Pooled
+    across ALL records (quarantined + loose included) — an independent pool from the
+    trusted metrics."""
+
+    from .trends import FRAME_QUALITY_WORKLIST_TOP_K
+
+    detected = int(ctx.get("frame_quality_detected", 0))
+    if detected == 0:
+        return ("<p class='muted'>No per-frame quality classes yet — needs schema-v6 "
+                "evaluation records (re-run <code>evaluate</code>).</p>")
+
+    flagged = int(ctx.get("frame_quality_flagged", 0))
+    frozen = int(ctx.get("frame_quality_frozen", 0))
+    rate = flagged / detected if detected else 0.0
+    tiles = _stat_tiles([
+        (str(detected), "scanner-detected frames [pooled]"),
+        (str(flagged), "flagged (non-ok) frames"),
+        (_fmt(rate), "flagged rate"),
+        (str(frozen), "frozen-stale frames"),
+    ])
+
+    classes = ctx.get("frame_quality_classes")
+    class_tbl = "<p class='muted'>(no classes)</p>"
+    if isinstance(classes, pd.DataFrame) and not classes.empty:
+        rows = "".join(
+            f"<tr><td>{_esc(r['class'])}</td><td>{int(r['n'])}</td>"
+            f"<td>{_fmt(r['share'])}</td><td>{int(r['frozen_stale'])}</td></tr>"
+            for _, r in classes.iterrows()
+        )
+        class_tbl = ("<div class='tablewrap'><table><thead><tr><th>auto class</th>"
+                     "<th>frames</th><th>share</th><th>of which frozen-stale</th>"
+                     f"</tr></thead><tbody>{rows}</tbody></table></div>")
+
+    # Worst-correlated conditions: rank Video Stats conditions by the spread of the
+    # flagged-rate across their bands (max − min).
+    bands = ctx.get("frame_quality_condition_bands")
+    cond_tbl = ("<p class='muted'>No Video Stats condition bands yet — needs "
+                "<code>video-stats.json</code> on enough pooled frames.</p>")
+    if isinstance(bands, pd.DataFrame) and not bands.empty:
+        spread = (bands.groupby("condition")["flagged_rate"]
+                  .agg(lambda s: float(s.max() - s.min())).sort_values(ascending=False))
+        order = list(spread.index)
+        rows = []
+        for _, r in bands.sort_values(["condition", "band"]).iterrows():
+            rng = f"[{_fmt(r['band_min'])}, {_fmt(r['band_max'])}]"
+            rows.append(
+                "<tr>"
+                f"<td>{_esc(r['condition'])}</td>"
+                f"<td>band {int(r['band'])}</td>"
+                f"<td>{int(r['n'])}</td>"
+                f"<td>{_esc(rng)}</td>"
+                f"<td>{_fmt(r['flagged_rate'])}</td>"
+                f"<td>[{_fmt(r['ci_low'])}, {_fmt(r['ci_high'])}]</td>"
+                "</tr>"
+            )
+        worst = ", ".join(f"{c} (Δ{_fmt(spread[c])})" for c in order[:3]) or "none"
+        cond_tbl = (
+            f"<p class='sub'>Conditions ranked by flagged-rate spread across bands: "
+            f"{_esc(worst)}.</p>"
+            "<div class='tablewrap'><table><thead><tr><th>Video Stats condition</th>"
+            "<th>tercile band</th><th>frames</th><th>band range</th>"
+            "<th>flagged rate</th><th>bootstrap 95% CI</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>")
+
+    worklist = ctx.get("frame_quality_worklist")
+    wl_tbl = "<p class='muted'>No flagged or frozen frames.</p>"
+    if isinstance(worklist, pd.DataFrame) and not worklist.empty:
+        shown = worklist.head(FRAME_QUALITY_WORKLIST_TOP_K)
+        wl_tbl = _df_to_table(shown)
+        if len(worklist) > len(shown):
+            wl_tbl += (f"<p class='muted'>Showing the worst {len(shown)} of "
+                       f"{len(worklist)} flagged/frozen frames — full list in "
+                       "<code>eval_frame_quality_worklist.csv</code>.</p>")
+
+    return (
+        tiles
+        + "<h3>Auto class frequency</h3>" + class_tbl
+        + "<h3>Flagged rate vs Video Stats conditions</h3>" + cond_tbl
+        + "<h3>Re-review worklist (worst class first)</h3>" + wl_tbl)
 
 
 def _stat_tiles(tiles: list[tuple[str, str]]) -> str:
@@ -857,8 +956,9 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "<p class='sub'>Two-tier accounting from committed evaluation records. "
         "Every value is explicitly tagged as agreement or accuracy.</p>",
         _stat_tiles([
-            (str(ctx.get("eval_count", 0)), "conforming records [pooled]"),
+            (str(ctx.get("eval_count", 0)), "trusted records [pooled]"),
             (str(ctx.get("quarantined_count", 0)), "quarantined records [#15 gate]"),
+            (str(ctx.get("loose_count", 0)), "loose pairings [#44 fallback]"),
             (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
             (str(ctx.get("verified_records", 0)), "records with verified truth"),
         ]),
@@ -870,6 +970,16 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "fit input for a future exclusion gate — and lists the thinnest frames as a "
         "re-seed queue. It excludes nothing today (measure-first).</p>",
         _low_confidence_html(ctx),
+
+        "<h2>Per-frame detection quality (auto-flagged classes)</h2>",
+        "<p class='sub'>Each scanner-detected frame auto-classified from the "
+        "scanner↔truth geometry (<code>ok</code> / <code>wrong-subject</code> / "
+        "<code>hallucination-fp</code> / <code>flipped-rotated</code> / "
+        "<code>distorted</code>), plus a cross-cutting frozen-stale flag. Pooled across "
+        "<em>all</em> records — quarantined and loose-paired included, since those hold "
+        "the frames most worth fixing — an independent pool from the trusted metrics. "
+        "Classes are provisional (thresholds not yet fit against verified labels).</p>",
+        _frame_quality_html(ctx),
 
         "<h2>Scanner version regression (appVersion run-over-run)</h2>",
         "<p class='sub'>Evaluation records grouped by the scanner commit "
@@ -900,6 +1010,12 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         _cross_video_split_table(ctx.get("cross_video_splits", pd.DataFrame())),
 
         "<h2>Shame lists</h2>",
+        "<h3>Loose-paired bundles (#44 best-overlap fallback)</h3>",
+        "<p class='sub'>Bundles with no setupHash-matched run overlapping truth enough, "
+        "paired instead against the run with the most timestamp overlap. Held out of "
+        "every trusted pooled metric above; their per-frame quality still feeds the "
+        "detection-quality worklist and crops.</p>",
+        _loose_table(ctx.get("loose_bundles", [])),
         "<h3>Quarantined bundles (#15 conformance gate)</h3>",
         "<p class='sub'>Bundles whose truth↔scanner fit falls outside the "
         "near-identity band (<code>scanner = a·truth + b</code>, per axis) — the "
