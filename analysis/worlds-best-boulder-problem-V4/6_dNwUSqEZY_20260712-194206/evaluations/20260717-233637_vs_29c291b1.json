@@ -549,6 +549,30 @@
       45
     ]
   },
+  "conformance": {
+    "conforms": false,
+    "n": 781,
+    "reasons": [
+      "x-nonconforming",
+      "y-nonconforming"
+    ],
+    "thresholds": {
+      "minPoints": 20,
+      "r2Min": 0.9,
+      "slopeMax": 1.15,
+      "slopeMin": 0.85
+    },
+    "x": {
+      "intercept": 0.099533,
+      "r2": 0.552966,
+      "slope": 0.821071
+    },
+    "y": {
+      "intercept": -0.000597,
+      "r2": 0.79309,
+      "slope": 1.052057
+    }
+  },
   "counts": {
     "agreementSkipped": {
       "flaggedAbsent": 0,
@@ -590,7 +614,7 @@
   "routeFolder": "worlds-best-boulder-problem-V4",
   "runTs": "20260717-233637",
   "scannerFrameIntervalSec": 0.15000049999999954,
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "setupHash": "0a798e27e94d8243afbe23327c6a097fc2b33d7cef099f0ea9b506505d0226a8",
   "truthHash": "29c291b1da124547f74355ab6b44cda20eef0bb4c837d47fb0a722c69c04a2d3",
   "truthSetupHashSource": "truth",

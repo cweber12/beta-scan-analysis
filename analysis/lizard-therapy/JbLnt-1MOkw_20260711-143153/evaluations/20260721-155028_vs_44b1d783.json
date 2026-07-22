@@ -549,6 +549,30 @@
       23
     ]
   },
+  "conformance": {
+    "conforms": false,
+    "n": 589,
+    "reasons": [
+      "x-nonconforming",
+      "y-nonconforming"
+    ],
+    "thresholds": {
+      "minPoints": 20,
+      "r2Min": 0.9,
+      "slopeMax": 1.15,
+      "slopeMin": 0.85
+    },
+    "x": {
+      "intercept": 0.085735,
+      "r2": 0.391455,
+      "slope": 0.863049
+    },
+    "y": {
+      "intercept": -0.161424,
+      "r2": 0.64788,
+      "slope": 1.327728
+    }
+  },
   "counts": {
     "agreementSkipped": {
       "flaggedAbsent": 0,
@@ -590,7 +614,7 @@
   "routeFolder": "lizard-therapy",
   "runTs": "20260721-155028",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "setupHash": "ddfdda699fb03367138fb3b889e0d2768d5c5ab5f3afe923387774c092e1a4f0",
   "truthHash": "44b1d7835e1267481558c83d2e7c0f7c1fe42d293867c811dac6a21ead779650",
   "truthSetupHashSource": "truth",
