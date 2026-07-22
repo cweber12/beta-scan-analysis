@@ -549,6 +549,29 @@
       459
     ]
   },
+  "conformance": {
+    "conforms": false,
+    "n": 7673,
+    "reasons": [
+      "x-nonconforming"
+    ],
+    "thresholds": {
+      "minPoints": 20,
+      "r2Min": 0.9,
+      "slopeMax": 1.15,
+      "slopeMin": 0.85
+    },
+    "x": {
+      "intercept": -0.054621,
+      "r2": 0.426507,
+      "slope": 1.116009
+    },
+    "y": {
+      "intercept": -0.00594,
+      "r2": 0.947617,
+      "slope": 1.046329
+    }
+  },
   "counts": {
     "agreementSkipped": {
       "flaggedAbsent": 0,
@@ -590,7 +613,7 @@
   "routeFolder": "planet-x",
   "runTs": "20260721-155728",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "setupHash": "3878f5b979805d6d0f29f8067bdbbd5b304de7a4a7ffd25c8cef6911f2f1ee64",
   "truthHash": "0bfd68d444baf57ee9d78b4a70d6e743d4f30df82b6380e6716e2bc4253b3b62",
   "truthSetupHashSource": "truth",

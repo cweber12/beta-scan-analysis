@@ -549,6 +549,30 @@
       9
     ]
   },
+  "conformance": {
+    "conforms": false,
+    "n": 246,
+    "reasons": [
+      "x-nonconforming",
+      "y-nonconforming"
+    ],
+    "thresholds": {
+      "minPoints": 20,
+      "r2Min": 0.9,
+      "slopeMax": 1.15,
+      "slopeMin": 0.85
+    },
+    "x": {
+      "intercept": 0.071852,
+      "r2": 0.562535,
+      "slope": 0.817284
+    },
+    "y": {
+      "intercept": 1.350261,
+      "r2": 0.715366,
+      "slope": -0.546234
+    }
+  },
   "counts": {
     "agreementSkipped": {
       "flaggedAbsent": 0,
@@ -590,7 +614,7 @@
   "routeFolder": "maze-of-death",
   "runTs": "20260721-155119",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "setupHash": "89fe7a9b0ccea7f330b7046af3861d6a2181963f1cafea03669823dc84e59aaa",
   "truthHash": "01198e5da29b0a7c7ef2fcc44d03002b6f2a18f9570bd5ec02f2ebca41c20336",
   "truthSetupHashSource": "truth",

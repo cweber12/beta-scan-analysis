@@ -372,7 +372,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 3
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 4
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -456,11 +456,95 @@ def test_evaluate_pck_exact_and_edge_cases():
         assert acc["aggregate"]["pck"]["value"] is None
         assert acc["aggregate"]["normDist"] == {"n": 0, "median": None, "p90": None}
 
+        # Conformance block (issue #15). The fixture's scanner is identity on truth
+        # except one wrong nose, so the fit stays near-identity: a single off joint
+        # does not trip the gate (x r² ≈ 0.94 > 0.9, y a perfect identity). Thresholds
+        # echo the module constants so a record captures the gate it was judged under.
+        conf = rec["conformance"]
+        assert set(conf) == {"x", "y", "n", "conforms", "reasons", "thresholds"}
+        assert conf["thresholds"] == {
+            "slopeMin": ev.CONFORMANCE_SLOPE_MIN, "slopeMax": ev.CONFORMANCE_SLOPE_MAX,
+            "r2Min": ev.CONFORMANCE_R2_MIN, "minPoints": ev.CONFORMANCE_MIN_POINTS}
+        assert conf["n"] == 37  # matched-present truth joints with a scanner pred
+        assert conf["conforms"] is True and conf["reasons"] == []
+        assert conf["y"] == {"slope": 1.0, "intercept": 0.0, "r2": 1.0}
+        assert ev.record_conforms(rec) is True
+
         # Idempotent filename: rerun overwrites, no second file.
         summary2 = ev.evaluate(root)
         assert len(summary2.written) == 1
         assert summary2.written[0].record_path == summary.written[0].record_path
         assert len(list((vdir / "evaluations").glob("*.json"))) == 1
+
+
+def test_evaluate_conformance_gate_and_pooled_quarantine():
+    """Issue #15: a near-identity scanner↔truth fit conforms; a mis-tracked bundle
+    (fit slope outside the band) is flagged non-conforming and dropped from every
+    pooled trend derivation, while its record stays on disk and is named in the
+    shame list."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    def _truth_doc(hash_: str) -> dict:
+        frames = [
+            {"frameIndex": i, "timestamp": float(i), "state": "present", "review": "auto",
+             "joints": {n: {"x": x, "y": y, "occluded": False}
+                        for n, (x, y) in _TRUTH_JOINTS.items()}}
+            for i in (1, 2, 3)
+        ]
+        return {"version": 1, "jointSet": list(_TRUTH_JOINTS), "frames": frames,
+                "groundTruthHash": hash_, "setupHash": "sh"}
+
+    def _scanner_frames(transform) -> list:
+        return [{"timestamp": float(i),
+                 "keypoints": _kp_list({n: transform(x, y)
+                                        for n, (x, y) in _TRUTH_JOINTS.items()})}
+                for i in (1, 2, 3)]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        good = root / "routeC" / "vidGood"
+        _write_bundle_meta(good, setup_hash="sh")
+        (good / "ground-truth.json").write_text(
+            json.dumps(_truth_doc("aaaa0000")), encoding="utf-8")
+        _write_pose_run(good, "20260101-000001", "sh",
+                        _scanner_frames(lambda x, y: (x, y)))  # identity
+        bad = root / "routeC" / "vidBad"
+        _write_bundle_meta(bad, setup_hash="sh")
+        (bad / "ground-truth.json").write_text(
+            json.dumps(_truth_doc("bbbb1111")), encoding="utf-8")
+        _write_pose_run(bad, "20260101-000002", "sh",
+                        _scanner_frames(lambda x, y: (2 * x, 2 * y)))  # slope 2 → off-band
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 2
+        recs = {}
+        for p in summary.written:
+            r = json.loads(p.record_path.read_text(encoding="utf-8"))
+            recs[r["videoKey"]] = r
+
+        gc = recs["vidGood"]["conformance"]
+        assert gc["n"] >= ev.CONFORMANCE_MIN_POINTS
+        assert gc["conforms"] is True and gc["reasons"] == []
+        assert gc["x"]["slope"] == 1.0 and gc["x"]["r2"] == 1.0
+        assert gc["y"]["slope"] == 1.0 and gc["y"]["r2"] == 1.0
+        assert ev.record_conforms(recs["vidGood"]) is True
+
+        bc = recs["vidBad"]["conformance"]
+        assert bc["conforms"] is False
+        assert "x-nonconforming" in bc["reasons"] and "y-nonconforming" in bc["reasons"]
+        assert bc["x"]["slope"] == 2.0 and bc["x"]["r2"] == 1.0  # a clean line, wrong slope
+        assert ev.record_conforms(recs["vidBad"]) is False
+
+        # Pooled quarantine: only the clean bundle feeds the pooled derivations, and
+        # the mis-tracked one is accounted for by name.
+        ctx = trends.build_trend_context(root)
+        assert ctx["eval_count"] == 1 and ctx["eval_count_total"] == 2
+        assert ctx["quarantined_count"] == 1
+        assert {r.video_key for r in ctx["eval_records"]} == {"vidGood"}
+        q = ctx["quarantined_bundles"][0]
+        assert q["video_key"] == "vidBad" and "x-nonconforming" in q["reasons"]
 
 
 def test_evaluate_setuphash_mismatch_is_skipped():
@@ -743,13 +827,16 @@ def test_version_regression_delta_isolated_to_injected_joint():
         (vdir / "ground-truth.json").write_text(
             json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
 
-        # v1 (aaa1111): nose off by 0.2 (norm 0.667 > 0.5 -> wrong) on every
+        # v1 (aaa1111): nose off by 0.2 in y (norm 0.667 > 0.5 -> wrong) on every
         # scoreable frame; every other joint exact. v2 (bbb2222): all exact —
         # a known injected improvement on exactly one joint. Both versions
         # sample t=9.0 too so no truth frame is left unmatched (an unmatched
-        # present frame counts as a miss in the frame/joint rows).
+        # present frame counts as a miss in the frame/joint rows). The offset is
+        # on y (not x) so this one-joint miss keeps the whole-bundle conformance
+        # fit near-identity (issue #15) — it stays in the pooled corpus rather
+        # than being quarantined as if the truth tracked the wrong subject.
         bad = dict(_TRUTH_JOINTS)
-        bad["nose"] = (0.7, 0.2)
+        bad["nose"] = (0.5, 0.4)
         frames_v1 = [{"timestamp": t, "keypoints": _kp_list(bad)}
                      for t in (1.0, 2.0, 9.0)]
         frames_v2 = [{"timestamp": t, "keypoints": _kp_list(_TRUTH_JOINTS)}

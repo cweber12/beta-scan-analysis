@@ -35,6 +35,7 @@ from .evaluate import (
     _pose_frame_joints,
     _scanner_frame_interval,
     load_truth,
+    record_conforms,
     torso_length,
 )
 
@@ -629,8 +630,36 @@ def _low_confidence_worklist(analysis_root: Path) -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
+def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
+    """Non-conforming records (issue #15 gate), flattened for the report's shame
+    accounting: which bundle/run tripped the gate, why, and the offending fit."""
+
+    rows: list[dict[str, Any]] = []
+    for rec in recs:
+        if record_conforms(rec.data):
+            continue
+        conf = rec.data.get("conformance") or {}
+        rows.append({
+            "route_folder": rec.route_folder,
+            "video_key": rec.video_key,
+            "run_ts": rec.run_ts,
+            "reasons": ", ".join(conf.get("reasons") or []),
+            "n": conf.get("n"),
+            "slope_x": (conf.get("x") or {}).get("slope"),
+            "r2_x": (conf.get("x") or {}).get("r2"),
+            "slope_y": (conf.get("y") or {}).get("slope"),
+            "r2_y": (conf.get("y") or {}).get("r2"),
+        })
+    return sorted(rows, key=lambda r: (r["route_folder"], r["video_key"], r["run_ts"]))
+
+
 def build_trend_context(analysis_root: Path) -> dict[str, Any]:
-    recs = _iter_eval_records(analysis_root)
+    all_recs = _iter_eval_records(analysis_root)
+    # Issue #15 gate: quarantine non-conforming bundles (truth mis-tracking) from
+    # every *pooled* derivation below. The records stay on disk and inspectable;
+    # only the aggregation drops them, and the report accounts for them by name.
+    quarantined = _quarantined_rows(all_recs)
+    recs = [r for r in all_recs if record_conforms(r.data)]
     pose_cache: dict[tuple[str, str], dict[str, tuple[str, list[dict[str, Any]]]]] = {}
     for rec in recs:
         vid = (rec.route_folder, rec.video_key)
@@ -670,6 +699,9 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     return {
         "eval_records": recs,
         "eval_count": len(recs),
+        "eval_count_total": len(all_recs),
+        "quarantined_bundles": quarantined,
+        "quarantined_count": len(quarantined),
         "frame_joint_df": frame_joint_df,
         "joint_rank": joint_rank,
         "condition_bands": cond_df,
@@ -693,6 +725,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
 def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, Path] = {}
+    quarantined = ctx.get("quarantined_bundles") or []
+    quarantined_df = pd.DataFrame(quarantined) if quarantined else pd.DataFrame()
     tables = {
         "eval_joint_ranking.csv": ctx.get("joint_rank"),
         "eval_condition_bands.csv": ctx.get("condition_bands"),
@@ -700,6 +734,7 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_version_overview.csv": ctx.get("version_overview"),
         "eval_version_deltas.csv": ctx.get("version_deltas"),
         "eval_low_confidence_worklist.csv": ctx.get("low_conf_worklist"),
+        "eval_quarantined_bundles.csv": quarantined_df,
     }
     for name, table in tables.items():
         if isinstance(table, pd.DataFrame) and not table.empty:

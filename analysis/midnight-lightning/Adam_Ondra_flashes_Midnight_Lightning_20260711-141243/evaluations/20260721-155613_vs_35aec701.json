@@ -549,6 +549,30 @@
       18
     ]
   },
+  "conformance": {
+    "conforms": false,
+    "n": 341,
+    "reasons": [
+      "x-nonconforming",
+      "y-nonconforming"
+    ],
+    "thresholds": {
+      "minPoints": 20,
+      "r2Min": 0.9,
+      "slopeMax": 1.15,
+      "slopeMin": 0.85
+    },
+    "x": {
+      "intercept": -1.077781,
+      "r2": 0.137343,
+      "slope": 4.179908
+    },
+    "y": {
+      "intercept": -0.717287,
+      "r2": 0.369919,
+      "slope": 1.395203
+    }
+  },
   "counts": {
     "agreementSkipped": {
       "flaggedAbsent": 0,
@@ -590,7 +614,7 @@
   "routeFolder": "midnight-lightning",
   "runTs": "20260721-155613",
   "scannerFrameIntervalSec": 0.10000000000000009,
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "setupHash": "6ab271379c8e6debc5d0271f457c323af6311487c2cff9a8fcd174d9ba920a4c",
   "truthHash": "35aec701dbdbd7c19d995bc52e6b1f627c9ae6473ef736b0b0e878cb6d54d409",
   "truthSetupHashSource": "truth",
