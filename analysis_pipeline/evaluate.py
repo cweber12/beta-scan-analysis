@@ -59,7 +59,8 @@ from typing import Any
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 
 # Evaluation record schema version. Bump on any record-shape change.
-SCHEMA_VERSION = 3
+# v4 adds the per-bundle ``conformance`` block (issue #15 gate).
+SCHEMA_VERSION = 4
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -100,6 +101,22 @@ PCK_TORSO_FRACTION = 0.5
 # first) and surfacing them in ``frames.lowVisibility``. Fit N on #15-conforming
 # bundles before enabling, so it is not fit on the #34 wrong-subject truth.
 MIN_VISIBLE_JOINTS: int | None = None
+
+# Conformance gate (issue #15). Per axis, fit ``scanner = a·truth + b`` (OLS) over
+# every matched scanner↔truth core-joint point in the bundle, then quarantine the
+# bundle from *pooled* metrics when the fit is not near-identity. This catches
+# per-bundle **truth mis-tracking** — the ViTPose appearance-stitch (#19) latching
+# onto the wrong subject — which shows up as scattered slopes / low r² even while
+# route-siblings fit clean, and which PCK alone can't distinguish from ordinary
+# detector error. The #15 audit fit 26 clean bundles at a≈0.97–0.99, r²≈0.98–1.00;
+# the 12 contaminated ones (#34) fall outside. Thresholds are deliberately loose so
+# only genuine mis-tracking trips them. Per-record (a run×truth pairing), but the
+# verdict is a truth property, so a bundle's runs agree. A near-degenerate fit
+# (too few points, or a constant/zero-variance axis) can't be trusted → non-conforming.
+CONFORMANCE_SLOPE_MIN = 0.85
+CONFORMANCE_SLOPE_MAX = 1.15
+CONFORMANCE_R2_MIN = 0.90
+CONFORMANCE_MIN_POINTS = 20
 
 
 @dataclass
@@ -341,6 +358,46 @@ def _round6(v: float | None) -> float | None:
     return None if v is None else round(v, 6)
 
 
+def _ols_fit(xs: list[float], ys: list[float]) -> tuple[float, float, float] | None:
+    """Ordinary least squares ``y = slope·x + intercept`` with r². Returns
+    ``(slope, intercept, r2)``, or ``None`` when the fit is degenerate: fewer than
+    two points, or zero variance on either axis (a vertical/constant relationship
+    has no meaningful slope or r²). Hand-rolled — the math is trivial and the
+    ``analysis_pipeline`` default stays numpy-free (ADR 0003 code-quality note)."""
+
+    n = len(xs)
+    if n < 2:
+        return None
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+    sxx = sum((x - mean_x) ** 2 for x in xs)
+    syy = sum((y - mean_y) ** 2 for y in ys)
+    if sxx == 0 or syy == 0:
+        return None
+    sxy = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    slope = sxy / sxx
+    intercept = mean_y - slope * mean_x
+    r2 = (sxy * sxy) / (sxx * syy)
+    return slope, intercept, r2
+
+
+def _axis_conforms(fit: tuple[float, float, float] | None) -> bool:
+    """One axis passes the #15 gate: a non-degenerate near-identity fit."""
+
+    if fit is None:
+        return False
+    slope, _intercept, r2 = fit
+    return (CONFORMANCE_SLOPE_MIN <= slope <= CONFORMANCE_SLOPE_MAX
+            and r2 >= CONFORMANCE_R2_MIN)
+
+
+def _axis_block(fit: tuple[float, float, float] | None) -> dict[str, Any]:
+    if fit is None:
+        return {"slope": None, "intercept": None, "r2": None}
+    slope, intercept, r2 = fit
+    return {"slope": _round6(slope), "intercept": _round6(intercept), "r2": _round6(r2)}
+
+
 @dataclass
 class _FramePair:
     """One truth frame joined (or not) with its nearest-in-tolerance scanner frame."""
@@ -461,6 +518,77 @@ def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
     }
 
 
+def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
+    """Per-axis identity fit of scanner onto truth over the bundle's matched joints.
+
+    Pools every core-joint point on a matched, climber-present, non-excluded frame
+    into two OLS fits (``scanner_x = a·truth_x + b`` and the y counterpart) and judges
+    the bundle against the near-identity band (issue #15). This is a whole-bundle
+    sanity check on the truth↔scanner coordinate relationship — a mis-tracked truth
+    scatters the fit even where PCK looks plausible — not a per-joint accuracy metric.
+    ``conforms`` gates the bundle out of *pooled* metrics; the per-record tiers stay
+    computed either way, so a quarantined bundle is still inspectable.
+
+    ``n`` is the point count per axis. Below ``CONFORMANCE_MIN_POINTS`` the fit is too
+    thin to trust, so the bundle is non-conforming with an ``insufficient-points``
+    reason rather than a spurious pass. ``reasons`` is empty exactly when ``conforms``.
+    """
+
+    tx: list[float] = []
+    sx: list[float] = []
+    ty: list[float] = []
+    sy: list[float] = []
+    for p in pairs:
+        if not p.matched or not p.truth.present:
+            continue
+        for name, truth_pt in p.truth.joints.items():
+            pred = p.scanner.get(name)
+            if pred is None:
+                continue
+            tx.append(truth_pt[0])
+            sx.append(pred[0])
+            ty.append(truth_pt[1])
+            sy.append(pred[1])
+
+    n = len(tx)
+    fit_x = _ols_fit(tx, sx)
+    fit_y = _ols_fit(ty, sy)
+
+    reasons: list[str] = []
+    if n < CONFORMANCE_MIN_POINTS:
+        reasons.append("insufficient-points")
+    for axis, fit in (("x", fit_x), ("y", fit_y)):
+        if not _axis_conforms(fit):
+            reasons.append(f"{axis}-nonconforming")
+    conforms = not reasons
+
+    return {
+        "x": _axis_block(fit_x),
+        "y": _axis_block(fit_y),
+        "n": n,
+        "conforms": conforms,
+        "reasons": reasons,
+        "thresholds": {
+            "slopeMin": CONFORMANCE_SLOPE_MIN,
+            "slopeMax": CONFORMANCE_SLOPE_MAX,
+            "r2Min": CONFORMANCE_R2_MIN,
+            "minPoints": CONFORMANCE_MIN_POINTS,
+        },
+    }
+
+
+def record_conforms(record: dict[str, Any]) -> bool:
+    """Whether an on-disk record passes the #15 conformance gate. Legacy records
+    (schema < 4) carry no ``conformance`` block; they predate the gate and are treated
+    as conforming (fail-open) so an old corpus isn't silently emptied — regenerate to
+    get a real verdict."""
+
+    conf = record.get("conformance")
+    if not isinstance(conf, dict) or "conforms" not in conf:
+        return True
+    return bool(conf["conforms"])
+
+
 def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[str, Any]:
     """Compute the full metric set for one pose Run against one truth doc.
 
@@ -506,6 +634,9 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[st
                        "flaggedWrong": n_wrong, "flaggedAbsent": n_absent_flag},
             "agreementSkipped": {"flaggedWrong": n_wrong, "flaggedAbsent": n_absent_flag},
         },
+        # Whole-bundle truth↔scanner conformance (issue #15), fit over the same
+        # non-excluded pairs the agreement tier scores. Gates pooled metrics.
+        "conformance": _conformance(agreement_pairs),
         "agreement": _score_tier(agreement_pairs),
         "accuracy": _score_tier(accuracy_pairs),
     }

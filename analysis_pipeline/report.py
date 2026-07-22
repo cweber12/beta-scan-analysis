@@ -450,6 +450,26 @@ def _shame_list_html(items: list[str], empty_text: str) -> str:
     return f"<div class='tablewrap'><table><tbody>{rows}</tbody></table></div>"
 
 
+def _quarantine_table(rows: list[dict[str, Any]]) -> str:
+    """Bundles dropped from pooled metrics by the #15 conformance gate."""
+
+    if not rows:
+        return "<p class='muted'>No bundles quarantined — every record conforms.</p>"
+    head = ("<tr><th>route</th><th>video</th><th>run</th><th>reasons</th>"
+            "<th>n</th><th>slope x</th><th>r² x</th><th>slope y</th><th>r² y</th></tr>")
+    body = "".join(
+        f"<tr><td>{_esc(r.get('route_folder'))}</td>"
+        f"<td>{_esc(r.get('video_key'))}</td>"
+        f"<td>{_esc(r.get('run_ts'))}</td>"
+        f"<td>{_esc(r.get('reasons'))}</td>"
+        f"<td>{_esc(r.get('n'))}</td>"
+        f"<td>{_fmt(r.get('slope_x'))}</td><td>{_fmt(r.get('r2_x'))}</td>"
+        f"<td>{_fmt(r.get('slope_y'))}</td><td>{_fmt(r.get('r2_y'))}</td></tr>"
+        for r in rows
+    )
+    return f"<div class='tablewrap'><table><thead>{head}</thead><tbody>{body}</tbody></table></div>"
+
+
 # --- new sections: overview, failure cards, ORB matrix, frame timeline -------
 _SOURCE_COLORS = {
     "raw": "#1baf7a", "interpolated": "#eda100", "filled": "#eb6834",
@@ -837,7 +857,8 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "<p class='sub'>Two-tier accounting from committed evaluation records. "
         "Every value is explicitly tagged as agreement or accuracy.</p>",
         _stat_tiles([
-            (str(ctx.get("eval_count", 0)), "evaluation records"),
+            (str(ctx.get("eval_count", 0)), "conforming records [pooled]"),
+            (str(ctx.get("quarantined_count", 0)), "quarantined records [#15 gate]"),
             (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
             (str(ctx.get("verified_records", 0)), "records with verified truth"),
         ]),
@@ -879,6 +900,13 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         _cross_video_split_table(ctx.get("cross_video_splits", pd.DataFrame())),
 
         "<h2>Shame lists</h2>",
+        "<h3>Quarantined bundles (#15 conformance gate)</h3>",
+        "<p class='sub'>Bundles whose truth↔scanner fit falls outside the "
+        "near-identity band (<code>scanner = a·truth + b</code>, per axis) — the "
+        "signature of truth mis-tracking (#19 stitch on the wrong subject). These "
+        "are excluded from every pooled metric above; their per-record tiers remain "
+        "on disk for inspection.</p>",
+        _quarantine_table(ctx.get("quarantined_bundles", [])),
         "<h3>Bundles with no truth</h3>",
         _shame_list_html(ctx.get("truthless_bundles", []), "No truthless bundles."),
         "<h3>Stale setup runs</h3>",
