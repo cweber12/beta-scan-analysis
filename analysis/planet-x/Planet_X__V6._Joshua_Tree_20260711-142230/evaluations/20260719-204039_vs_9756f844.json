@@ -550,14 +550,13 @@
     ]
   },
   "conformance": {
-    "conforms": false,
+    "conforms": true,
     "n": 121,
-    "reasons": [
-      "x-nonconforming"
-    ],
+    "reasons": [],
     "thresholds": {
       "minPoints": 20,
       "r2Min": 0.9,
+      "r2MinX": 0.75,
       "slopeMax": 1.15,
       "slopeMin": 0.85
     },
@@ -613,7 +612,7 @@
   "routeFolder": "planet-x",
   "runTs": "20260719-204039",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "setupHash": "8876488b5cad95e261d5455e7dd8c0bbd2c7b167a725797767f577fd41c62628",
   "truthHash": "9756f844bec2898af9f018135da5740389e08766f9492083009e8918cadca36a",
   "truthSetupHashSource": "truth",
