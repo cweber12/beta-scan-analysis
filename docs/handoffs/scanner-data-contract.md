@@ -36,6 +36,13 @@ an endpoint exists; degrade visibly (not with a silent 404) when the probe
 fails or a feature isn't advertised. Full response shape and gating rules:
 [scanner-video-stats.md](scanner-video-stats.md).
 
+The probe also carries a `capabilities` map of additive feature flags (no
+`apiVersion` bump). **`capabilities.decoupledSeed`** signals that
+`POST /api/vitpose` speaks the `seed_tap` + `seed_region` seed contract of record
+(with legacy `climber_point` / `climber_crop` alias support). Gate the new seed
+fields on it — see
+[scanner-seed-contract-adr0006.md](scanner-seed-contract-adr0006.md) (ADR 0006).
+
 ---
 
 ## The harness bundle layout you read/write against

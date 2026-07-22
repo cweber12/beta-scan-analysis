@@ -32,6 +32,11 @@ Two things make this a real decision rather than a feature bolt-on:
 
 ## Decision
 
+> **Amended 2026-07-22 by ADR 0006.** The seed request is now `seed_tap` +
+> `seed_region` (decoupled from the Climber Crop); `climber_point` / `climber_crop`
+> below are retained as backward-compatible aliases. See
+> `docs/adr/0006-decoupled-seed-contract.md`.
+
 Expose `POST /api/vitpose`. It accepts a Climber selection (`climber_point`,
 `climber_crop`, `wall_crop`, `panning`) + the video's relative path + an explicit
 list of `frames[].timestamp` to pose, returns `202` immediately, and runs the job
