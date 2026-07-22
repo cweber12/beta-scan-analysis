@@ -54,9 +54,11 @@ branches and `main` never drift:
 3. **A merged branch is frozen.** Never push new commits to a branch whose PR is
    closed/merged — GitHub can't reopen it and the commits get orphaned. New work =
    a fresh branch off updated `main`.
-4. **After a merge, sync and clean:** `git checkout main && git pull`, delete the
-   merged branch locally (`git branch -d <b>`) and on the remote
-   (`git push origin --delete <b>`), then `git remote prune origin`.
+4. **After a merge, sync and clean** by running `python scripts/git_cleanup.py`
+   (or the `/cleanup` command): it fast-forwards `main`, deletes every PR-merged
+   branch local **and** remote, and prunes. Idempotent and safe — it never touches
+   `main` or an unmerged branch (`--dry-run` to preview). Do this every time a PR
+   merges, so branches never accumulate.
 5. **Before pushing, confirm the target branch isn't already merged**
    (`gh pr view <branch>`); if it is, start a fresh branch.
 
