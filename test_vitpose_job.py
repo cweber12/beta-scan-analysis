@@ -272,8 +272,8 @@ def test_no_tap_crop_filter_out_produces_empty_trajectory_and_artifact_frames():
         route_folder="r",
         video_key="k",
         frames=(0.0, 0.5),
-        climber_point=None,
-        climber_crop=crop,
+        seed_tap=None,
+        seed_region=crop,
     )
     art = build_artifact(req, history, StubPoseBackend(), Path("x.mp4"))
     assert all(f["keypoints"] == [] for f in art["frames"])
@@ -448,8 +448,26 @@ def test_fixture_good_run_full_parity_with_motion_only_stitching():
 def _request(frames, tap=Point(0.50, 0.40)):
     return VitPoseRequest(
         video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
-        frames=tuple(frames), climber_point=tap,
+        frames=tuple(frames), seed_tap=tap,
     )
+
+
+def test_seed_region_gate_reads_request_seed_region_field():
+    # The decoupled seed gate reads the request's `seed_region` field (not the
+    # Climber Crop): the only tracked box centers outside the expanded seed region,
+    # so no seed is found even though the tap lands on it.
+    box = Box(0.60, 0.60, 0.10, 0.10)              # center 0.65, outside region+10%
+    region = Box(0.0, 0.0, 0.20, 0.20)
+    history = [FrameTracks(0.0, {1: box})]
+    req = VitPoseRequest(
+        video_path="a", route_folder="r", video_key="k",
+        frames=(0.0,), seed_tap=Point(0.65, 0.65, t=0.0), seed_region=region,
+    )
+    stitch = stitch_climber_track(history, req.seed_tap, req.seed_region)
+    assert stitch.seed_box is None
+    # ...and dropping the region gate seeds the same box.
+    ungated = stitch_climber_track(history, req.seed_tap, None)
+    assert ungated.seed_box == box
 
 
 def test_artifact_echoes_timestamps_verbatim_and_in_order():
@@ -477,7 +495,7 @@ def test_artifact_empty_keypoints_when_climber_untracked():
     # Force selection to the spotter, who is ABSENT on the 1.0s frame.
     req = VitPoseRequest(
         video_path="a", route_folder="r", video_key="k",
-        frames=(0.0, 1.0), climber_point=Point(0.06, 0.75),  # taps the spotter
+        frames=(0.0, 1.0), seed_tap=Point(0.06, 0.75),  # taps the spotter
     )
     art = build_artifact(req, history, StubPoseBackend(), Path("x.mp4"))
     by_ts = {f["timestamp"]: f["keypoints"] for f in art["frames"]}
@@ -498,7 +516,7 @@ def test_artifact_stamps_setup_hash_from_request():
     history = _history_two_people()
     req = VitPoseRequest(
         video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
-        frames=(0.0,), climber_point=Point(0.50, 0.40), setup_hash="abc123",
+        frames=(0.0,), seed_tap=Point(0.50, 0.40), setup_hash="abc123",
     )
     art = build_artifact(req, history, StubPoseBackend(), Path("x.mp4"))
     assert art["setupHash"] == "abc123"
@@ -602,6 +620,19 @@ def test_run_job_writes_artifact_and_done_status():
         assert not (path.parent / "detections").exists()
 
 
+def test_run_job_seed_debug_reports_seed_not_found():
+    # Acceptance (issue #56): seedDebug keeps surfacing seedFound=false when no
+    # matching track is found (here: an empty tracker history).
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        path = run_vitpose_job(root, _request([0.0]), StubTracker([]), StubPoseBackend())
+
+        status = json.loads((path.parent / "vitpose.status.json").read_text())
+        assert status["status"] == "done"
+        assert status["seedDebug"]["seedFound"] is False
+
+
 def test_run_job_warns_when_climber_t_missing():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "analysis"
@@ -610,7 +641,7 @@ def test_run_job_warns_when_climber_t_missing():
 
         status = json.loads((path.parent / "vitpose.status.json").read_text())
         assert status["status"] == "done"
-        assert any("climber_point.t is missing" in w for w in status.get("warnings", []))
+        assert any("seed_tap.t is missing" in w for w in status.get("warnings", []))
 
 
 def test_run_job_warns_when_t_zero_with_multiple_people_near_start():
@@ -622,13 +653,13 @@ def test_run_job_warns_when_t_zero_with_multiple_people_near_start():
             route_folder="r",
             video_key="k",
             frames=(0.0,),
-            climber_point=Point(0.50, 0.40, t=0.0),
+            seed_tap=Point(0.50, 0.40, t=0.0),
         )
         path = run_vitpose_job(root, req, StubTracker(_history_two_people()), StubPoseBackend())
 
         status = json.loads((path.parent / "vitpose.status.json").read_text())
         assert status["status"] == "done"
-        assert any("climber_point.t is 0" in w for w in status.get("warnings", []))
+        assert any("seed_tap.t is 0" in w for w in status.get("warnings", []))
 
 
 def test_run_job_stamps_request_setup_hash():
@@ -639,7 +670,7 @@ def test_run_job_stamps_request_setup_hash():
         (root / "r" / "k" / "setup.json").write_text('{"setupHash": "stale"}')
         req = VitPoseRequest(
             video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
-            frames=(0.0,), climber_point=Point(0.50, 0.40), setup_hash="fresh",
+            frames=(0.0,), seed_tap=Point(0.50, 0.40), setup_hash="fresh",
         )
         path = run_vitpose_job(root, req, StubTracker(_history_two_people()), StubPoseBackend())
         assert json.loads(path.read_text())["setupHash"] == "fresh"
@@ -749,8 +780,8 @@ def test_run_job_poses_climber_for_nonpanning_point_and_crop_setup():
         req = VitPoseRequest(
             video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
             frames=(0.0, 0.5, 1.0),
-            climber_point=Point(0.51, 0.35),      # taps the climber (track 1)
-            climber_crop=Box(0.40, 0.20, 0.25, 0.40),
+            seed_tap=Point(0.51, 0.35),           # taps the climber (track 1)
+            seed_region=Box(0.40, 0.20, 0.25, 0.40),
             panning=False,
         )
         path = run_vitpose_job(root, req, StubTracker(_history_two_people()), backend)
