@@ -721,6 +721,56 @@ def test_frame_quality_classification_one_per_class():
         assert all("crop" in e for e in fq["frames"])
 
 
+def test_crop_export_selection_and_writes():
+    """Issue #44 deliverable 2: crops are budgeted worst-first (flagged, then ok to fill
+    the cap); with decode off nothing is written and every crop path stays None; with a
+    frame reader injected, PNGs land in crops/ and the selected frameQuality entries get
+    their crop path stamped in place."""
+
+    import numpy as np
+
+    from analysis_pipeline import crops
+
+    entries = [
+        {"t": 1.0, "class": "ok", "crop": None},
+        {"t": 2.0, "class": "wrong-subject", "crop": None},
+        {"t": 3.0, "class": "distorted", "crop": None},
+        {"t": 4.0, "class": "ok", "crop": None},
+    ]
+    # Selection: flagged first (worst-first budget), then ok to fill the cap.
+    assert [e["class"] for e in crops._select_for_crop(entries, 3)] == \
+        ["wrong-subject", "distorted", "ok"]
+    assert crops._select_for_crop(entries, 1)[0]["class"] == "wrong-subject"
+    assert crops._select_for_crop(entries, 0) == []
+
+    pose_frames = [{"timestamp": e["t"], "keypoints": [
+        {"name": "nose", "x": 0.4, "y": 0.3}, {"name": "left_hip", "x": 0.5, "y": 0.6}]}
+        for e in entries]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        vdir = Path(tmp) / "routeCR" / "vidCR"
+        vdir.mkdir(parents=True)
+
+        # decode off -> best-effort no-op: nothing written, no crops/ dir, paths None.
+        fq_off = {"frames": [dict(e) for e in entries]}
+        assert crops.export_run_crops(vdir, "20260101-000001", pose_frames, fq_off,
+                                      decode=False) == 0
+        assert all(e["crop"] is None for e in fq_off["frames"])
+        assert not (vdir / "crops").exists()
+
+        # Injected reader -> writes PNGs for the selected frames, stamps their paths.
+        gray = np.full((100, 120), 128, dtype=np.uint8)
+        fq = {"frames": [dict(e) for e in entries]}
+        n = crops.export_run_crops(vdir, "20260101-000001", pose_frames, fq,
+                                   decode=True, cap=3, frame_reader=lambda t: gray)
+        assert n == 3
+        assert len(list((vdir / "crops").glob("*.png"))) == 3
+        by_t = {e["t"]: e for e in fq["frames"]}
+        assert by_t[2.0]["crop"].startswith("crops/") and by_t[3.0]["crop"]
+        assert by_t[1.0]["crop"]           # ok at t1 selected to fill the cap
+        assert by_t[4.0]["crop"] is None   # cap reached before this ok
+
+
 def test_evaluate_vitpose_fallback_when_no_ground_truth():
     from analysis_pipeline import evaluate as ev
 
@@ -1143,6 +1193,7 @@ def _run_all():
            test_evaluate_setuphash_mismatch_is_skipped,
            test_evaluate_loose_overlap_pairing_fallback,
            test_frame_quality_classification_one_per_class,
+           test_crop_export_selection_and_writes,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
            test_analysis_report_includes_eval_trend_sections,

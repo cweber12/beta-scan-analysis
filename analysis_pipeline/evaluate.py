@@ -958,6 +958,19 @@ def _prune_orphans(eval_dir: Path, paired_run_ts: set[str], current_truth_hash8:
     return orphans
 
 
+def _export_crops(video_dir: Path, run_ts: str, pose_frames: list[dict[str, Any]],
+                  body: dict[str, Any]) -> None:
+    """Best-effort crop export for one Run's frameQuality entries (issue #44 deliverable
+    2). Imported locally so the common JSON path never pulls cv2. Any failure is
+    swallowed — a missing binary or decode error must not abort record writing."""
+
+    try:
+        from . import crops
+        crops.export_run_crops(video_dir, run_ts, pose_frames, body["frameQuality"])
+    except Exception:  # pragma: no cover - defensive; crops are non-essential
+        pass
+
+
 def _write_eval_record(video_dir: Path, route_folder: str, video_key: str, run_ts: str,
                        setup_hash: str, truth: TruthDoc, truth_hash8: str,
                        body: dict[str, Any], *, loose: bool = False,
@@ -996,11 +1009,16 @@ def _write_eval_record(video_dir: Path, route_folder: str, video_key: str, run_t
     return record_path
 
 
-def evaluate(analysis_root: Path, prune: bool = False) -> EvalSummary:
+def evaluate(analysis_root: Path, prune: bool = False,
+             export_crops: bool = False) -> EvalSummary:
     """Walk the bundle tree, pair every pose Run with truth, write eval records.
 
     When ``prune`` is set, also delete stale-run orphan records (issue #32); with it
-    unset, orphans are still reported (dry run) but nothing is deleted."""
+    unset, orphans are still reported (dry run) but nothing is deleted. When
+    ``export_crops`` is set, decode the (gitignored) video binaries and write flagged-
+    frame crops into each bundle's ``crops/`` dir (issue #44 deliverable 2), stamping
+    the crop path into the ``frameQuality`` entries before the record is written; the
+    export is best-effort and silently no-ops when cv2 or the binary is absent."""
 
     summary = EvalSummary()
 
@@ -1034,6 +1052,8 @@ def evaluate(analysis_root: Path, prune: bool = False) -> EvalSummary:
                 continue
 
             body = evaluate_pair(pose_frames, truth)
+            if export_crops:
+                _export_crops(video_dir, run_ts, pose_frames, body)
             record_path = _write_eval_record(
                 video_dir, route_folder, video_key, run_ts, effective_setup_hash,
                 truth, truth_hash8, body)
@@ -1061,6 +1081,8 @@ def evaluate(analysis_root: Path, prune: bool = False) -> EvalSummary:
             if candidate is not None and best_overlap > 0:
                 run_ts, pose_setup_hash, pose_frames = candidate
                 body = evaluate_pair(pose_frames, truth)
+                if export_crops:
+                    _export_crops(video_dir, run_ts, pose_frames, body)
                 reason = (
                     f"no setupHash-matched run overlapped truth "
                     f"(≥{LOOSE_PAIR_MIN_OVERLAP} present frames); paired best-overlap run "
