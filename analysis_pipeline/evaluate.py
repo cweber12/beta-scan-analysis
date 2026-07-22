@@ -143,6 +143,18 @@ CONFORMANCE_MIN_POINTS = 20
 # setupHash-gated and conforming-only.
 LOOSE_PAIR_MIN_OVERLAP = 3
 
+# Targeted evaluate modes (issue #57). ``all`` is the default full sweep — it (re)writes
+# a record for every setupHash-matched Run in every bundle, exactly as evaluate always
+# did, so the default is behaviourally unchanged. ``un-analyzed`` is the incremental mode:
+# a bundle whose setupHash-matched Runs already carry a current-truth record on disk is
+# skipped wholesale, avoiding redundant re-scoring. The gate is deliberately per-bundle
+# and coarse — a bundle with *no* setupHash-matched Run is never treated as analyzed, so it
+# always reprocesses and the best-overlap loose fallback (issue #44) fires identically
+# under both modes. See ``_bundle_already_analyzed``.
+EVAL_MODE_ALL = "all"
+EVAL_MODE_UNANALYZED = "un-analyzed"
+EVAL_MODES = (EVAL_MODE_ALL, EVAL_MODE_UNANALYZED)
+
 # Per-frame detection-quality classification (issue #44 deliverable 1). Each matched
 # frame on which the scanner emitted a pose is sorted into one auto class from the
 # scanner↔truth geometry, all distances normalized by the *truth* torso length (never the
@@ -252,6 +264,7 @@ class EvalSummary:
     pairings: list[Pairing] = field(default_factory=list)
     truthless_videos: list[str] = field(default_factory=list)  # bundles with no truth
     orphans: list[Orphan] = field(default_factory=list)  # stale-run records (issue #32)
+    analyzed_skipped: list[str] = field(default_factory=list)  # un-analyzed mode skips (#57)
 
     @property
     def written(self) -> list[Pairing]:
@@ -958,6 +971,24 @@ def _prune_orphans(eval_dir: Path, paired_run_ts: set[str], current_truth_hash8:
     return orphans
 
 
+def _bundle_already_analyzed(eval_dir: Path, matched_run_ts: list[str],
+                             truth_hash8: str) -> bool:
+    """Un-analyzed gate (issue #57): True when every setupHash-matched Run already carries
+    a current-truth evaluation record on disk (``<run_ts>_vs_<truth_hash8>.json``).
+
+    Coarse by design. A bundle with *no* setupHash-matched Run is never "analyzed" — it may
+    still owe a best-overlap loose record (issue #44), and a fresh bundle never analyzed at
+    all must not be vacuously skipped — so it always reprocesses. Because the gate keys on
+    the *current* ``truth_hash8``, a truth revision (new hash) invalidates every prior
+    record and reprocesses the bundle. When a bundle is skipped, its on-disk records are
+    left untouched, so the loose-pair fallback outcome is identical to a full sweep."""
+
+    if not matched_run_ts or not eval_dir.is_dir():
+        return False
+    return all((eval_dir / f"{run_ts}_vs_{truth_hash8}.json").exists()
+               for run_ts in matched_run_ts)
+
+
 def _export_crops(video_dir: Path, run_ts: str, pose_frames: list[dict[str, Any]],
                   body: dict[str, Any]) -> None:
     """Best-effort crop export for one Run's frameQuality entries (issue #44 deliverable
@@ -1010,8 +1041,17 @@ def _write_eval_record(video_dir: Path, route_folder: str, video_key: str, run_t
 
 
 def evaluate(analysis_root: Path, prune: bool = False,
-             export_crops: bool = False) -> EvalSummary:
+             export_crops: bool = False, mode: str = EVAL_MODE_ALL) -> EvalSummary:
     """Walk the bundle tree, pair every pose Run with truth, write eval records.
+
+    ``mode`` selects coverage (issue #57). ``all`` (the default) is the full sweep —
+    every setupHash-matched Run in every bundle is (re)scored, exactly as before, so the
+    default is behaviourally unchanged. ``un-analyzed`` skips any bundle whose matched Runs
+    already carry a current-truth record (``_bundle_already_analyzed``), for incremental
+    corpus work; skipped bundles are named in ``summary.analyzed_skipped``. Pruning and the
+    best-overlap loose fallback are orthogonal to mode — a skipped bundle is still pruned
+    (its current-truth records are hash-protected), and any bundle that *is* processed runs
+    the identical loose-pair path under both modes.
 
     When ``prune`` is set, also delete stale-run orphan records (issue #32); with it
     unset, orphans are still reported (dry run) but nothing is deleted. When
@@ -1019,6 +1059,9 @@ def evaluate(analysis_root: Path, prune: bool = False,
     frame crops into each bundle's ``crops/`` dir (issue #44 deliverable 2), stamping
     the crop path into the ``frameQuality`` entries before the record is written; the
     export is best-effort and silently no-ops when cv2 or the binary is absent."""
+
+    if mode not in EVAL_MODES:
+        raise ValueError(f"unknown evaluate mode {mode!r}; expected one of {EVAL_MODES}")
 
     summary = EvalSummary()
 
@@ -1041,6 +1084,23 @@ def evaluate(analysis_root: Path, prune: bool = False,
         paired_run_ts: set[str] = set()
 
         runs = list(_iter_pose_runs(video_dir / "detections"))
+        eval_dir = video_dir / "evaluations"
+
+        # Un-analyzed gate (issue #57): a bundle whose setupHash-matched Runs already
+        # carry current-truth records is skipped wholesale — no re-scoring, records left
+        # untouched — but pruning still runs. The matched Run timestamps stand in as the
+        # "paired" set so truth-revision history for a still-pairing Run is retained exactly
+        # as a full sweep would (current-truth records, trusted and loose, are protected by
+        # the hash check regardless).
+        matched_run_ts = [rt for rt, sh, _ in runs if sh == effective_setup_hash]
+        if mode == EVAL_MODE_UNANALYZED and _bundle_already_analyzed(
+                eval_dir, matched_run_ts, truth_hash8):
+            summary.analyzed_skipped.append(f"{route_folder}/{video_key}")
+            summary.orphans.extend(_prune_orphans(
+                eval_dir, set(matched_run_ts), truth_hash8,
+                route_folder, video_key, prune))
+            continue
+
         best_trusted_overlap = 0
         for run_ts, pose_setup_hash, pose_frames in runs:
             if pose_setup_hash != effective_setup_hash:
@@ -1097,7 +1157,7 @@ def evaluate(analysis_root: Path, prune: bool = False,
                     record_path=record_path, loose=True))
 
         summary.orphans.extend(_prune_orphans(
-            video_dir / "evaluations", paired_run_ts, truth_hash8,
+            eval_dir, paired_run_ts, truth_hash8,
             route_folder, video_key, prune))
 
     return summary

@@ -10,7 +10,7 @@ import pandas as pd
 
 from . import crossmatch, report, stats, trends
 from .discovery import discover_runs
-from .evaluate import evaluate
+from .evaluate import EVAL_MODE_ALL, EVAL_MODES, evaluate
 from .frames import build_frame_table
 from .runs import build_run_table
 
@@ -93,12 +93,12 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True,
 
 
 def run_evaluate(analysis_root: Path, prune: bool = False,
-                 export_crops: bool = False) -> None:
+                 export_crops: bool = False, mode: str = EVAL_MODE_ALL) -> None:
     """Pair pose Runs with bundle truth, write eval records, print a summary."""
 
-    summary = evaluate(analysis_root, prune=prune, export_crops=export_crops)
+    summary = evaluate(analysis_root, prune=prune, export_crops=export_crops, mode=mode)
     print(f"wrote {len(summary.written)} evaluation record(s) "
-          f"from {analysis_root}")
+          f"from {analysis_root} (mode: {mode})")
     for p in summary.written:
         tag = " [loosePaired]" if p.loose else ""
         print(f"  {p.route_folder}/{p.video_key} {p.run_ts} "
@@ -116,6 +116,9 @@ def run_evaluate(analysis_root: Path, prune: bool = False,
               + ("" if prune else " (dry run; pass --prune to remove)") + ":")
         for o in summary.orphans:
             print(f"  {o.route_folder}/{o.video_key} -> {o.record_path.name}")
+    if summary.analyzed_skipped:
+        print(f"skipped {len(summary.analyzed_skipped)} already-analyzed bundle(s) "
+              "(un-analyzed mode; matched runs already have current-truth records)")
     if summary.truthless_videos:
         print(f"no truth for {len(summary.truthless_videos)} bundle(s) "
               "(no ground-truth.json or vitpose.json)")
@@ -143,6 +146,11 @@ def main(argv: list[str] | None = None) -> None:
         "evaluate", help="write detection-vs-truth evaluation records into the bundles")
     p_ev.add_argument("analysis_root", nargs="?", default="analysis", type=Path,
                       help="root of the analysis/ bundle tree (default: analysis)")
+    p_ev.add_argument("--mode", choices=EVAL_MODES, default=EVAL_MODE_ALL,
+                      help="'all' (default) rescoring every setupHash-matched run, or "
+                           "'un-analyzed' to skip bundles whose matched runs already carry "
+                           "a current-truth record (incremental corpus work); loose-pair "
+                           "fallback and pruning are unchanged under both")
     p_ev.add_argument("--prune", action="store_true",
                       help="delete stale-run orphan evaluation records (records whose "
                            "run no longer pairs and whose truth hash is no longer "
@@ -156,7 +164,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "evaluate":
         run_evaluate(args.analysis_root.resolve(), prune=args.prune,
-                     export_crops=args.crops)
+                     export_crops=args.crops, mode=args.mode)
         return
 
     # Default (no subcommand) and the explicit "analysis" subcommand both build the

@@ -1273,6 +1273,185 @@ def test_evaluate_prune_removes_stale_run_orphan_keeps_history():
         assert (eval_dir / live_name).exists()
 
 
+# --------------------------------------------------------------------------- #
+# targeted evaluate modes: all vs un-analyzed (issue #57)
+# --------------------------------------------------------------------------- #
+
+def _stamp_sentinel(record_path: Path, key: str = "_sentinel") -> None:
+    """Tamper an on-disk record so a later rewrite is detectable by the key vanishing."""
+    doc = json.loads(record_path.read_text(encoding="utf-8"))
+    doc[key] = True
+    record_path.write_text(json.dumps(doc), encoding="utf-8")
+
+
+def _has_sentinel(record_path: Path, key: str = "_sentinel") -> bool:
+    return json.loads(record_path.read_text(encoding="utf-8")).get(key) is True
+
+
+def test_evaluate_mode_all_default_is_full_sweep():
+    """Default and explicit mode='all' are the same full sweep: every run is (re)scored,
+    nothing is skipped, and a re-run overwrites in place (idempotent)."""
+
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeM" / "vidM"
+        _write_bundle_meta(vdir, setup_hash="sh_match")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000001", "sh_match", _scanner_frames_for_pck())
+
+        # Default == explicit 'all', and neither skips anything.
+        s_default = ev.evaluate(root)
+        assert len(s_default.written) == 1 and not s_default.analyzed_skipped
+        rec_path = s_default.written[0].record_path
+
+        # A full sweep always rewrites, even when the record already exists: stamp a
+        # sentinel and confirm mode='all' clobbers it.
+        _stamp_sentinel(rec_path)
+        s_all = ev.evaluate(root, mode=ev.EVAL_MODE_ALL)
+        assert len(s_all.written) == 1 and not s_all.analyzed_skipped
+        assert not _has_sentinel(rec_path)  # rewritten in place
+
+        # An unknown mode is rejected rather than silently treated as 'all'.
+        try:
+            ev.evaluate(root, mode="nope")
+        except ValueError as e:
+            assert "unknown evaluate mode" in str(e)
+        else:
+            raise AssertionError("expected ValueError for an unknown mode")
+
+
+def test_evaluate_mode_unanalyzed_skips_analyzed_processes_new():
+    """un-analyzed mode skips a bundle whose matched runs already carry current-truth
+    records (leaving them untouched), but processes a bundle again once a new run — or a
+    revised truth — makes it un-analyzed."""
+
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeU" / "vidU"
+        _write_bundle_meta(vdir, setup_hash="sh_match")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000001", "sh_match", _scanner_frames_for_pck())
+
+        # A fresh corpus has nothing analyzed yet, so un-analyzed processes it in full —
+        # equivalent to a full sweep on the first pass.
+        first = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        assert len(first.written) == 1 and not first.analyzed_skipped
+        rec_path = first.written[0].record_path
+
+        # Second un-analyzed pass: the matched run already has a current-truth record, so
+        # the bundle is skipped and its record is left byte-for-byte untouched.
+        _stamp_sentinel(rec_path)
+        second = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        assert not second.written
+        assert second.analyzed_skipped == ["routeU/vidU"]
+        assert _has_sentinel(rec_path)  # never rewritten
+
+        # A full sweep still rewrites the same bundle (clobbers the sentinel).
+        third = ev.evaluate(root, mode=ev.EVAL_MODE_ALL)
+        assert len(third.written) == 1 and not _has_sentinel(rec_path)
+
+        # A NEW run makes the bundle un-analyzed again -> un-analyzed reprocesses it and
+        # scores both runs.
+        _write_pose_run(vdir, "20260101-000002", "sh_match", _scanner_frames_for_pck())
+        fourth = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        assert not fourth.analyzed_skipped
+        assert {p.run_ts for p in fourth.written} == {"20260101-000001", "20260101-000002"}
+
+        # A truth revision (new groundTruthHash) also un-analyzes the bundle: the prior
+        # records are keyed on the old hash, so the new hash has none.
+        revised = _ground_truth_doc(setup_hash=None)
+        revised["groundTruthHash"] = "0000face0000face"
+        (vdir / "ground-truth.json").write_text(json.dumps(revised), encoding="utf-8")
+        fifth = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        assert not fifth.analyzed_skipped and len(fifth.written) == 2
+
+
+def test_evaluate_mode_unanalyzed_preserves_loose_fallback():
+    """Issue #57 x #44: the best-overlap loose fallback fires identically under
+    un-analyzed mode — a fresh loose-eligible bundle is recovered, and a re-run leaves the
+    loose record untouched once the matched run is analyzed."""
+
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeUL" / "vidUL"
+        _write_bundle_meta(vdir, setup_hash="sh_cur")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        # Matched run (sh_cur) samples a disjoint span -> n=0; stale run (sh_OLD) overlaps
+        # truth and is the best-overlap loose candidate — exactly the #44 fixture.
+        matched = [{"timestamp": 100.0 + i, "keypoints": _kp_list(_TRUTH_JOINTS)}
+                   for i in range(3)]
+        _write_pose_run(vdir, "20260101-000001", "sh_cur", matched)
+        _write_pose_run(vdir, "20260101-000002", "sh_OLD", _scanner_frames_for_pck())
+
+        # Driven entirely via un-analyzed from scratch: still writes the n=0 matched record
+        # AND recovers the loose pairing.
+        summary = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        assert len(summary.written) == 2 and len(summary.loose) == 1
+        loose = summary.loose[0]
+        assert loose.run_ts == "20260101-000002"
+
+        # Re-run: the matched run now has a current-truth record, so the whole bundle is
+        # skipped and the loose record is left in place, untouched.
+        _stamp_sentinel(loose.record_path)
+        again = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        assert not again.written
+        assert again.analyzed_skipped == ["routeUL/vidUL"]
+        assert _has_sentinel(loose.record_path)
+
+
+def test_evaluate_mode_unanalyzed_prune_interaction():
+    """Issue #57: pruning is orthogonal to mode — an already-analyzed bundle is skipped for
+    scoring, yet un-analyzed + --prune still removes a stale-run orphan while retaining the
+    live record and truth-revision history, exactly as a full sweep would."""
+
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeUP" / "vidUP"
+        _write_bundle_meta(vdir, setup_hash="sh_cur")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000001", "sh_cur", _scanner_frames_for_pck())
+        # A stale run whose setupHash no longer matches -> never analyzed, never counts
+        # toward the un-analyzed gate.
+        _write_pose_run(vdir, "20260101-000002", "sh_STALE", _scanner_frames_for_pck())
+
+        # Analyze the live run once (full sweep) -> current-truth record on disk.
+        first = ev.evaluate(root)
+        assert len(first.written) == 1
+        eval_dir = vdir / "evaluations"
+        live_name = "20260101-000001_vs_abcdef12.json"
+        assert (eval_dir / live_name).exists()
+
+        # Seed a stale-run orphan (run no longer pairs, old truth hash) + truth-revision
+        # history for the live run (still pairs, old truth hash).
+        orphan_name = "20260101-000002_vs_deadbeef.json"
+        (eval_dir / orphan_name).write_text(json.dumps({"stale": True}), encoding="utf-8")
+        history_name = "20260101-000001_vs_99998888.json"
+        (eval_dir / history_name).write_text(json.dumps({"old": True}), encoding="utf-8")
+
+        result = ev.evaluate(root, prune=True, mode=ev.EVAL_MODE_UNANALYZED)
+        # The bundle is skipped for scoring...
+        assert not result.written
+        assert result.analyzed_skipped == ["routeUP/vidUP"]
+        # ...but pruning still fires: the orphan is removed, live + history survive.
+        assert len(result.pruned) == 1
+        assert result.pruned[0].record_path.name == orphan_name
+        assert not (eval_dir / orphan_name).exists()
+        assert (eval_dir / live_name).exists()
+        assert (eval_dir / history_name).exists()
+
+
 def _run_all():
     fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
            test_crossmatch_reducers, test_pipeline_end_to_end_renders_report,
@@ -1287,6 +1466,10 @@ def _run_all():
            test_frame_quality_condition_bands_flagged_rate,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
+           test_evaluate_mode_all_default_is_full_sweep,
+           test_evaluate_mode_unanalyzed_skips_analyzed_processes_new,
+           test_evaluate_mode_unanalyzed_preserves_loose_fallback,
+           test_evaluate_mode_unanalyzed_prune_interaction,
            test_analysis_report_includes_eval_trend_sections,
            test_low_confidence_visible_measurement_and_worklist,
            test_version_regression_delta_isolated_to_injected_joint,
