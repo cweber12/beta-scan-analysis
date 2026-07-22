@@ -14,7 +14,14 @@ not a spec — it carries no implementation detail.
   downloader writes to seed beta-scanner's human-authored Ground Truth. A *seed, not
   truth*: the human still corrects and owns it. It is **not** a detection Run — no
   `detections/*_pose.json` is produced. Emitted by `POST /api/vitpose`; see
-  `docs/adr/0003`.
+  `docs/adr/0003`. The seed request is the **decoupled seed contract** (below).
+- **Decoupled seed contract** — the `POST /api/vitpose` seed request of record:
+  **`seed_tap`** (the tap anchoring **Climber Identity**, with an optional `t` that
+  picks the nearest tapped frame) plus **`seed_region`** (the **seed gate** deciding
+  which track is the climber). `seed_region` is *decoupled from the Climber Crop* — the
+  crop is a Video Stats input, not the gate. Legacy `climber_point` / `climber_crop`
+  are backward-compatible aliases; the new fields win when both are present. Scanners
+  gate on `GET /api/contract` → `capabilities.decoupledSeed`. See `docs/adr/0006`.
 - **Ground Truth** (`ground-truth.json`) — beta-scanner's per-frame pose truth
   artifact, authored from the ViTPose scaffold plus human flags. New artifacts carry
   top-level `setupHash` and per-frame `review` provenance. `review: "auto"` is
