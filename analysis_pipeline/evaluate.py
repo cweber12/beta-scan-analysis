@@ -61,7 +61,10 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 # Evaluation record schema version. Bump on any record-shape change.
 # v4 adds the per-bundle ``conformance`` block (issue #15 gate).
 # v5 gives the x axis a looser r² floor (issue #16 — narrow-x-variance false positives).
-SCHEMA_VERSION = 5
+# v6 adds the per-frame ``frameQuality`` block (issue #44 — auto divergence classes) and
+#    the optional ``loosePaired`` flag on best-overlap fallback records. Readers fail open
+#    on both (a pre-v6 record simply carries no frameQuality / loosePaired key).
+SCHEMA_VERSION = 6
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -139,6 +142,34 @@ CONFORMANCE_MIN_POINTS = 20
 # crops (issue #44 deliverables 1–3) — never for the trusted metrics, which stay
 # setupHash-gated and conforming-only.
 LOOSE_PAIR_MIN_OVERLAP = 3
+
+# Per-frame detection-quality classification (issue #44 deliverable 1). Each matched
+# frame on which the scanner emitted a pose is sorted into one auto class from the
+# scanner↔truth geometry, all distances normalized by the *truth* torso length (never the
+# scanner's — a collapsed detection must not shrink its own scale, mirroring the PCK
+# metric). Translation and shape are separated: ``centroidDist`` is the mean joint offset
+# (pure displacement) and ``residual`` is the median joint offset *after removing that mean*
+# (pure shape distortion), so "right shape, wrong place" (wrong-subject) is distinguished
+# from "right place, wrong shape" (distorted).
+#
+# THRESHOLDS ARE PROVISIONAL. They are hand-set engineering estimates, not yet fit against
+# the #42 manually-verified bundles (which this backend slice does not have on disk). They
+# mirror the #16 ``CONFORMANCE_*`` / #23 ``SUGGESTION_THRESHOLDS`` provenance pattern and
+# are echoed into every record's ``frameQuality.thresholds`` so a record captures the gate
+# it was classified under. Re-fit against the #42 labels before treating the classes as
+# ground truth (measure-first, as with ``MIN_VISIBLE_JOINTS``).
+FQ_WRONG_SUBJECT_CENTROID = 1.0  # centroid ≥ 1 truth-torso off → locked on the wrong subject
+FQ_DISTORT_RESIDUAL = 0.5        # median shape residual ≥ 0.5 torso → joints scattered
+FQ_FLIP_RESIDUAL = 0.25          # a vertical flip that drops shape residual below this → flipped
+FQ_FROZEN_EPS = 0.005            # max keypoint move (normalized image coords) vs the prev
+#                                  detected frame → frozen/stale (cross-cutting flag)
+
+FQ_OK = "ok"
+FQ_WRONG_SUBJECT = "wrong-subject"
+FQ_HALLUCINATION = "hallucination-fp"
+FQ_FLIPPED = "flipped-rotated"
+FQ_DISTORTED = "distorted"
+FQ_CLASSES = [FQ_OK, FQ_WRONG_SUBJECT, FQ_HALLUCINATION, FQ_FLIPPED, FQ_DISTORTED]
 
 
 @dataclass
@@ -326,6 +357,101 @@ def torso_length(joints: dict[str, tuple[float, float]]) -> float | None:
     hip_mid = ((lh[0] + rh[0]) / 2, (lh[1] + rh[1]) / 2)
     length = _dist(shoulder_mid, hip_mid)
     return length if length > 0 else None
+
+
+def _centroid(joints: dict[str, tuple[float, float]]) -> tuple[float, float] | None:
+    """Mean (x, y) over a joint dict, or ``None`` when empty."""
+
+    if not joints:
+        return None
+    n = len(joints)
+    return (sum(p[0] for p in joints.values()) / n,
+            sum(p[1] for p in joints.values()) / n)
+
+
+def _head_below_hips(joints: dict[str, tuple[float, float]]) -> bool:
+    """True when the scanner's nose sits below its hip midpoint (image y grows
+    downward), the tell-tale of an upside-down / flipped pose — needs only the
+    scanner geometry, so it fires even before a torso-normalized comparison."""
+
+    nose = joints.get("nose")
+    lh, rh = joints.get("left_hip"), joints.get("right_hip")
+    if nose is None or lh is None or rh is None:
+        return False
+    return nose[1] > (lh[1] + rh[1]) / 2
+
+
+def _centroid_and_residual(truth: dict[str, tuple[float, float]],
+                           scanner: dict[str, tuple[float, float]],
+                           shared: list[str], torso: float | None
+                           ) -> tuple[float | None, float | None]:
+    """(centroidDist, residual) in truth-torso units over the shared joints.
+
+    ``centroidDist`` is the magnitude of the mean scanner−truth offset (pure
+    translation); ``residual`` is the median per-joint offset *after* removing that
+    mean (pure shape distortion). Both ``None`` when the torso is undefined or no
+    joint is shared."""
+
+    if torso is None or not shared:
+        return None, None
+    dxs = [scanner[j][0] - truth[j][0] for j in shared]
+    dys = [scanner[j][1] - truth[j][1] for j in shared]
+    mdx, mdy = sum(dxs) / len(dxs), sum(dys) / len(dys)
+    centroid_dist = math.hypot(mdx, mdy) / torso
+    resids = sorted(math.hypot(dx - mdx, dy - mdy) for dx, dy in zip(dxs, dys))
+    residual = (_percentile(resids, 0.5) or 0.0) / torso
+    return centroid_dist, residual
+
+
+def _flip_residual(truth: dict[str, tuple[float, float]],
+                   scanner: dict[str, tuple[float, float]],
+                   shared: list[str], torso: float | None) -> float | None:
+    """Shape residual after reflecting the scanner pose vertically about its own
+    centroid — small when a vertical flip would align the pose with truth."""
+
+    if torso is None or not shared:
+        return None
+    scy = sum(scanner[j][1] for j in shared) / len(shared)
+    flipped = {j: (scanner[j][0], 2 * scy - scanner[j][1]) for j in shared}
+    _, residual = _centroid_and_residual(truth, flipped, shared, torso)
+    return residual
+
+
+def _classify_detection(truth: dict[str, tuple[float, float]],
+                        scanner: dict[str, tuple[float, float]], torso: float | None
+                        ) -> tuple[str, float | None, float | None]:
+    """Classify one scanner-detected, truth-present frame → (class, centroidDist,
+    residual). Order matters: flip is checked first (an upside-down pose can otherwise
+    read as wrong-subject or distorted), then gross displacement, then shape scatter."""
+
+    shared = [j for j in truth if j in scanner]
+    centroid_dist, residual = _centroid_and_residual(truth, scanner, shared, torso)
+    if _head_below_hips(scanner):
+        return FQ_FLIPPED, centroid_dist, residual
+    if torso is None or not shared:
+        return FQ_OK, centroid_dist, residual  # unnormalizable — presence/coverage cover it
+    flip_resid = _flip_residual(truth, scanner, shared, torso)
+    if (residual is not None and residual >= FQ_DISTORT_RESIDUAL
+            and flip_resid is not None and flip_resid <= FQ_FLIP_RESIDUAL):
+        return FQ_FLIPPED, centroid_dist, residual
+    if centroid_dist is not None and centroid_dist >= FQ_WRONG_SUBJECT_CENTROID:
+        return FQ_WRONG_SUBJECT, centroid_dist, residual
+    if residual is not None and residual >= FQ_DISTORT_RESIDUAL:
+        return FQ_DISTORTED, centroid_dist, residual
+    return FQ_OK, centroid_dist, residual
+
+
+def _is_frozen(cur: dict[str, tuple[float, float]],
+               prev: dict[str, tuple[float, float]] | None) -> bool:
+    """True when every joint shared with the previous detected frame moved less than
+    ``FQ_FROZEN_EPS`` in normalized image coords — a stale/frozen scanner pose."""
+
+    if not prev:
+        return False
+    shared = [j for j in cur if j in prev]
+    if not shared:
+        return False
+    return max(_dist(cur[j], prev[j]) for j in shared) <= FQ_FROZEN_EPS
 
 
 def _scanner_frame_interval(timestamps: list[float]) -> float:
@@ -612,6 +738,66 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
     }
 
 
+def _frame_quality(pairs: list[_FramePair]) -> dict[str, Any]:
+    """Per-frame detection-quality classification (issue #44 deliverable 1).
+
+    One entry per matched frame on which the scanner emitted a pose: its auto class
+    (``ok`` / ``wrong-subject`` / ``hallucination-fp`` / ``flipped-rotated`` /
+    ``distorted``) plus a cross-cutting ``frozenStale`` flag (near-identical keypoints
+    to the previous detected frame). Frames with no scanner detection are not
+    detection-quality events — they are coverage/presence gaps counted elsewhere — so
+    they carry no entry here. ``crop`` is a placeholder the crop exporter (deliverable
+    2) fills in for flagged frames.
+
+    Iterated in timestamp order so ``frozenStale`` compares against the true temporal
+    predecessor regardless of truth-file frame order. Scored over the same non-excluded
+    pairs as the agreement tier."""
+
+    detected = sorted(
+        (p for p in pairs if p.matched and p.scanner),
+        key=lambda p: p.truth.timestamp)
+
+    counts = {c: 0 for c in FQ_CLASSES}
+    frozen_count = 0
+    entries: list[dict[str, Any]] = []
+    prev_scanner: dict[str, tuple[float, float]] | None = None
+    for p in detected:
+        tf = p.truth
+        if tf.present:
+            cls, centroid_dist, residual = _classify_detection(
+                tf.joints, p.scanner, torso_length(tf.joints))
+        else:
+            # A pose on a climber-absent frame — the presence-2x2 ``absentDetected``
+            # cell, localized to this timestamp.
+            cls, centroid_dist, residual = FQ_HALLUCINATION, None, None
+        frozen = _is_frozen(p.scanner, prev_scanner)
+        counts[cls] += 1
+        frozen_count += frozen
+        entries.append({
+            "t": _round6(tf.timestamp),
+            "class": cls,
+            "frozenStale": frozen,
+            "centroidDist": _round6(centroid_dist),
+            "residual": _round6(residual),
+            "crop": None,
+        })
+        prev_scanner = p.scanner
+
+    return {
+        "thresholds": {
+            "wrongSubjectCentroid": FQ_WRONG_SUBJECT_CENTROID,
+            "distortResidual": FQ_DISTORT_RESIDUAL,
+            "flipResidual": FQ_FLIP_RESIDUAL,
+            "frozenEps": FQ_FROZEN_EPS,
+        },
+        "classCounts": counts,
+        "frozenStaleCount": frozen_count,
+        "flaggedCount": sum(v for c, v in counts.items() if c != FQ_OK),
+        "detectedFrames": len(entries),
+        "frames": entries,
+    }
+
+
 def record_conforms(record: dict[str, Any]) -> bool:
     """Whether an on-disk record passes the #15 conformance gate. Legacy records
     (schema < 4) carry no ``conformance`` block; they predate the gate and are treated
@@ -681,6 +867,8 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[st
         # Whole-bundle truth↔scanner conformance (issue #15), fit over the same
         # non-excluded pairs the agreement tier scores. Gates pooled metrics.
         "conformance": _conformance(agreement_pairs),
+        # Per-frame detection-quality classes (issue #44), over the same pairs.
+        "frameQuality": _frame_quality(agreement_pairs),
         "agreement": _score_tier(agreement_pairs),
         "accuracy": _score_tier(accuracy_pairs),
     }

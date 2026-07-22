@@ -372,7 +372,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 5
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 6
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -652,6 +652,73 @@ def test_evaluate_loose_overlap_pairing_fallback():
         # Neither the n=0 matched record nor the loose one feeds trusted pooling here
         # (the matched record has no scored joints; the loose one is excluded).
         assert all(not r.data.get("loosePaired") for r in ctx["eval_records"])
+
+
+def test_frame_quality_classification_one_per_class():
+    """Issue #44 deliverable 1: each matched, scanner-detected frame is sorted into one
+    auto class from the scanner↔truth geometry, plus a cross-cutting frozen-stale flag.
+    One synthetic frame per class (ok / hallucination-fp / wrong-subject / distorted /
+    flipped-rotated) + a frozen duplicate."""
+
+    from analysis_pipeline import evaluate as ev
+
+    cy = sum(y for _, y in _TRUTH_JOINTS.values()) / len(_TRUTH_JOINTS)
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    doc = {
+        "version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": "fq00fq00fq00fq00",
+        "frames": [
+            {"frameIndex": 1, "timestamp": 1.0, "state": "present", "review": "auto", "joints": present},
+            {"frameIndex": 2, "timestamp": 2.0, "state": "present", "review": "auto", "joints": present},
+            {"frameIndex": 3, "timestamp": 3.0, "state": "absent", "review": "auto", "joints": {}},
+            {"frameIndex": 4, "timestamp": 4.0, "state": "present", "review": "auto", "joints": present},
+            {"frameIndex": 5, "timestamp": 5.0, "state": "present", "review": "auto", "joints": present},
+            {"frameIndex": 6, "timestamp": 6.0, "state": "present", "review": "auto", "joints": present},
+        ],
+    }
+    # t1/t2 exact (ok; t2 is a frozen duplicate of t1). t3 hallucination on an absent
+    # frame. t4 shifted +0.35 in x (centroid ≈1.17 torso → wrong-subject). t5 zig-zag
+    # x-perturbation (centroid ≈0, residual ≈0.67 torso → distorted). t6 reflected
+    # vertically about the truth centroid (nose below hips → flipped-rotated).
+    exact = _kp_list(_TRUTH_JOINTS)
+    nudged = _kp_list({n: (x + 0.05, y + 0.05) for n, (x, y) in _TRUTH_JOINTS.items()})
+    shifted = _kp_list({n: (x + 0.35, y) for n, (x, y) in _TRUTH_JOINTS.items()})
+    zig = _kp_list({n: (x + (0.2 if i % 2 == 0 else -0.2), y)
+                    for i, (n, (x, y)) in enumerate(_TRUTH_JOINTS.items())})
+    flipped = _kp_list({n: (x, 2 * cy - y) for n, (x, y) in _TRUTH_JOINTS.items()})
+    scanner = [
+        {"timestamp": 1.0, "keypoints": exact},
+        {"timestamp": 2.0, "keypoints": exact},   # identical -> frozen
+        {"timestamp": 3.0, "keypoints": nudged},  # hallucination (truth absent), distinct
+        {"timestamp": 4.0, "keypoints": shifted},
+        {"timestamp": 5.0, "keypoints": zig},
+        {"timestamp": 6.0, "keypoints": flipped},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeFQ" / "vidFQ"
+        _write_bundle_meta(vdir, setup_hash="sh_fq")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000050", "sh_fq", scanner)
+
+        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        fq = rec["frameQuality"]
+        assert fq["detectedFrames"] == 6
+        assert fq["classCounts"] == {"ok": 2, "wrong-subject": 1, "hallucination-fp": 1,
+                                     "flipped-rotated": 1, "distorted": 1}
+        assert fq["flaggedCount"] == 4
+        assert fq["frozenStaleCount"] == 1
+        assert fq["thresholds"]["wrongSubjectCentroid"] == ev.FQ_WRONG_SUBJECT_CENTROID
+
+        by_t = {e["t"]: e for e in fq["frames"]}
+        assert by_t[1.0]["class"] == "ok" and by_t[1.0]["frozenStale"] is False
+        assert by_t[2.0]["class"] == "ok" and by_t[2.0]["frozenStale"] is True
+        assert by_t[3.0]["class"] == "hallucination-fp"
+        assert by_t[4.0]["class"] == "wrong-subject"
+        assert by_t[5.0]["class"] == "distorted"
+        assert by_t[6.0]["class"] == "flipped-rotated"
+        # Every entry carries a crop placeholder for the exporter (deliverable 2).
+        assert all("crop" in e for e in fq["frames"])
 
 
 def test_evaluate_vitpose_fallback_when_no_ground_truth():
@@ -1075,6 +1142,7 @@ def _run_all():
            test_conformance_x_axis_has_looser_r2_floor,
            test_evaluate_setuphash_mismatch_is_skipped,
            test_evaluate_loose_overlap_pairing_fallback,
+           test_frame_quality_classification_one_per_class,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
            test_analysis_report_includes_eval_trend_sections,
