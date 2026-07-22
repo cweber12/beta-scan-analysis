@@ -30,6 +30,8 @@ from app import (
     DownloadRequest,
     ImportRequest,
     VideoStatsRequest,
+    VitPoseJobRequest,
+    _to_vitpose_request,
     compute_video_stats,
     get_contract,
     create_download_bundle,
@@ -218,6 +220,8 @@ def test_contract_advertises_endpoints_and_versions():
         "vitpose": vitpose_job.ARTIFACT_VERSION,
         "videoStats": video_stats.VIDEO_STATS_VERSION,
     }
+    # The decoupled-seed capability the scanner gates on (additive; no apiVersion bump).
+    assert contract["capabilities"]["decoupledSeed"] is True
 
 
 def test_contract_reports_suggestion_fit_state():
@@ -231,6 +235,75 @@ def test_contract_reports_suggestion_fit_state():
         unfit = get_contract()
     assert unfit["suggestions"]["available"] is False
     assert unfit["suggestions"]["fitDate"] is None
+
+
+# --------------------------------------------------------------------------- #
+# ViTPose decoupled seed contract (issue #56): seed_tap + seed_region are the
+# contract of record; climber_point/climber_crop remain legacy aliases.
+# --------------------------------------------------------------------------- #
+
+def _vitpose_payload(**over):
+    base = dict(
+        video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
+        frames=[{"timestamp": 0.0}],
+    )
+    base.update(over)
+    return VitPoseJobRequest.model_validate(base)
+
+
+def test_vitpose_accepts_seed_tap_and_seed_region_first_class():
+    # snake_case and camelCase (seedTap/seedRegion) both bind to the new fields.
+    payload = _vitpose_payload(
+        seed_tap={"x": 0.4, "y": 0.5, "t": 1.2},
+        seedRegion={"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4},
+    )
+    req = _to_vitpose_request(payload)
+    assert (req.seed_tap.x, req.seed_tap.y, req.seed_tap.t) == (0.4, 0.5, 1.2)
+    assert (req.seed_region.x, req.seed_region.w) == (0.1, 0.3)
+
+
+def test_vitpose_seed_tap_and_region_win_over_legacy_aliases():
+    # Both new and legacy fields present -> the new contract of record wins.
+    payload = _vitpose_payload(
+        seed_tap={"x": 0.4, "y": 0.5, "t": 1.2},
+        climber_point={"x": 0.9, "y": 0.9, "t": 9.9},
+        seed_region={"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4},
+        climber_crop={"x": 0.8, "y": 0.8, "w": 0.1, "h": 0.1},
+    )
+    req = _to_vitpose_request(payload)
+    assert req.seed_tap.t == 1.2                 # not the legacy 9.9
+    assert req.seed_region.x == 0.1              # not the legacy 0.8
+
+
+def test_vitpose_legacy_only_aliases_still_seed():
+    # Older clients that send only climber_point/climber_crop keep working.
+    payload = _vitpose_payload(
+        climber_point={"x": 0.9, "y": 0.9, "t": 9.9},
+        climber_crop={"x": 0.8, "y": 0.8, "w": 0.1, "h": 0.1},
+    )
+    req = _to_vitpose_request(payload)
+    assert (req.seed_tap.x, req.seed_tap.t) == (0.9, 9.9)
+    assert (req.seed_region.x, req.seed_region.w) == (0.8, 0.1)
+
+
+def test_vitpose_new_and_legacy_input_paths_produce_identical_request():
+    # Parity: the same geometry via new fields and via legacy aliases yields an
+    # identical internal VitPoseRequest (same seed behavior downstream).
+    geom_tap = {"x": 0.4, "y": 0.5, "t": 1.2}
+    geom_region = {"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4}
+    via_new = _to_vitpose_request(
+        _vitpose_payload(seed_tap=geom_tap, seed_region=geom_region))
+    via_legacy = _to_vitpose_request(
+        _vitpose_payload(climber_point=geom_tap, climber_crop=geom_region))
+    assert via_new == via_legacy
+
+
+def test_vitpose_null_seed_tap_leaves_seed_tap_none_for_fallback():
+    # No tap of record and no legacy alias -> seed_tap None, so the job falls back
+    # to full-frame largest-track seeding (the null-seed robustness path).
+    req = _to_vitpose_request(_vitpose_payload())
+    assert req.seed_tap is None
+    assert req.seed_region is None
 
 
 # --------------------------------------------------------------------------- #
@@ -385,6 +458,11 @@ def _run_all():
         test_push_detections_derives_route_and_key,
         test_contract_advertises_endpoints_and_versions,
         test_contract_reports_suggestion_fit_state,
+        test_vitpose_accepts_seed_tap_and_seed_region_first_class,
+        test_vitpose_seed_tap_and_region_win_over_legacy_aliases,
+        test_vitpose_legacy_only_aliases_still_seed,
+        test_vitpose_new_and_legacy_input_paths_produce_identical_request,
+        test_vitpose_null_seed_tap_leaves_seed_tap_none_for_fallback,
         test_video_stats_missing_bundle_maps_404,
         test_video_stats_requires_wall_crop,
         test_video_stats_computes_writes_and_stamps_hash,

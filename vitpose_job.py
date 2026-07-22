@@ -167,8 +167,13 @@ class VitPoseRequest:
     route_folder: str
     video_key: str
     frames: tuple[float, ...]              # requested timestamps (seconds), echoed verbatim
-    climber_point: Point | None = None
-    climber_crop: Box | None = None
+    # Seed contract of record (scanner branch feat/harness-vitpose-seed-region): the
+    # ``seed_tap`` point anchors Climber identity and ``seed_region`` gates the seed —
+    # decoupled from the Climber Crop, which the harness no longer treats as the seed
+    # gate. The API layer resolves legacy ``climber_point``/``climber_crop`` aliases
+    # into these fields (preferring the new names when both are present).
+    seed_tap: Point | None = None
+    seed_region: Box | None = None
     panning: bool = False
     # Hash of the setup.json (Climber selection) this job runs under. Stamped into the
     # artifact as the provenance anchor: downstream pairing treats a pose run and a
@@ -298,15 +303,15 @@ def _point_to_box_dist(point: Point, box: Box) -> float:
     return ((box.cx - point.x) ** 2 + (box.cy - point.y) ** 2) ** 0.5
 
 
-def _seed_box_passes_crop_gate(seed_box: Box, climber_crop: Box | None) -> bool:
-    if climber_crop is None:
+def _seed_box_passes_region_gate(seed_box: Box, seed_region: Box | None) -> bool:
+    if seed_region is None:
         return True
-    pad_x = climber_crop.w * _CROP_GATE_EXPAND
-    pad_y = climber_crop.h * _CROP_GATE_EXPAND
-    min_x = climber_crop.x - pad_x
-    max_x = climber_crop.x + climber_crop.w + pad_x
-    min_y = climber_crop.y - pad_y
-    max_y = climber_crop.y + climber_crop.h + pad_y
+    pad_x = seed_region.w * _CROP_GATE_EXPAND
+    pad_y = seed_region.h * _CROP_GATE_EXPAND
+    min_x = seed_region.x - pad_x
+    max_x = seed_region.x + seed_region.w + pad_x
+    min_y = seed_region.y - pad_y
+    max_y = seed_region.y + seed_region.h + pad_y
     return min_x <= seed_box.cx <= max_x and min_y <= seed_box.cy <= max_y
 
 
@@ -364,29 +369,29 @@ def _track_id_at(history: Sequence[FrameTracks], idx: int, box: Box) -> int | No
 
 def _seed_climber(
     history: Sequence[FrameTracks],
-    climber_point: Point | None,
-    climber_crop: Box | None,
+    seed_tap: Point | None,
+    seed_region: Box | None,
 ) -> tuple[int | None, Box | None]:
     """Find the (frame_index, box) to start stitching the Climber trajectory from.
 
     With a tap timestamp: search only near that time, prefer containing boxes, then
     nearest centers in-window; no global fallback. Without a tap timestamp: prefer
     the earliest containing frame, then nearest center over the clip. Seed candidates
-    must pass the expanded crop gate when a climber crop is present.
+    must pass the expanded seed-region gate when a seed region is present.
 
     Note: this is a seed-time gate only. Per-frame identity tracking uses motion,
     appearance, and area-consistency gating in ``_best_candidate``.
 
     Without a tap: seed from the first box of the most prominent persistent track
-    inside the crop.
+    inside the seed region.
     """
-    if climber_point is not None:
+    if seed_tap is not None:
         frame_indices = list(range(len(history)))
-        anchored = climber_point.t is not None
+        anchored = seed_tap.t is not None
         if anchored:
             frame_indices = [
                 i for i, frame in enumerate(history)
-                if abs(frame.timestamp - climber_point.t) <= _SEED_WINDOW_S
+                if abs(frame.timestamp - seed_tap.t) <= _SEED_WINDOW_S
             ]
             if not frame_indices:
                 return None, None
@@ -395,8 +400,8 @@ def _seed_climber(
         non_containing: list[tuple[float, int, Box]] = []
         for i in frame_indices:
             for box in history[i].boxes.values():
-                d = _point_to_box_dist(climber_point, box)
-                if box.contains(climber_point):
+                d = _point_to_box_dist(seed_tap, box)
+                if box.contains(seed_tap):
                     frame_key = d if anchored else float(i)
                     tie = i if anchored else d
                     containing.append((frame_key, tie, i, box))
@@ -407,14 +412,14 @@ def _seed_climber(
         non_containing.sort(key=lambda c: (c[0], c[1]))
 
         for _, _, idx, box in containing:
-            if _seed_box_passes_crop_gate(box, climber_crop):
+            if _seed_box_passes_region_gate(box, seed_region):
                 return idx, box
         for _, idx, box in non_containing:
-            if _seed_box_passes_crop_gate(box, climber_crop):
+            if _seed_box_passes_region_gate(box, seed_region):
                 return idx, box
         return None, None
 
-    track_id = _largest_track(history, climber_crop)
+    track_id = _largest_track(history, seed_region)
     if track_id is None:
         return None, None
     for i, frame in enumerate(history):
@@ -613,8 +618,8 @@ def _walk_direction(
 
 def stitch_climber_track(
     history: Sequence[FrameTracks],
-    climber_point: Point | None,
-    climber_crop: Box | None,
+    seed_tap: Point | None,
+    seed_region: Box | None,
 ) -> StitchResult:
     """Stitch the per-frame Climber trajectory (with provenance) from the seed.
 
@@ -626,7 +631,7 @@ def stitch_climber_track(
     if not any(f.boxes for f in history):
         return result
 
-    seed_idx, seed_box = _seed_climber(history, climber_point, climber_crop)
+    seed_idx, seed_box = _seed_climber(history, seed_tap, seed_region)
     if seed_idx is None or seed_box is None:
         return result
 
@@ -687,15 +692,15 @@ def stitch_climber_track(
 
 def build_climber_track(
     history: Sequence[FrameTracks],
-    climber_point: Point | None,
-    climber_crop: Box | None,
+    seed_tap: Point | None,
+    seed_region: Box | None,
 ) -> dict[int, Box]:
     """Per-frame Climber box (frame_index -> box), stitched across id switches."""
-    return stitch_climber_track(history, climber_point, climber_crop).trajectory
+    return stitch_climber_track(history, seed_tap, seed_region).trajectory
 
 
-def _largest_track(history: Sequence[FrameTracks], crop: Box | None) -> int | None:
-    """The track with the greatest summed box area over the clip (inside ``crop``).
+def _largest_track(history: Sequence[FrameTracks], seed_region: Box | None) -> int | None:
+    """The track with the greatest summed box area over the clip (inside ``seed_region``).
 
     Summed — not average — area rewards both size and persistence, so a brief
     close-up of a passerby can't outrank the climber who is smaller but on screen
@@ -704,7 +709,7 @@ def _largest_track(history: Sequence[FrameTracks], crop: Box | None) -> int | No
     areas: dict[int, float] = {}
     for frame in history:
         for track_id, box in frame.boxes.items():
-            if crop is not None and not crop.contains(Point(box.cx, box.cy)):
+            if seed_region is not None and not seed_region.contains(Point(box.cx, box.cy)):
                 continue
             areas[track_id] = areas.get(track_id, 0.0) + box.area
 
@@ -746,7 +751,7 @@ def build_artifact(
     (seeded ``absent``). Pass ``stitch`` to reuse an already-computed trajectory.
     """
     if stitch is None:
-        stitch = stitch_climber_track(history, request.climber_point, request.climber_crop)
+        stitch = stitch_climber_track(history, request.seed_tap, request.seed_region)
     trajectory = stitch.trajectory
 
     # Map each requested timestamp to the nearest decoded frame that has the Climber,
@@ -849,9 +854,9 @@ def _write_status(
 
 
 def _seed_mode(request: VitPoseRequest) -> str:
-    if request.climber_point is None:
+    if request.seed_tap is None:
         return "largest_track"
-    if request.climber_point.t is not None:
+    if request.seed_tap.t is not None:
         return "tap_time_window"
     return "tap_legacy"
 
@@ -892,18 +897,19 @@ def _seed_debug(
         "mode": _seed_mode(request),
         "historyFrames": len(history),
     }
-    if request.climber_point is not None:
+    # Output keys stay `tap`/`crop` — cross-program seedDebug shape the scanner reads.
+    if request.seed_tap is not None:
         debug["tap"] = {
-            "x": request.climber_point.x,
-            "y": request.climber_point.y,
-            "t": request.climber_point.t,
+            "x": request.seed_tap.x,
+            "y": request.seed_tap.y,
+            "t": request.seed_tap.t,
         }
-    if request.climber_crop is not None:
+    if request.seed_region is not None:
         debug["crop"] = {
-            "x": request.climber_crop.x,
-            "y": request.climber_crop.y,
-            "w": request.climber_crop.w,
-            "h": request.climber_crop.h,
+            "x": request.seed_region.x,
+            "y": request.seed_region.y,
+            "w": request.seed_region.w,
+            "h": request.seed_region.h,
         }
     if seed_idx is None or seed_box is None:
         debug["seedFound"] = False
@@ -935,20 +941,20 @@ def _seed_debug(
 
 def _request_warnings(request: VitPoseRequest, history: Sequence[FrameTracks]) -> list[str]:
     warnings: list[str] = []
-    point = request.climber_point
+    point = request.seed_tap
     if point is None:
         return warnings
 
     if point.t is None:
         warnings.append(
-            "climber_point.t is missing; using legacy global tap seeding. "
+            "seed_tap.t is missing; using legacy global tap seeding. "
             "Recalibrate in beta-scanner so tap timestamp is sent."
         )
     if point.t is not None and abs(point.t) <= 1e-9:
         near_start = [frame for frame in history if frame.timestamp <= _SEED_WINDOW_S]
         if any(len(frame.boxes) > 1 for frame in near_start):
             warnings.append(
-                "climber_point.t is 0 while multiple people appear near clip start; "
+                "seed_tap.t is 0 while multiple people appear near clip start; "
                 "seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
             )
 
@@ -994,7 +1000,7 @@ def run_vitpose_job(
         history = tracker.track(video_path)
         track_s = time.perf_counter() - started
         warnings = _request_warnings(request, history)
-        stitch = stitch_climber_track(history, request.climber_point, request.climber_crop)
+        stitch = stitch_climber_track(history, request.seed_tap, request.seed_region)
         seed_debug = _seed_debug(request, history, stitch)
 
         posed_at = time.perf_counter()

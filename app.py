@@ -109,6 +109,12 @@ class VitPoseJobRequest(BaseModel):
     video_path: str = Field(..., min_length=1)
     route_folder: str = Field(..., min_length=1)
     video_key: str = Field(..., min_length=1)
+    # Seed contract of record (scanner branch feat/harness-vitpose-seed-region):
+    # `seed_tap` anchors the Climber, `seed_region` gates the seed — decoupled from
+    # the Climber Crop. `climber_point`/`climber_crop` remain as legacy aliases for
+    # older clients; `_to_vitpose_request` prefers the new fields when both are sent.
+    seed_tap: NormPoint | None = Field(default=None, alias="seedTap")
+    seed_region: NormCrop | None = Field(default=None, alias="seedRegion")
     climber_point: NormPoint | None = None
     climber_crop: NormCrop | None = None
     wall_crop: NormCrop | None = None  # accepted for contract parity; ignored for pose
@@ -214,6 +220,12 @@ def get_contract() -> dict[str, object]:
             "vitpose": vitpose_job.ARTIFACT_VERSION,
             "videoStats": video_stats.VIDEO_STATS_VERSION,
         },
+        # Additive feature flags the scanner gates on (no apiVersion bump). decoupledSeed
+        # signals that POST /api/vitpose accepts seed_tap + seed_region as the seed
+        # contract of record (with legacy climber_point/climber_crop alias support).
+        "capabilities": {
+            "decoupledSeed": True,
+        },
         "suggestions": {
             "available": bool(thresholds),
             "fitDate": thresholds.get("fitDate"),
@@ -292,17 +304,17 @@ def push_detections(payload: DetectionRequest) -> dict[str, object]:
 # --------------------------------------------------------------------------- #
 
 def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseRequest:
-    point = (
-        vitpose_job.Point(payload.climber_point.x, payload.climber_point.y, payload.climber_point.t)
-        if payload.climber_point is not None
-        else None
+    # Resolve the decoupled seed contract: the new `seed_tap`/`seed_region` fields are
+    # the contract of record and win over the legacy `climber_point`/`climber_crop`
+    # aliases when both are present. Legacy-only clients still seed as before.
+    tap_src = payload.seed_tap if payload.seed_tap is not None else payload.climber_point
+    region_src = payload.seed_region if payload.seed_region is not None else payload.climber_crop
+    seed_tap = (
+        vitpose_job.Point(tap_src.x, tap_src.y, tap_src.t) if tap_src is not None else None
     )
-    crop = (
-        vitpose_job.Box(
-            payload.climber_crop.x, payload.climber_crop.y,
-            payload.climber_crop.w, payload.climber_crop.h,
-        )
-        if payload.climber_crop is not None
+    seed_region = (
+        vitpose_job.Box(region_src.x, region_src.y, region_src.w, region_src.h)
+        if region_src is not None
         else None
     )
     return vitpose_job.VitPoseRequest(
@@ -310,8 +322,8 @@ def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseReques
         route_folder=payload.route_folder,
         video_key=payload.video_key,
         frames=tuple(f.timestamp for f in payload.frames),
-        climber_point=point,
-        climber_crop=crop,
+        seed_tap=seed_tap,
+        seed_region=seed_region,
         panning=payload.panning,
         setup_hash=payload.setup_hash,
     )
