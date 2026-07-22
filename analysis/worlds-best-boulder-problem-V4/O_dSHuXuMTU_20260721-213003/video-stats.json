@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "setupHash": "752224e10c48b45cb9acc0170bb7cd805b219be43e7e1159bae58fb37a8f3ffd",
+  "computedAt": "2026-07-21T22:15:02",
+  "source": "endpoint",
+  "regionStats": {
+    "sampledFrames": 30,
+    "panning": false,
+    "panningFlagged": false,
+    "wall": {
+      "luma": {
+        "mean": 106.6346,
+        "std": 1.5249
+      },
+      "rmsContrast": 0.1328,
+      "texture": {
+        "edgeDensity": 0.3206,
+        "laplacianVar": 1112.4
+      },
+      "dominantColors": [
+        {
+          "fraction": 0.5188,
+          "lab": [
+            43.36,
+            -1.06,
+            6.26
+          ],
+          "rgbHex": "#67675c"
+        },
+        {
+          "fraction": 0.2917,
+          "lab": [
+            61.35,
+            0.19,
+            0.44
+          ],
+          "rgbHex": "#949494"
+        },
+        {
+          "fraction": 0.1895,
+          "lab": [
+            24.85,
+            0.77,
+            0.45
+          ],
+          "rgbHex": "#3a3b3b"
+        }
+      ],
+      "hue": {
+        "meanDeg": 47.0,
+        "concentration": 0.5083
+      },
+      "saturation": {
+        "mean": 36.7879,
+        "std": 27.2944
+      }
+    },
+    "climberWall": {
+      "deltaE": 4.32,
+      "lumaSeparation": 3.15,
+      "frameTimestamp": 0.0
+    },
+    "shadow": {
+      "fraction": {
+        "mean": 0.1546,
+        "std": 0.0132,
+        "min": 0.1386,
+        "max": 0.1994
+      },
+      "inOutLumaRatio": 0.4706,
+      "inShadowContrast": 0.0692,
+      "outShadowContrast": 0.1048,
+      "blobs": {
+        "count": 4,
+        "largestFraction": 0.6523,
+        "meanAreaFraction": 0.0222
+      },
+      "drift": {
+        "range": 0.0608,
+        "firstToLast": 0.0011
+      }
+    }
+  },
+  "suggestions": {
+    "shadows": "patchy",
+    "climber_contrast": "low",
+    "wall_contrast": "medium",
+    "motion_blur": "high",
+    "camera_stability": "steady"
+  },
+  "cameraAngle": {
+    "estimate": "level",
+    "shoulderHipRatio": 1.4504,
+    "torsoAspect": 0.9911,
+    "framesUsed": 505,
+    "source": "vitpose",
+    "setupHash": "752224e10c48b45cb9acc0170bb7cd805b219be43e7e1159bae58fb37a8f3ffd"
+  }
+}

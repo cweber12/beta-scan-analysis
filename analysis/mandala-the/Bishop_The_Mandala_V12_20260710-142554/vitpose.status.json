@@ -1,43 +1,161 @@
 {
-  "jobId": "ef193d7dd3cc4330b5bbcbf42e348819",
+  "jobId": "e72fb7d83b734f0489ac5ea60c7290e1",
   "status": "done",
-  "updated_at": "2026-07-16T06:53:52",
+  "updated_at": "2026-07-21T17:55:51",
   "timings": {
-    "track_s": 26.19,
-    "pose_s": 1.91,
-    "total_s": 28.11
+    "track_s": 40.47,
+    "pose_s": 22.72,
+    "total_s": 63.29
   },
   "device": "cuda",
-  "warnings": [
-    "climber_point.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
-  ],
   "seedDebug": {
     "mode": "tap_time_window",
     "historyFrames": 2305,
     "tap": {
-      "x": 0.41754292694947337,
-      "y": 0.8294400844008496,
-      "t": 0.0
+      "x": 0.4817136046090176,
+      "y": 0.5981432910891794,
+      "t": 22.88
     },
     "crop": {
       "x": 0.3921875,
-      "y": 0.5347222222222222,
-      "w": 0.06015625,
-      "h": 0.4652777777777778
+      "y": 0.42486073706720384,
+      "w": 0.14339103323452346,
+      "h": 0.5751392629327962
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 1,
-      "timestamp": 0.03336666666666667,
-      "sourceFrame": 1,
+      "frameIndex": 701,
+      "timestamp": 23.390033333333335,
+      "sourceFrame": 701,
       "box": {
-        "x": 0.40156251192092896,
-        "y": 0.7243055403232574,
-        "w": 0.0390625,
-        "h": 0.26249998807907104,
-        "cx": 0.42109376192092896,
-        "cy": 0.855555534362793
+        "x": 0.44298113137483597,
+        "y": 0.45404255390167236,
+        "w": 0.07335858047008514,
+        "h": 0.28968894481658936,
+        "cx": 0.47966042160987854,
+        "cy": 0.598887026309967
       }
+    },
+    "stitch": {
+      "stitchedFrames": 720,
+      "idSwitches": [
+        {
+          "sourceFrame": 136,
+          "from": 379,
+          "to": 378
+        },
+        {
+          "sourceFrame": 671,
+          "from": 378,
+          "to": 396
+        },
+        {
+          "sourceFrame": 771,
+          "from": 396,
+          "to": 410
+        },
+        {
+          "sourceFrame": 828,
+          "from": 410,
+          "to": 418
+        },
+        {
+          "sourceFrame": 829,
+          "from": 418,
+          "to": 410
+        },
+        {
+          "sourceFrame": 832,
+          "from": 410,
+          "to": 418
+        },
+        {
+          "sourceFrame": 838,
+          "from": 418,
+          "to": 410
+        },
+        {
+          "sourceFrame": 860,
+          "from": 410,
+          "to": 418
+        },
+        {
+          "sourceFrame": 992,
+          "from": 418,
+          "to": 429
+        },
+        {
+          "sourceFrame": 1126,
+          "from": 429,
+          "to": 436
+        },
+        {
+          "sourceFrame": 1129,
+          "from": 436,
+          "to": 429
+        },
+        {
+          "sourceFrame": 1265,
+          "from": 429,
+          "to": 449
+        },
+        {
+          "sourceFrame": 1328,
+          "from": 449,
+          "to": 461
+        },
+        {
+          "sourceFrame": 1397,
+          "from": 461,
+          "to": 471
+        },
+        {
+          "sourceFrame": 1426,
+          "from": 471,
+          "to": 473
+        },
+        {
+          "sourceFrame": 1429,
+          "from": 473,
+          "to": 471
+        },
+        {
+          "sourceFrame": 1433,
+          "from": 471,
+          "to": 473
+        },
+        {
+          "sourceFrame": 1446,
+          "from": 473,
+          "to": 471
+        },
+        {
+          "sourceFrame": 1451,
+          "from": 471,
+          "to": 473
+        },
+        {
+          "sourceFrame": 1475,
+          "from": 473,
+          "to": 471
+        },
+        {
+          "sourceFrame": 1543,
+          "from": 471,
+          "to": 486
+        }
+      ],
+      "jumps": [
+        {
+          "sourceFrame": 136,
+          "dist": 0.1423
+        },
+        {
+          "sourceFrame": 671,
+          "dist": 0.1756
+        }
+      ],
+      "reseeds": []
     }
   }
 }

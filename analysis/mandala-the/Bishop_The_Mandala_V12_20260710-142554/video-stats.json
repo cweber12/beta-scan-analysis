@@ -1,91 +1,99 @@
 {
   "version": 1,
-  "setupHash": "067a3edc1cc3a8ce8ebb5c2587cb7da137e19f75a5dbb7906afff9a5af6481db",
-  "computedAt": "2026-07-19T12:21:36",
-  "source": "backfill",
+  "setupHash": "cbde249e1b7f999ac27069e661cec37f34d5bb187e67e3fc95e137b7d9e02b63",
+  "computedAt": "2026-07-21T17:54:29",
+  "source": "endpoint",
   "regionStats": {
     "sampledFrames": 30,
     "panning": false,
     "panningFlagged": false,
     "wall": {
       "luma": {
-        "mean": 80.7292,
-        "std": 0.8353
+        "mean": 127.7824,
+        "std": 0.4046
       },
-      "rmsContrast": 0.1051,
+      "rmsContrast": 0.2191,
       "texture": {
-        "edgeDensity": 0.0278,
-        "laplacianVar": 78.6
+        "edgeDensity": 0.1609,
+        "laplacianVar": 661.47
       },
       "dominantColors": [
         {
-          "fraction": 0.6885,
+          "fraction": 0.4604,
           "lab": [
-            32.69,
-            5.72,
-            6.16
+            31.22,
+            5.55,
+            3.69
           ],
-          "rgbHex": "#584a43"
+          "rgbHex": "#534644"
         },
         {
-          "fraction": 0.1975,
+          "fraction": 0.3201,
           "lab": [
-            22.32,
-            5.77,
-            2.63
+            72.4,
+            2.13,
+            5.04
           ],
-          "rgbHex": "#3d3232"
+          "rgbHex": "#b9afa8"
         },
         {
-          "fraction": 0.1139,
+          "fraction": 0.2195,
           "lab": [
-            63.99,
-            4.58,
-            -48.43
+            71.66,
+            -2.39,
+            -39.81
           ],
-          "rgbHex": "#589df2"
+          "rgbHex": "#6fb4f7"
         }
       ],
       "hue": {
-        "meanDeg": 8.6,
-        "concentration": 0.7134
+        "meanDeg": 1.8,
+        "concentration": 0.411
       },
       "saturation": {
-        "mean": 76.7714,
-        "std": 35.2386
+        "mean": 71.7013,
+        "std": 42.9052
       }
     },
     "climberWall": {
-      "deltaE": 7.55,
-      "lumaSeparation": 17.39,
-      "frameTimestamp": 0.0
+      "deltaE": 22.68,
+      "lumaSeparation": 52.45,
+      "frameTimestamp": 23.857
     },
     "shadow": {
       "fraction": {
-        "mean": 0.0761,
-        "std": 0.0129,
-        "min": 0.0564,
-        "max": 0.1201
+        "mean": 0.364,
+        "std": 0.0018,
+        "min": 0.3603,
+        "max": 0.3707
       },
-      "inOutLumaRatio": 0.5239,
-      "inShadowContrast": 0.0301,
-      "outShadowContrast": 0.1,
+      "inOutLumaRatio": 0.4074,
+      "inShadowContrast": 0.0668,
+      "outShadowContrast": 0.1439,
       "blobs": {
         "count": 3,
-        "largestFraction": 0.4165,
-        "meanAreaFraction": 0.015
+        "largestFraction": 0.9623,
+        "meanAreaFraction": 0.1094
       },
       "drift": {
-        "range": 0.0636,
-        "firstToLast": -0.0246
+        "range": 0.0104,
+        "firstToLast": -0.0
       }
     }
   },
   "suggestions": {
-    "shadows": "none",
-    "climber_contrast": "medium",
-    "wall_contrast": "low",
+    "shadows": "solid",
+    "climber_contrast": "high",
+    "wall_contrast": "high",
     "motion_blur": "high",
     "camera_stability": "steady"
+  },
+  "cameraAngle": {
+    "estimate": "level",
+    "shoulderHipRatio": 1.6033,
+    "torsoAspect": 2.4834,
+    "framesUsed": 182,
+    "source": "vitpose",
+    "setupHash": "cbde249e1b7f999ac27069e661cec37f34d5bb187e67e3fc95e137b7d9e02b63"
   }
 }

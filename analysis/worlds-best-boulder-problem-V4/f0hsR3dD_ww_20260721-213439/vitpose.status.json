@@ -1,0 +1,49 @@
+{
+  "jobId": "a073d0ee92284e3a9e67a0eb0b88111a",
+  "status": "done",
+  "updated_at": "2026-07-21T22:09:16",
+  "timings": {
+    "track_s": 26.48,
+    "pose_s": 25.63,
+    "total_s": 52.25
+  },
+  "device": "cuda",
+  "warnings": [
+    "climber_point.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
+  ],
+  "seedDebug": {
+    "mode": "tap_time_window",
+    "historyFrames": 1529,
+    "tap": {
+      "x": 0.6677098012769654,
+      "y": 0.7871923967632809,
+      "t": 0.0
+    },
+    "crop": {
+      "x": 0.4119636594804339,
+      "y": 0.5210423969731629,
+      "w": 0.37635931292666736,
+      "h": 0.45598465990905557
+    },
+    "seedFound": true,
+    "seed": {
+      "frameIndex": 1,
+      "timestamp": 0.03333333333333333,
+      "sourceFrame": 1,
+      "box": {
+        "x": 0.513671875,
+        "y": 0.5906250029802322,
+        "w": 0.20703125,
+        "h": 0.3656249940395355,
+        "cx": 0.6171875,
+        "cy": 0.7734375
+      }
+    },
+    "stitch": {
+      "stitchedFrames": 1436,
+      "idSwitches": [],
+      "jumps": [],
+      "reseeds": []
+    }
+  }
+}

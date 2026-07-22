@@ -60,7 +60,8 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 
 # Evaluation record schema version. Bump on any record-shape change.
 # v4 adds the per-bundle ``conformance`` block (issue #15 gate).
-SCHEMA_VERSION = 4
+# v5 gives the x axis a looser r² floor (issue #16 — narrow-x-variance false positives).
+SCHEMA_VERSION = 5
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -113,9 +114,19 @@ MIN_VISIBLE_JOINTS: int | None = None
 # only genuine mis-tracking trips them. Per-record (a run×truth pairing), but the
 # verdict is a truth property, so a bundle's runs agree. A near-degenerate fit
 # (too few points, or a constant/zero-variance axis) can't be trusted → non-conforming.
+#
+# The r² floor is **asymmetric** (issue #16). A climber's horizontal spread is narrow
+# relative to their vertical extent, so truth-x variance is small and x-r²
+# (explained/total variance) is dragged under 0.90 by ordinary per-joint noise even
+# when the x-slope sits right at identity and y fits clean — a false quarantine, not
+# mis-tracking. So x uses a looser r² floor (0.75) while y keeps 0.90; the slope band
+# stays symmetric on both axes and is what actually catches wrong-subject truth
+# (scattered slopes / r²≈0 on *both* axes). The x-only borderline bundles fit clean-y
+# at x-r² 0.79–0.87; genuine mis-tracking sits at x-r² ≤0.56 — well below 0.75.
 CONFORMANCE_SLOPE_MIN = 0.85
 CONFORMANCE_SLOPE_MAX = 1.15
-CONFORMANCE_R2_MIN = 0.90
+CONFORMANCE_R2_MIN = 0.90  # y-axis floor
+CONFORMANCE_R2_MIN_X = 0.75  # x-axis floor (narrow horizontal variance, issue #16)
 CONFORMANCE_MIN_POINTS = 20
 
 
@@ -381,14 +392,21 @@ def _ols_fit(xs: list[float], ys: list[float]) -> tuple[float, float, float] | N
     return slope, intercept, r2
 
 
-def _axis_conforms(fit: tuple[float, float, float] | None) -> bool:
-    """One axis passes the #15 gate: a non-degenerate near-identity fit."""
+def _axis_r2_min(axis: str) -> float:
+    """The r² floor for an axis: looser on x (narrow horizontal variance, issue #16)."""
+
+    return CONFORMANCE_R2_MIN_X if axis == "x" else CONFORMANCE_R2_MIN
+
+
+def _axis_conforms(fit: tuple[float, float, float] | None, axis: str) -> bool:
+    """One axis passes the #15 gate: a non-degenerate near-identity fit. The r² floor
+    is looser on x than y (issue #16); the slope band is the same on both."""
 
     if fit is None:
         return False
     slope, _intercept, r2 = fit
     return (CONFORMANCE_SLOPE_MIN <= slope <= CONFORMANCE_SLOPE_MAX
-            and r2 >= CONFORMANCE_R2_MIN)
+            and r2 >= _axis_r2_min(axis))
 
 
 def _axis_block(fit: tuple[float, float, float] | None) -> dict[str, Any]:
@@ -558,7 +576,7 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
     if n < CONFORMANCE_MIN_POINTS:
         reasons.append("insufficient-points")
     for axis, fit in (("x", fit_x), ("y", fit_y)):
-        if not _axis_conforms(fit):
+        if not _axis_conforms(fit, axis):
             reasons.append(f"{axis}-nonconforming")
     conforms = not reasons
 
@@ -571,7 +589,8 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
         "thresholds": {
             "slopeMin": CONFORMANCE_SLOPE_MIN,
             "slopeMax": CONFORMANCE_SLOPE_MAX,
-            "r2Min": CONFORMANCE_R2_MIN,
+            "r2Min": CONFORMANCE_R2_MIN,  # y-axis floor
+            "r2MinX": CONFORMANCE_R2_MIN_X,  # x-axis floor (issue #16)
             "minPoints": CONFORMANCE_MIN_POINTS,
         },
     }

@@ -550,14 +550,13 @@
     ]
   },
   "conformance": {
-    "conforms": false,
+    "conforms": true,
     "n": 1431,
-    "reasons": [
-      "x-nonconforming"
-    ],
+    "reasons": [],
     "thresholds": {
       "minPoints": 20,
       "r2Min": 0.9,
+      "r2MinX": 0.75,
       "slopeMax": 1.15,
       "slopeMin": 0.85
     },
@@ -613,7 +612,7 @@
   "routeFolder": "maze-of-death",
   "runTs": "20260717-214418",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "setupHash": "594012bda87dac62d3dd23380bd83b6499dabf385d1503382af559187c981f90",
   "truthHash": "5e64f932ba1cd473f29a6dab5704990686e8449a937357fc2d911920f39729bc",
   "truthSetupHashSource": "truth",

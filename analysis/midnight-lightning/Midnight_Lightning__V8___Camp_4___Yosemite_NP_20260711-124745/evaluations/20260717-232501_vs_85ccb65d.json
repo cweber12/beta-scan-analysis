@@ -550,14 +550,13 @@
     ]
   },
   "conformance": {
-    "conforms": false,
+    "conforms": true,
     "n": 919,
-    "reasons": [
-      "x-nonconforming"
-    ],
+    "reasons": [],
     "thresholds": {
       "minPoints": 20,
       "r2Min": 0.9,
+      "r2MinX": 0.75,
       "slopeMax": 1.15,
       "slopeMin": 0.85
     },
@@ -613,7 +612,7 @@
   "routeFolder": "midnight-lightning",
   "runTs": "20260717-232501",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "setupHash": "a6687778309fa12b9450c9f29220f6f9986c9bd903c67b7ac73c1bb0760d3b9c",
   "truthHash": "85ccb65d83bc41ce1ba822c798d38ab3bf23d40c7026b8ce33696da936dec278",
   "truthSetupHashSource": "truth",

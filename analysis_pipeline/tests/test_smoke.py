@@ -372,7 +372,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 4
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 5
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -464,7 +464,8 @@ def test_evaluate_pck_exact_and_edge_cases():
         assert set(conf) == {"x", "y", "n", "conforms", "reasons", "thresholds"}
         assert conf["thresholds"] == {
             "slopeMin": ev.CONFORMANCE_SLOPE_MIN, "slopeMax": ev.CONFORMANCE_SLOPE_MAX,
-            "r2Min": ev.CONFORMANCE_R2_MIN, "minPoints": ev.CONFORMANCE_MIN_POINTS}
+            "r2Min": ev.CONFORMANCE_R2_MIN, "r2MinX": ev.CONFORMANCE_R2_MIN_X,
+            "minPoints": ev.CONFORMANCE_MIN_POINTS}
         assert conf["n"] == 37  # matched-present truth joints with a scanner pred
         assert conf["conforms"] is True and conf["reasons"] == []
         assert conf["y"] == {"slope": 1.0, "intercept": 0.0, "r2": 1.0}
@@ -545,6 +546,40 @@ def test_evaluate_conformance_gate_and_pooled_quarantine():
         assert {r.video_key for r in ctx["eval_records"]} == {"vidGood"}
         q = ctx["quarantined_bundles"][0]
         assert q["video_key"] == "vidBad" and "x-nonconforming" in q["reasons"]
+
+
+def test_conformance_x_axis_has_looser_r2_floor():
+    """Issue #16: the r² floor is asymmetric — looser on x than y — because a climber's
+    narrow horizontal spread depresses x-r² even when the x-slope is at identity and y
+    fits clean. An in-band slope with x-r² between the two floors conforms on x but not
+    on y; genuine mis-tracking (r²≈0) and an off-band slope still fail on either axis."""
+
+    from analysis_pipeline import evaluate as ev
+
+    # The two floors straddle a value the narrow-x false positives land in (0.79–0.87).
+    assert ev.CONFORMANCE_R2_MIN_X < ev.CONFORMANCE_R2_MIN
+    assert ev._axis_r2_min("x") == ev.CONFORMANCE_R2_MIN_X
+    assert ev._axis_r2_min("y") == ev.CONFORMANCE_R2_MIN
+
+    slope_ok = 0.95  # inside [CONFORMANCE_SLOPE_MIN, CONFORMANCE_SLOPE_MAX]
+    r2_between = (ev.CONFORMANCE_R2_MIN_X + ev.CONFORMANCE_R2_MIN) / 2  # e.g. 0.825
+    borderline = (slope_ok, 0.0, r2_between)
+    assert ev._axis_conforms(borderline, "x") is True   # passes the looser x floor
+    assert ev._axis_conforms(borderline, "y") is False  # fails the strict y floor
+
+    # Genuine wrong-subject: r²≈0 fails on both axes even with an in-band slope.
+    wild = (slope_ok, 0.0, 0.05)
+    assert ev._axis_conforms(wild, "x") is False
+    assert ev._axis_conforms(wild, "y") is False
+
+    # The slope band is symmetric: an off-band slope fails regardless of a perfect r².
+    off_band = (2.0, 0.0, 1.0)
+    assert ev._axis_conforms(off_band, "x") is False
+    assert ev._axis_conforms(off_band, "y") is False
+
+    # A degenerate (None) fit never conforms on either axis.
+    assert ev._axis_conforms(None, "x") is False
+    assert ev._axis_conforms(None, "y") is False
 
 
 def test_evaluate_setuphash_mismatch_is_skipped():
@@ -979,6 +1014,8 @@ def _run_all():
     fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
            test_crossmatch_reducers, test_pipeline_end_to_end_renders_report,
            test_evaluate_pck_exact_and_edge_cases,
+           test_evaluate_conformance_gate_and_pooled_quarantine,
+           test_conformance_x_axis_has_looser_r2_floor,
            test_evaluate_setuphash_mismatch_is_skipped,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
