@@ -340,6 +340,17 @@ def _ground_truth_doc(setup_hash: str | None) -> dict:
     return doc
 
 
+def _ground_truth_doc_with_annotations(setup_hash: str) -> dict:
+    doc = _ground_truth_doc(setup_hash)
+    doc["detectionAnnotations"] = [
+        {"startFrame": 2, "endFrame": 3, "failureClass": "wrong-subject",
+         "distractor": "tree_bush", "setupHash": setup_hash},
+        {"startFrame": 1, "endFrame": 1, "failureClass": "distorted",
+         "distractor": "gear", "setupHash": f"{setup_hash}_STALE"},
+    ]
+    return doc
+
+
 def _scanner_frames_for_pck() -> list:
     """@1.0 matches truth exactly; @2.0 offsets nose and thins left_wrist;
     @3.0 hallucinates a pose on the truth-absent frame; @4.0 matches the
@@ -652,6 +663,57 @@ def test_evaluate_loose_overlap_pairing_fallback():
         # Neither the n=0 matched record nor the loose one feeds trusted pooling here
         # (the matched record has no scored joints; the loose one is excluded).
         assert all(not r.data.get("loosePaired") for r in ctx["eval_records"])
+
+
+def test_evaluate_detection_annotations_override_and_ignore_stale():
+    """Issue #45: active detectionAnnotations override the auto class, stale ranges are
+    ignored, and the human distractor surfaces in pooled frame-quality trends."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeDA" / "vidDA"
+        setup_hash = "sh_ann"
+        _write_bundle_meta(vdir, setup_hash=setup_hash)
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc_with_annotations(setup_hash)), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000060", setup_hash, _scanner_frames_for_pck())
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 1
+        rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
+
+        fq = rec["frameQuality"]
+        by_t = {e["t"]: e for e in fq["frames"]}
+        assert by_t[1.0]["class"] == "ok"
+        assert by_t[1.0]["autoClass"] == "ok"
+        assert by_t[1.0]["distractor"] is None
+        assert by_t[2.0]["class"] == "wrong-subject"
+        assert by_t[2.0]["autoClass"] == "ok"
+        assert by_t[2.0]["distractor"] == "tree_bush"
+        assert by_t[3.0]["class"] == "wrong-subject"
+        assert by_t[3.0]["autoClass"] == "ok"
+        assert by_t[3.0]["distractor"] == "tree_bush"
+        assert by_t[1.0]["annotationSetupHash"] is None
+        assert by_t[2.0]["annotationSetupHash"] == setup_hash
+        assert fq["classCounts"] == {"ok": 1, "wrong-subject": 2,
+                                      "hallucination-fp": 0,
+                                      "flipped-rotated": 0, "distorted": 0}
+
+        ctx = trends.build_trend_context(root)
+        classes = ctx["frame_quality_classes"].set_index("class")
+        assert classes.loc["ok", "n"] == 1
+        assert classes.loc["wrong-subject", "n"] == 2
+        distractors = ctx["frame_quality_distractors"].set_index("distractor")
+        assert distractors.loc["tree_bush", "n"] == 2
+        assert "gear" not in distractors.index
+        assert ctx["frame_quality_flagged"] == 2
+
+        from analysis_pipeline import report
+
+        assert "Distractor frequency" in report.build_report_html(ctx)
 
 
 def test_frame_quality_classification_one_per_class():

@@ -586,9 +586,9 @@ def _low_confidence_html(ctx: dict[str, Any]) -> str:
 
 def _frame_quality_html(ctx: dict[str, Any]) -> str:
     """Detection-quality per-frame classes (issue #44): top classes, the conditions the
-    flagged-rate correlates with worst, and a worst-first re-review worklist. Pooled
-    across ALL records (quarantined + loose included) — an independent pool from the
-    trusted metrics."""
+    flagged-rate correlates with worst, the human distractor labels, and a worst-first
+    re-review worklist. Pooled across ALL records (quarantined + loose included) — an
+    independent pool from the trusted metrics."""
 
     from .trends import FRAME_QUALITY_WORKLIST_TOP_K
 
@@ -615,9 +615,22 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
             f"<td>{_fmt(r['share'])}</td><td>{int(r['frozen_stale'])}</td></tr>"
             for _, r in classes.iterrows()
         )
-        class_tbl = ("<div class='tablewrap'><table><thead><tr><th>auto class</th>"
+        class_tbl = ("<div class='tablewrap'><table><thead><tr><th>failure class</th>"
                      "<th>frames</th><th>share</th><th>of which frozen-stale</th>"
                      f"</tr></thead><tbody>{rows}</tbody></table></div>")
+
+    distractors = ctx.get("frame_quality_distractors")
+    distractor_tbl = "<p class='muted'>(no annotated distractors yet)</p>"
+    if isinstance(distractors, pd.DataFrame) and not distractors.empty:
+        rows = "".join(
+            f"<tr><td>{_esc(r['distractor'])}</td><td>{int(r['n'])}</td>"
+            f"<td>{_fmt(r['share'])}</td><td>{int(r['frozen_stale'])}</td></tr>"
+            for _, r in distractors.iterrows()
+        )
+        distractor_tbl = ("<div class='tablewrap'><table><thead><tr><th>distractor</th>"
+                          "<th>frames</th><th>share of annotated frames</th>"
+                          "<th>of which frozen-stale</th></tr></thead>"
+                          f"<tbody>{rows}</tbody></table></div>")
 
     # Worst-correlated conditions: rank Video Stats conditions by the spread of the
     # flagged-rate across their bands (max − min).
@@ -662,7 +675,8 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
 
     return (
         tiles
-        + "<h3>Auto class frequency</h3>" + class_tbl
+        + "<h3>Failure class frequency</h3>" + class_tbl
+        + "<h3>Distractor frequency</h3>" + distractor_tbl
         + "<h3>Flagged rate vs Video Stats conditions</h3>" + cond_tbl
         + "<h3>Re-review worklist (worst class first)</h3>" + wl_tbl)
 

@@ -74,6 +74,17 @@ REVIEW_FLAGGED_WRONG = "human-flagged-wrong"
 REVIEW_FLAGGED_ABSENT = "human-flagged-absent"
 REVIEW_VOCAB = frozenset({REVIEW_AUTO, REVIEW_FLAGGED_WRONG, REVIEW_FLAGGED_ABSENT})
 
+# Detection-annotation taxonomy (issue #45). Human failure labels reuse the auto
+# class names from issue #44; distractors are a separate vocabulary carried by the
+# scanner-authored annotation ranges.
+DETECTION_FAILURE_CLASSES = frozenset({
+    "ok", "wrong-subject", "hallucination-fp", "flipped-rotated", "distorted",
+})
+DETECTION_DISTRACTORS = frozenset({
+    "tree_bush", "rock_wall_shape", "crash_pad_bag", "animal", "shadow",
+    "spectator", "hallucination_none", "gear", "other",
+})
+
 # The 13 shared COCO core joints (ADR 0003 / ground-truth jointSet). Every truth
 # source and the scanner pose name these identically, so we join by name.
 COCO_CORE_JOINTS = [
@@ -188,6 +199,7 @@ FQ_CLASSES = [FQ_OK, FQ_WRONG_SUBJECT, FQ_HALLUCINATION, FQ_FLIPPED, FQ_DISTORTE
 class TruthFrame:
     """One truth frame reduced to what scoring needs."""
 
+    frame_index: int | None
     timestamp: float
     present: bool  # a Climber is present in this frame (scorable)
     joints: dict[str, tuple[float, float]]  # name -> (x, y), present+non-occluded only
@@ -227,6 +239,18 @@ class TruthDoc:
     setup_hash: str  # self-reported setupHash, or "" when the artifact predates #4
     truth_hash: str  # groundTruthHash, or a content hash for vitpose
     frames: list[TruthFrame]
+    detection_annotations: list["DetectionAnnotation"] = field(default_factory=list)
+
+
+@dataclass
+class DetectionAnnotation:
+    """One scanner-authored annotation range over ground-truth frame indices."""
+
+    start_frame: int
+    end_frame: int
+    failure_class: str
+    distractor: str
+    setup_hash: str
 
 
 @dataclass
@@ -297,6 +321,8 @@ def _truth_from_ground_truth(doc: dict[str, Any]) -> TruthDoc:
 
     frames: list[TruthFrame] = []
     for fr in doc.get("frames", []):
+        frame_index = fr.get("frameIndex")
+        frame_index = int(frame_index) if isinstance(frame_index, int) else None
         review = fr.get("review")
         review = review if review in REVIEW_VOCAB else REVIEW_AUTO
         # Presence is always ViTPose's determination (ADR 0005): auto-absence is
@@ -312,10 +338,38 @@ def _truth_from_ground_truth(doc: dict[str, Any]) -> TruthDoc:
             x, y = j.get("x"), j.get("y")
             if x is not None and y is not None:
                 joints[name] = (float(x), float(y))
-        frames.append(TruthFrame(float(fr.get("timestamp", 0.0)), present, joints,
-                                 review=review))
+        frames.append(TruthFrame(frame_index, float(fr.get("timestamp", 0.0)), present,
+                                 joints, review=review))
+
+    annotations: list[DetectionAnnotation] = []
+    for ann in doc.get("detectionAnnotations", []) or []:
+        if not isinstance(ann, dict):
+            continue
+        start = ann.get("startFrame")
+        end = ann.get("endFrame")
+        failure_class = ann.get("failureClass")
+        distractor = ann.get("distractor")
+        setup_hash = str(ann.get("setupHash") or "")
+        if not isinstance(start, int) or not isinstance(end, int):
+            continue
+        if start > end:
+            continue
+        if failure_class not in DETECTION_FAILURE_CLASSES:
+            continue
+        if distractor not in DETECTION_DISTRACTORS:
+            continue
+        if not setup_hash:
+            continue
+        annotations.append(DetectionAnnotation(
+            start_frame=int(start),
+            end_frame=int(end),
+            failure_class=str(failure_class),
+            distractor=str(distractor),
+            setup_hash=setup_hash,
+        ))
     truth_hash = doc.get("groundTruthHash") or _content_hash(doc)
-    return TruthDoc("ground-truth", doc.get("setupHash") or "", truth_hash, frames)
+    return TruthDoc("ground-truth", doc.get("setupHash") or "", truth_hash, frames,
+                    detection_annotations=annotations)
 
 
 def _truth_from_vitpose(doc: dict[str, Any]) -> TruthDoc:
@@ -333,7 +387,10 @@ def _truth_from_vitpose(doc: dict[str, Any]) -> TruthDoc:
             x, y = kp.get("x"), kp.get("y")
             if x is not None and y is not None:
                 joints[name] = (float(x), float(y))
-        frames.append(TruthFrame(float(fr.get("timestamp", 0.0)), present, joints))
+        frame_index = fr.get("frameIndex")
+        frame_index = int(frame_index) if isinstance(frame_index, int) else None
+        frames.append(TruthFrame(frame_index, float(fr.get("timestamp", 0.0)), present,
+                                 joints))
     truth_hash = doc.get("groundTruthHash") or _content_hash(doc)
     return TruthDoc("vitpose", doc.get("setupHash") or "", truth_hash, frames)
 
@@ -356,6 +413,29 @@ def load_truth(video_dir: Path) -> TruthDoc | None:
 
 def _dist(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _detection_annotation_for_frame(
+    truth: TruthDoc,
+    frame_index: int | None,
+    setup_hash: str,
+) -> DetectionAnnotation | None:
+    """Resolve the active annotation for one truth frame, if any.
+
+    Annotations are setupHash-stamped and frame-index ranges are inclusive. A stale
+    setupHash is ignored; when multiple valid ranges overlap, the last matching one
+    wins so later manual refinement can override earlier annotations deterministically.
+    """
+
+    if frame_index is None or not setup_hash:
+        return None
+    active: DetectionAnnotation | None = None
+    for ann in truth.detection_annotations:
+        if ann.setup_hash != setup_hash:
+            continue
+        if ann.start_frame <= frame_index <= ann.end_frame:
+            active = ann
+    return active
 
 
 def torso_length(joints: dict[str, tuple[float, float]]) -> float | None:
@@ -751,16 +831,19 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
     }
 
 
-def _frame_quality(pairs: list[_FramePair]) -> dict[str, Any]:
+def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
+                   setup_hash: str) -> dict[str, Any]:
     """Per-frame detection-quality classification (issue #44 deliverable 1).
 
     One entry per matched frame on which the scanner emitted a pose: its auto class
     (``ok`` / ``wrong-subject`` / ``hallucination-fp`` / ``flipped-rotated`` /
     ``distorted``) plus a cross-cutting ``frozenStale`` flag (near-identical keypoints
-    to the previous detected frame). Frames with no scanner detection are not
-    detection-quality events — they are coverage/presence gaps counted elsewhere — so
-    they carry no entry here. ``crop`` is a placeholder the crop exporter (deliverable
-    2) fills in for flagged frames.
+    to the previous detected frame). Ground-truth detection annotations (issue #45)
+    refine the auto class when they match the active setupHash and the frame's index;
+    the auto class remains in ``autoClass`` for auditability. Frames with no scanner
+    detection are not detection-quality events — they are coverage/presence gaps
+    counted elsewhere — so they carry no entry here. ``crop`` is a placeholder the crop
+    exporter (deliverable 2) fills in for flagged frames.
 
     Iterated in timestamp order so ``frozenStale`` compares against the true temporal
     predecessor regardless of truth-file frame order. Scored over the same non-excluded
@@ -776,19 +859,26 @@ def _frame_quality(pairs: list[_FramePair]) -> dict[str, Any]:
     prev_scanner: dict[str, tuple[float, float]] | None = None
     for p in detected:
         tf = p.truth
+        auto_cls: str
         if tf.present:
-            cls, centroid_dist, residual = _classify_detection(
+            auto_cls, centroid_dist, residual = _classify_detection(
                 tf.joints, p.scanner, torso_length(tf.joints))
         else:
             # A pose on a climber-absent frame — the presence-2x2 ``absentDetected``
             # cell, localized to this timestamp.
-            cls, centroid_dist, residual = FQ_HALLUCINATION, None, None
+            auto_cls, centroid_dist, residual = FQ_HALLUCINATION, None, None
+        ann = _detection_annotation_for_frame(truth, tf.frame_index, setup_hash)
+        effective_cls = ann.failure_class if ann is not None else auto_cls
         frozen = _is_frozen(p.scanner, prev_scanner)
-        counts[cls] += 1
+        counts[effective_cls] += 1
         frozen_count += frozen
         entries.append({
             "t": _round6(tf.timestamp),
-            "class": cls,
+            "class": effective_cls,
+            "autoClass": auto_cls,
+            "failureClass": effective_cls,
+            "distractor": ann.distractor if ann is not None else None,
+            "annotationSetupHash": ann.setup_hash if ann is not None else None,
             "frozenStale": frozen,
             "centroidDist": _round6(centroid_dist),
             "residual": _round6(residual),
@@ -832,7 +922,8 @@ def record_trusted(record: dict[str, Any]) -> bool:
     return record_conforms(record) and not record.get("loosePaired", False)
 
 
-def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[str, Any]:
+def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
+                  setup_hash: str = "") -> dict[str, Any]:
     """Compute the full metric set for one pose Run against one truth doc.
 
     Returns the record body (counts + agreement/accuracy tiers); provenance is
@@ -881,7 +972,7 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> dict[st
         # non-excluded pairs the agreement tier scores. Gates pooled metrics.
         "conformance": _conformance(agreement_pairs),
         # Per-frame detection-quality classes (issue #44), over the same pairs.
-        "frameQuality": _frame_quality(agreement_pairs),
+        "frameQuality": _frame_quality(agreement_pairs, truth, setup_hash),
         "agreement": _score_tier(agreement_pairs),
         "accuracy": _score_tier(accuracy_pairs),
     }
@@ -1111,7 +1202,7 @@ def evaluate(analysis_root: Path, prune: bool = False,
                 ))
                 continue
 
-            body = evaluate_pair(pose_frames, truth)
+            body = evaluate_pair(pose_frames, truth, effective_setup_hash)
             if export_crops:
                 _export_crops(video_dir, run_ts, pose_frames, body)
             record_path = _write_eval_record(
@@ -1140,7 +1231,7 @@ def evaluate(analysis_root: Path, prune: bool = False,
                     best_overlap, candidate = ov, (run_ts, pose_setup_hash, pose_frames)
             if candidate is not None and best_overlap > 0:
                 run_ts, pose_setup_hash, pose_frames = candidate
-                body = evaluate_pair(pose_frames, truth)
+                body = evaluate_pair(pose_frames, truth, effective_setup_hash)
                 if export_crops:
                     _export_crops(video_dir, run_ts, pose_frames, body)
                 reason = (
