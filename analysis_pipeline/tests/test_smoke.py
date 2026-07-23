@@ -383,7 +383,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 6
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 7
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -737,7 +737,8 @@ def test_frame_quality_classification_one_per_class():
             {"frameIndex": 6, "timestamp": 6.0, "state": "present", "review": "auto", "joints": present},
         ],
     }
-    # t1/t2 exact (ok; t2 is a frozen duplicate of t1). t3 hallucination on an absent
+    # t1/t2 exact (both ok; a 2-frame near-duplicate is NOT a sustained freeze under the
+    # issue #68 run-length rule, so neither is frozenStale). t3 hallucination on an absent
     # frame. t4 shifted +0.35 in x (centroid ≈1.17 torso → wrong-subject). t5 zig-zag
     # x-perturbation (centroid ≈0, residual ≈0.67 torso → distorted). t6 reflected
     # vertically about the truth centroid (nose below hips → flipped-rotated).
@@ -749,7 +750,7 @@ def test_frame_quality_classification_one_per_class():
     flipped = _kp_list({n: (x, 2 * cy - y) for n, (x, y) in _TRUTH_JOINTS.items()})
     scanner = [
         {"timestamp": 1.0, "keypoints": exact},
-        {"timestamp": 2.0, "keypoints": exact},   # identical -> frozen
+        {"timestamp": 2.0, "keypoints": exact},   # 2-frame duplicate -> NOT frozen (#68)
         {"timestamp": 3.0, "keypoints": nudged},  # hallucination (truth absent), distinct
         {"timestamp": 4.0, "keypoints": shifted},
         {"timestamp": 5.0, "keypoints": zig},
@@ -769,18 +770,53 @@ def test_frame_quality_classification_one_per_class():
         assert fq["classCounts"] == {"ok": 2, "wrong-subject": 1, "hallucination-fp": 1,
                                      "flipped-rotated": 1, "distorted": 1}
         assert fq["flaggedCount"] == 4
-        assert fq["frozenStaleCount"] == 1
+        assert fq["frozenStaleCount"] == 0  # #68: a 2-frame duplicate is not a sustained freeze
         assert fq["thresholds"]["wrongSubjectCentroid"] == ev.FQ_WRONG_SUBJECT_CENTROID
+        assert fq["thresholds"]["frozenMinRun"] == ev.FQ_FROZEN_MIN_RUN
 
         by_t = {e["t"]: e for e in fq["frames"]}
         assert by_t[1.0]["class"] == "ok" and by_t[1.0]["frozenStale"] is False
-        assert by_t[2.0]["class"] == "ok" and by_t[2.0]["frozenStale"] is True
+        assert by_t[2.0]["class"] == "ok" and by_t[2.0]["frozenStale"] is False
         assert by_t[3.0]["class"] == "hallucination-fp"
         assert by_t[4.0]["class"] == "wrong-subject"
         assert by_t[5.0]["class"] == "distorted"
         assert by_t[6.0]["class"] == "flipped-rotated"
         # Every entry carries a crop placeholder for the exporter (deliverable 2).
         assert all("crop" in e for e in fq["frames"])
+
+
+def test_frozen_stale_requires_sustained_run():
+    """Issue #68: frozenStale flags a frame only inside a maximal run of ≥ FQ_FROZEN_MIN_RUN
+    near-identical detected poses. Isolated 1–2 frame near-duplicates (a paused climber) are
+    not stale; a sustained repeat is, for every frame in the run."""
+
+    from analysis_pipeline import evaluate as ev
+
+    assert ev.FQ_FROZEN_MIN_RUN == 3  # the scenarios below are keyed to this default
+
+    def pose(x: float) -> dict[str, tuple[float, float]]:
+        return {"nose": (x, 0.5), "left_hip": (x, 0.7), "right_hip": (x + 0.02, 0.7)}
+
+    still = pose(0.30)              # a held/static pose
+    moved = pose(0.50)             # clearly displaced (> FQ_FROZEN_EPS)
+
+    # Empty / single frame: never frozen.
+    assert ev._frozen_flags([]) == []
+    assert ev._frozen_flags([still]) == [False]
+
+    # A 2-frame duplicate is below the run floor → not frozen.
+    assert ev._frozen_flags([still, still]) == [False, False]
+
+    # A 3-frame identical run → every frame in the run is frozen.
+    assert ev._frozen_flags([still, still, still]) == [True, True, True]
+
+    # A sustained run bracketed by motion: only the sustained stretch flags.
+    seq = [moved, still, still, still, moved, pose(0.55)]
+    assert ev._frozen_flags(seq) == [False, True, True, True, False, False]
+
+    # Two short pauses (2 frames each) separated by motion → neither reaches the floor.
+    seq2 = [still, still, moved, pose(0.52), pose(0.52)]
+    assert ev._frozen_flags(seq2) == [False, False, False, False, False]
 
 
 def test_crop_export_selection_and_writes():
@@ -1523,6 +1559,7 @@ def _run_all():
            test_evaluate_setuphash_mismatch_is_skipped,
            test_evaluate_loose_overlap_pairing_fallback,
            test_frame_quality_classification_one_per_class,
+           test_frozen_stale_requires_sustained_run,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
            test_frame_quality_condition_bands_flagged_rate,

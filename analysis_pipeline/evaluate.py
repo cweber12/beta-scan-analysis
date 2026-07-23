@@ -64,7 +64,11 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 # v6 adds the per-frame ``frameQuality`` block (issue #44 — auto divergence classes) and
 #    the optional ``loosePaired`` flag on best-overlap fallback records. Readers fail open
 #    on both (a pre-v6 record simply carries no frameQuality / loosePaired key).
-SCHEMA_VERSION = 6
+# v7 redefines ``frameQuality.frozenStale`` as a sustained-run property (issue #68):
+#    frozen only inside a maximal run of ≥ ``FQ_FROZEN_MIN_RUN`` near-identical detected
+#    poses, not any single static step. ``thresholds`` gains ``frozenMinRun``. Regenerate
+#    to get the new semantics; readers of pre-v7 records see the old, over-firing flag.
+SCHEMA_VERSION = 7
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -184,8 +188,14 @@ EVAL_MODES = (EVAL_MODE_ALL, EVAL_MODE_UNANALYZED)
 FQ_WRONG_SUBJECT_CENTROID = 1.0  # centroid ≥ 1 truth-torso off → locked on the wrong subject
 FQ_DISTORT_RESIDUAL = 0.5        # median shape residual ≥ 0.5 torso → joints scattered
 FQ_FLIP_RESIDUAL = 0.25          # a vertical flip that drops shape residual below this → flipped
-FQ_FROZEN_EPS = 0.005            # max keypoint move (normalized image coords) vs the prev
-#                                  detected frame → frozen/stale (cross-cutting flag)
+FQ_FROZEN_EPS = 0.005            # max keypoint move (normalized image coords) between two
+#                                  adjacent detected frames → the pair is "static"
+FQ_FROZEN_MIN_RUN = 3            # a static frame is frozen/stale only inside a maximal run
+#                                  of ≥ this many consecutive near-identical detected poses.
+#                                  A genuine stale overlay (lost tracking, repeating the last
+#                                  pose) is sustained; a single low-motion step is a paused
+#                                  climber, not a freeze — that distinction is why the old
+#                                  per-frame test fired on ~3/4 of frames (issue #68).
 
 FQ_OK = "ok"
 FQ_WRONG_SUBJECT = "wrong-subject"
@@ -536,8 +546,10 @@ def _classify_detection(truth: dict[str, tuple[float, float]],
 
 def _is_frozen(cur: dict[str, tuple[float, float]],
                prev: dict[str, tuple[float, float]] | None) -> bool:
-    """True when every joint shared with the previous detected frame moved less than
-    ``FQ_FROZEN_EPS`` in normalized image coords — a stale/frozen scanner pose."""
+    """True when ``cur`` is near-identical to the previous detected pose ``prev`` — every
+    shared joint moved ``≤ FQ_FROZEN_EPS`` in normalized image coords. This is the
+    pairwise "static" primitive; sustained-freeze detection is layered on top by
+    ``_frozen_flags`` (issue #68)."""
 
     if not prev:
         return False
@@ -545,6 +557,29 @@ def _is_frozen(cur: dict[str, tuple[float, float]],
     if not shared:
         return False
     return max(_dist(cur[j], prev[j]) for j in shared) <= FQ_FROZEN_EPS
+
+
+def _frozen_flags(poses: list[dict[str, tuple[float, float]]],
+                  min_run: int = FQ_FROZEN_MIN_RUN) -> list[bool]:
+    """Per-frame frozen/stale flags over detected poses in timestamp order.
+
+    A frame is frozen only inside a maximal run of ``≥ min_run`` consecutive
+    near-identical poses (each adjacent pair ``_is_frozen``). Isolated one- or two-frame
+    near-duplicates — a paused or slow-moving climber — are not flagged; only a sustained
+    stale overlay is (issue #68)."""
+
+    n = len(poses)
+    flags = [False] * n
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and _is_frozen(poses[j + 1], poses[j]):
+            j += 1
+        if j - i + 1 >= min_run:  # frames i..j form one near-identical run
+            for k in range(i, j + 1):
+                flags[k] = True
+        i = j + 1
+    return flags
 
 
 def _scanner_frame_interval(timestamps: list[float]) -> float:
@@ -853,11 +888,14 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         (p for p in pairs if p.matched and p.scanner),
         key=lambda p: p.truth.timestamp)
 
+    # Frozen/stale is a sustained-run property (issue #68), so resolve it for the whole
+    # timestamp-ordered sequence up front rather than one adjacent pair at a time.
+    frozen_flags = _frozen_flags([p.scanner for p in detected])
+
     counts = {c: 0 for c in FQ_CLASSES}
     frozen_count = 0
     entries: list[dict[str, Any]] = []
-    prev_scanner: dict[str, tuple[float, float]] | None = None
-    for p in detected:
+    for p, frozen in zip(detected, frozen_flags):
         tf = p.truth
         auto_cls: str
         if tf.present:
@@ -869,7 +907,6 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             auto_cls, centroid_dist, residual = FQ_HALLUCINATION, None, None
         ann = _detection_annotation_for_frame(truth, tf.frame_index, setup_hash)
         effective_cls = ann.failure_class if ann is not None else auto_cls
-        frozen = _is_frozen(p.scanner, prev_scanner)
         counts[effective_cls] += 1
         frozen_count += frozen
         entries.append({
@@ -884,7 +921,6 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "residual": _round6(residual),
             "crop": None,
         })
-        prev_scanner = p.scanner
 
     return {
         "thresholds": {
@@ -892,6 +928,7 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "distortResidual": FQ_DISTORT_RESIDUAL,
             "flipResidual": FQ_FLIP_RESIDUAL,
             "frozenEps": FQ_FROZEN_EPS,
+            "frozenMinRun": FQ_FROZEN_MIN_RUN,
         },
         "classCounts": counts,
         "frozenStaleCount": frozen_count,
