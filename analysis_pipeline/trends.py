@@ -704,6 +704,10 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
                 "run_ts": rec.run_ts,
                 "t": e.get("t"),
                 "class": cls,
+                "auto_class": e.get("autoClass"),
+                "failure_class": e.get("failureClass"),
+                "distractor": e.get("distractor"),
+                "annotation_setup_hash": e.get("annotationSetupHash"),
                 "flagged": int(cls in _FQ_FLAGGED),
                 "frozen_stale": int(bool(e.get("frozenStale"))),
                 "centroid_dist": e.get("centroidDist"),
@@ -717,7 +721,7 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
 
 
 def _frame_quality_classes(fq_df: pd.DataFrame) -> pd.DataFrame:
-    """Class-frequency (distractor) table over the pooled per-frame quality rows."""
+    """Failure-class frequency table over the pooled per-frame quality rows."""
 
     if fq_df.empty:
         return pd.DataFrame()
@@ -732,6 +736,27 @@ def _frame_quality_classes(fq_df: pd.DataFrame) -> pd.DataFrame:
         })
     return pd.DataFrame(rows).sort_values(
         ["n", "class"], ascending=[False, True]).reset_index(drop=True)
+
+
+def _frame_quality_distractors(fq_df: pd.DataFrame) -> pd.DataFrame:
+    """Human distractor frequency table over annotated per-frame quality rows."""
+
+    if fq_df.empty or "distractor" not in fq_df.columns:
+        return pd.DataFrame()
+    sub = fq_df[fq_df["distractor"].notna()].copy()
+    if sub.empty:
+        return pd.DataFrame()
+    total = len(sub)
+    rows: list[dict[str, Any]] = []
+    for distractor, g in sub.groupby("distractor"):
+        rows.append({
+            "distractor": str(distractor),
+            "n": int(len(g)),
+            "share": len(g) / total,
+            "frozen_stale": int(g["frozen_stale"].sum()),
+        })
+    return pd.DataFrame(rows).sort_values(
+        ["n", "distractor"], ascending=[False, True]).reset_index(drop=True)
 
 
 def _frame_quality_worklist(fq_df: pd.DataFrame) -> pd.DataFrame:
@@ -870,6 +895,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     # is an independent pool from the trusted metrics above (conforming-only).
     fq_df = _frame_quality_rows(analysis_root, all_recs)
     fq_classes = _frame_quality_classes(fq_df)
+    fq_distractors = _frame_quality_distractors(fq_df)
     fq_worklist = _frame_quality_worklist(fq_df)
     fq_condition_bands = _frame_quality_condition_bands(fq_df)
 
@@ -902,6 +928,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "visible_histogram": visible_hist,
         "low_conf_worklist": low_conf_worklist,
         "frame_quality_classes": fq_classes,
+        "frame_quality_distractors": fq_distractors,
         "frame_quality_worklist": fq_worklist,
         "frame_quality_condition_bands": fq_condition_bands,
         "frame_quality_detected": int(len(fq_df)),
@@ -930,6 +957,7 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_low_confidence_worklist.csv": ctx.get("low_conf_worklist"),
         "eval_quarantined_bundles.csv": quarantined_df,
         "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
+        "eval_frame_quality_distractors.csv": ctx.get("frame_quality_distractors"),
         "eval_frame_quality_worklist.csv": ctx.get("frame_quality_worklist"),
         "eval_frame_quality_condition_bands.csv": ctx.get("frame_quality_condition_bands"),
     }
