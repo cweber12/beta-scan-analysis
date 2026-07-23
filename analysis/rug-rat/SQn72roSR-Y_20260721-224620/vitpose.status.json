@@ -1,0 +1,122 @@
+{
+  "jobId": "a2af765efdd14c5791fc86ddb5011cdf",
+  "status": "done",
+  "updated_at": "2026-07-23T10:48:57",
+  "timings": {
+    "track_s": 21.63,
+    "pose_s": 20.41,
+    "total_s": 42.15
+  },
+  "device": "cuda",
+  "warnings": [
+    "seed_tap.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
+  ],
+  "seedDebug": {
+    "mode": "tap_time_window",
+    "historyFrames": 1984,
+    "tap": {
+      "x": 0.3198508499358007,
+      "y": 0.9353952063918478,
+      "t": 0.0
+    },
+    "crop": {
+      "x": 0.1698508499358007,
+      "y": 0.7853952063918478,
+      "w": 0.3,
+      "h": 0.2146047936081522
+    },
+    "seedFound": true,
+    "seed": {
+      "frameIndex": 19,
+      "timestamp": 0.6333333333333333,
+      "sourceFrame": 19,
+      "box": {
+        "x": 0.11577245593070984,
+        "y": 0.7310294210910797,
+        "w": 0.4511130452156067,
+        "h": 0.26456624269485474,
+        "cx": 0.3413289785385132,
+        "cy": 0.8633125424385071
+      }
+    },
+    "stitch": {
+      "stitchedFrames": 1612,
+      "idSwitches": [
+        {
+          "sourceFrame": 1014,
+          "from": 5604,
+          "to": 5621
+        },
+        {
+          "sourceFrame": 1016,
+          "from": 5621,
+          "to": 5604
+        },
+        {
+          "sourceFrame": 1049,
+          "from": 5604,
+          "to": 5621
+        },
+        {
+          "sourceFrame": 1050,
+          "from": 5621,
+          "to": 5604
+        },
+        {
+          "sourceFrame": 1390,
+          "from": 5604,
+          "to": 5625
+        },
+        {
+          "sourceFrame": 1464,
+          "from": 5625,
+          "to": 5627
+        },
+        {
+          "sourceFrame": 1469,
+          "from": 5627,
+          "to": 5628
+        },
+        {
+          "sourceFrame": 1631,
+          "from": 5628,
+          "to": 5632
+        },
+        {
+          "sourceFrame": 1763,
+          "from": 5632,
+          "to": 5635
+        },
+        {
+          "sourceFrame": 1795,
+          "from": 5635,
+          "to": 5640
+        },
+        {
+          "sourceFrame": 1825,
+          "from": 5640,
+          "to": 5635
+        }
+      ],
+      "jumps": [
+        {
+          "sourceFrame": 1014,
+          "dist": 0.1007
+        },
+        {
+          "sourceFrame": 1016,
+          "dist": 0.094
+        },
+        {
+          "sourceFrame": 1464,
+          "dist": 0.1168
+        },
+        {
+          "sourceFrame": 1795,
+          "dist": 0.087
+        }
+      ],
+      "reseeds": []
+    }
+  }
+}

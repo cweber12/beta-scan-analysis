@@ -1,0 +1,150 @@
+{
+  "jobId": "8b1d10e4de6b43c1bee50b2ce3028027",
+  "status": "done",
+  "updated_at": "2026-07-23T11:08:20",
+  "timings": {
+    "track_s": 51.4,
+    "pose_s": 41.07,
+    "total_s": 92.63
+  },
+  "device": "cuda",
+  "seedDebug": {
+    "mode": "tap_time_window",
+    "historyFrames": 2485,
+    "tap": {
+      "x": 0.6535952212244491,
+      "y": 0.5295811981737926,
+      "t": 49.8
+    },
+    "crop": {
+      "x": 0.5035952212244491,
+      "y": 0.37958119817379254,
+      "w": 0.3,
+      "h": 0.3
+    },
+    "seedFound": true,
+    "seed": {
+      "frameIndex": 1508,
+      "timestamp": 50.266666666666666,
+      "sourceFrame": 1508,
+      "box": {
+        "x": 0.6174185983836651,
+        "y": 0.43288983404636383,
+        "w": 0.05619821697473526,
+        "h": 0.2649862468242645,
+        "cx": 0.6455177068710327,
+        "cy": 0.5653829574584961
+      }
+    },
+    "stitch": {
+      "stitchedFrames": 886,
+      "idSwitches": [
+        {
+          "sourceFrame": 401,
+          "from": 6720,
+          "to": 6781
+        },
+        {
+          "sourceFrame": 409,
+          "from": 6781,
+          "to": 6720
+        },
+        {
+          "sourceFrame": 485,
+          "from": 6720,
+          "to": 6791
+        },
+        {
+          "sourceFrame": 510,
+          "from": 6791,
+          "to": 6720
+        },
+        {
+          "sourceFrame": 570,
+          "from": 6720,
+          "to": 6799
+        },
+        {
+          "sourceFrame": 589,
+          "from": 6799,
+          "to": 6801
+        },
+        {
+          "sourceFrame": 626,
+          "from": 6801,
+          "to": 6806
+        },
+        {
+          "sourceFrame": 888,
+          "from": 6806,
+          "to": 6811
+        },
+        {
+          "sourceFrame": 999,
+          "from": 6811,
+          "to": 6813
+        },
+        {
+          "sourceFrame": 1298,
+          "from": 6813,
+          "to": 6818
+        },
+        {
+          "sourceFrame": 1479,
+          "from": 6818,
+          "to": 6823
+        },
+        {
+          "sourceFrame": 1577,
+          "from": 6823,
+          "to": 6824
+        },
+        {
+          "sourceFrame": 1721,
+          "from": 6824,
+          "to": 6825
+        },
+        {
+          "sourceFrame": 1989,
+          "from": 6825,
+          "to": 6829
+        },
+        {
+          "sourceFrame": 2149,
+          "from": 6829,
+          "to": 6830
+        }
+      ],
+      "jumps": [
+        {
+          "sourceFrame": 626,
+          "dist": 0.0811
+        },
+        {
+          "sourceFrame": 2149,
+          "dist": 0.0997
+        }
+      ],
+      "reseeds": [
+        {
+          "frameIndex": 785,
+          "sourceFrame": 785,
+          "timestamp": 26.166666666666668,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 119,
+          "recovered": 5,
+          "restored": 0
+        },
+        {
+          "frameIndex": 645,
+          "sourceFrame": 645,
+          "timestamp": 21.5,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 15,
+          "recovered": 5,
+          "restored": 0
+        }
+      ]
+    }
+  }
+}
