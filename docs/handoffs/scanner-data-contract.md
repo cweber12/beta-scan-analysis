@@ -36,6 +36,13 @@ an endpoint exists; degrade visibly (not with a silent 404) when the probe
 fails or a feature isn't advertised. Full response shape and gating rules:
 [scanner-video-stats.md](scanner-video-stats.md).
 
+> **`/api/contract` is the cross-program contract mechanism of record.** It is the
+> machine-readable half; these hand-maintained handoff docs + the ADRs are the prose
+> half. There is deliberately **no** generated schema artifact, second runtime schema
+> endpoint, or contract-governance layer (CI drift gate / PR contract metadata) planned —
+> those were considered and deferred until a concrete drift incident justifies them. See
+> [issue #63](https://github.com/cweber12/beta-scan-analysis/issues/63).
+
 The probe also carries a `capabilities` map of additive feature flags (no
 `apiVersion` bump). **`capabilities.decoupledSeed`** signals that
 `POST /api/vitpose` speaks the `seed_tap` + `seed_region` seed contract of record

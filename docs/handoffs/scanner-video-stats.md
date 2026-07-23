@@ -38,7 +38,10 @@ provenance so the human-verified layer stays auditable.
 
 ## Probe first: `GET {HARNESS_API_BASE}/api/contract`
 
-Before wiring anything, know that the harness now self-describes. Probe once at
+Before wiring anything, know that the harness now self-describes. This probe **is**
+the cross-program contract mechanism of record — there is deliberately no generated
+schema artifact or contract-governance layer beyond it (see
+[issue #63](https://github.com/cweber12/beta-scan-analysis/issues/63)). Probe once at
 scanner startup (and cache for the session):
 
 ```json
