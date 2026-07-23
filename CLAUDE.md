@@ -59,6 +59,9 @@ branches and `main` never drift:
    branch local **and** remote, and prunes. Idempotent and safe — it never touches
    `main` or an unmerged branch (`--dry-run` to preview). Do this every time a PR
    merges, so branches never accumulate.
+   After the cleanup, close the related GitHub issue and any dependent PRD / slice
+   issues that are now complete, and delete any now-unused local worktrees before
+   moving on.
 5. **Before pushing, confirm the target branch isn't already merged**
    (`gh pr view <branch>`); if it is, start a fresh branch.
 

@@ -12,6 +12,14 @@ Use the `gh` CLI for all operations.
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
+## After merge
+
+- Close the merged issue once the work is done; if the work came from a PRD or
+	dependent slice issues, close those completed tickets too.
+- Run the repository cleanup procedure so merged branches are removed locally and
+	remotely.
+- Delete no-longer-used local worktrees when the branch they tracked is gone.
+
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
 ## When a skill says "publish to the issue tracker"
