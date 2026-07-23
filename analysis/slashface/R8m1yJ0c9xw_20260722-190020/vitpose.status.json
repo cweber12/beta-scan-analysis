@@ -1,0 +1,125 @@
+{
+  "jobId": "b0c73260167e4bcdac824b4072cd25c8",
+  "status": "done",
+  "updated_at": "2026-07-22T20:28:42",
+  "timings": {
+    "track_s": 76.08,
+    "pose_s": 103.76,
+    "total_s": 180.11
+  },
+  "device": "cuda",
+  "warnings": [
+    "seed_tap.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
+  ],
+  "seedDebug": {
+    "mode": "tap_time_window",
+    "historyFrames": 4393,
+    "tap": {
+      "x": 0.41391413866246113,
+      "y": 0.8154288924632146,
+      "t": 0.0
+    },
+    "crop": {
+      "x": 0.26391413866246116,
+      "y": 0.6654288924632146,
+      "w": 0.3,
+      "h": 0.3
+    },
+    "seedFound": true,
+    "seed": {
+      "frameIndex": 16,
+      "timestamp": 0.5333333333333333,
+      "sourceFrame": 16,
+      "box": {
+        "x": 0.40717164892703295,
+        "y": 0.7122222632169724,
+        "w": 0.031125402078032494,
+        "h": 0.2155555784702301,
+        "cx": 0.4227343499660492,
+        "cy": 0.8200000524520874
+      }
+    },
+    "stitch": {
+      "stitchedFrames": 4124,
+      "idSwitches": [
+        {
+          "sourceFrame": 16,
+          "from": 246,
+          "to": 250
+        },
+        {
+          "sourceFrame": 17,
+          "from": 250,
+          "to": 246
+        },
+        {
+          "sourceFrame": 300,
+          "from": 246,
+          "to": 259
+        },
+        {
+          "sourceFrame": 424,
+          "from": 259,
+          "to": 267
+        },
+        {
+          "sourceFrame": 430,
+          "from": 267,
+          "to": 268
+        },
+        {
+          "sourceFrame": 465,
+          "from": 268,
+          "to": 267
+        },
+        {
+          "sourceFrame": 480,
+          "from": 267,
+          "to": 268
+        },
+        {
+          "sourceFrame": 484,
+          "from": 268,
+          "to": 267
+        },
+        {
+          "sourceFrame": 1331,
+          "from": 267,
+          "to": 276
+        },
+        {
+          "sourceFrame": 1333,
+          "from": 276,
+          "to": 267
+        },
+        {
+          "sourceFrame": 2853,
+          "from": 267,
+          "to": 371
+        },
+        {
+          "sourceFrame": 2855,
+          "from": 371,
+          "to": 267
+        },
+        {
+          "sourceFrame": 2857,
+          "from": 267,
+          "to": 371
+        },
+        {
+          "sourceFrame": 2860,
+          "from": 371,
+          "to": 267
+        },
+        {
+          "sourceFrame": 3747,
+          "from": 267,
+          "to": 437
+        }
+      ],
+      "jumps": [],
+      "reseeds": []
+    }
+  }
+}
