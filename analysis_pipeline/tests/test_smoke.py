@@ -819,17 +819,30 @@ def test_evaluate_prefers_detector_attempts_over_dense_frames():
         {"timestamp": 3.0, "source": "smoothed", "keypoints": exact},
         {"timestamp": 4.0, "source": "constrained", "keypoints": exact},
     ]
+    crop = {"x": 0.2, "y": 0.25, "w": 0.3, "h": 0.4}
+    full_frame = {"x": 0, "y": 0, "w": 1, "h": 1}
     attempts = [
-        {"timestamp": 1.0, "status": "accepted", "rawKeypoints": exact,
-         "acceptedKeypoints": exact, "candidateCount": 1, "selectionMethod": "tracked"},
+        {"timestamp": 1.0, "status": "accepted", "initialSearchRegion": crop,
+         "detectionRegion": crop, "rawKeypoints": exact,
+         "acceptedKeypoints": exact, "candidateCount": 1, "selectionMethod": "tracked",
+         "searchConditions": {"mean": 50, "stdDev": 20, "sharpness": 100,
+                              "flags": {"tooDark": False}}},
         {"timestamp": 2.0, "status": "missing", "rawKeypoints": [],
          "acceptedKeypoints": [], "candidateCount": 0},
-        {"timestamp": 3.0, "status": "flipRejected", "rawKeypoints": flipped,
+        {"timestamp": 3.0, "status": "flipRejected", "initialSearchRegion": crop,
+         "detectionRegion": full_frame, "reacquireAttempted": True,
+         "reacquired": False, "rawKeypoints": flipped,
          "acceptedKeypoints": [], "candidateCount": 1, "rejectedCandidateCount": 1,
-         "selectionMethod": "best"},
-        {"timestamp": 4.0, "status": "qualityRejected", "rawKeypoints": shifted,
+         "selectionMethod": "best",
+         "searchConditions": {"mean": 20, "stdDev": 5, "sharpness": 10,
+                              "flags": {"tooDark": True, "lowContrast": True}}},
+        {"timestamp": 4.0, "status": "qualityRejected", "initialSearchRegion": crop,
+         "detectionRegion": full_frame, "reacquireAttempted": True,
+         "reacquired": True, "rawKeypoints": shifted,
          "acceptedKeypoints": [], "candidateCount": 1, "rejectedCandidateCount": 1,
-         "selectionMethod": "best"},
+         "selectionMethod": "best",
+         "searchConditions": {"mean": 30, "stdDev": 8, "sharpness": 18,
+                              "flags": {"tooDark": True}}},
     ]
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -877,6 +890,29 @@ def test_evaluate_prefers_detector_attempts_over_dense_frames():
         assert by_t[4.0]["class"] == "distorted"
         assert by_t[4.0]["detectorAttemptStatus"] == "qualityRejected"
         assert by_t[4.0]["rawKeypoints"] == shifted
+
+        from analysis_pipeline import trends
+
+        ctx = trends.build_trend_context(root)
+        attempt_runs = ctx["detection_error_attempt_runs"]
+        assert len(attempt_runs) == 1
+        ar = attempt_runs.iloc[0]
+        assert ar["attempt_evidence"] == "attempts"
+        assert ar["flagged_frames"] == 2
+        assert ar["flagged_rate"] == 2 / 3
+        assert ar["attempt_reacquire_attempted_count"] == 2
+        assert ar["attempt_reacquire_succeeded_count"] == 1
+        assert ar["attempt_reacquire_failed_count"] == 1
+        assert ar["attempt_full_frame_reacquire_success_count"] == 1
+        assert ar["attempt_initial_search_region_area_mean"] == 0.12
+        assert ar["attempt_search_luma_mean_mean"] == (50 + 20 + 30) / 3
+        assert ar["attempt_search_flag_too_dark_rate"] == 2 / 4
+
+        worklist = ctx["frame_quality_worklist"].set_index("t")
+        assert worklist.loc[3.0]["detector_attempt_status"] == "flipRejected"
+        assert worklist.loc[3.0]["reacquire_failed"] == True  # noqa: E712
+        assert worklist.loc[4.0]["reacquire_succeeded"] == True  # noqa: E712
+        assert worklist.loc[4.0]["detection_region_area"] == 1.0
 
 
 def test_crop_export_selection_and_writes():

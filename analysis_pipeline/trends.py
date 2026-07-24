@@ -26,7 +26,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .detector_attempts import parse_detector_attempts
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
+from .runs import _condition_flags, _detector_attempt_summary, _region_metric
 from .evaluate import (
     COCO_CORE_JOINTS,
     _dist,
@@ -108,7 +110,9 @@ def _iter_eval_records(analysis_root: Path) -> list[EvalRecord]:
     return sorted(latest_by_run.values(), key=lambda r: (r.route_folder, r.video_key, r.run_ts))
 
 
-def _load_pose_runs(video_dir: Path) -> dict[str, tuple[str, list[dict[str, Any]]]]:
+def _load_pose_runs(
+    video_dir: Path,
+) -> dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]]:
     """Map ``run_ts -> (scanner appVersion, pose frames)`` for one bundle.
 
     The appVersion (a scanner commit hash) lives only in the pose envelope's
@@ -116,7 +120,7 @@ def _load_pose_runs(video_dir: Path) -> dict[str, tuple[str, list[dict[str, Any]
     resolves it from the detection files at trend time.
     """
 
-    out: dict[str, tuple[str, list[dict[str, Any]]]] = {}
+    out: dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]] = {}
     detections_dir = video_dir / "detections"
     if not detections_dir.is_dir():
         return out
@@ -130,7 +134,8 @@ def _load_pose_runs(video_dir: Path) -> dict[str, tuple[str, list[dict[str, Any]
         data = _unwrap(env)
         run_ts = str(env.get("run_ts", stem))
         app_version = str((data.get("diagnostics") or {}).get("appVersion") or "")
-        out[run_ts] = (app_version, data.get("frames", []) or [])
+        attempts = parse_detector_attempts(data)
+        out[run_ts] = (app_version, data.get("frames", []) or [], attempts)
     return out
 
 
@@ -164,7 +169,10 @@ def _frame_bbox_metrics(joints: dict[str, tuple[float, float]]) -> tuple[float, 
 def _build_frame_joint_rows(
     analysis_root: Path,
     recs: list[EvalRecord],
-    pose_cache: dict[tuple[str, str], dict[str, tuple[str, list[dict[str, Any]]]]],
+    pose_cache: dict[
+        tuple[str, str],
+        dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
+    ],
 ) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for rec in recs:
@@ -179,7 +187,7 @@ def _build_frame_joint_rows(
             continue
 
         pose_runs = pose_cache.get((rec.route_folder, rec.video_key), {})
-        app_version, pose_frames = pose_runs.get(rec.run_ts, ("", None))
+        app_version, pose_frames, _ = pose_runs.get(rec.run_ts, ("", None, None))
         if pose_frames is None:
             continue
 
@@ -651,6 +659,76 @@ _VS_CONDITION_PATHS = {
     "shadow_fraction": ("regionStats", "shadow", "fraction", "mean"),
 }
 
+_ATTEMPT_CONDITION_KEYS = {
+    "mean": "luma_mean",
+    "stdDev": "luma_stdDev",
+    "sharpness": "sharpness",
+}
+_ATTEMPT_REGION_METRICS = ("area", "cx", "cy", "edge_distance")
+
+
+def _attempts_by_timestamp(
+    attempts: list[dict[str, Any]] | None,
+) -> dict[float, dict[str, Any]]:
+    out: dict[float, dict[str, Any]] = {}
+    for attempt in attempts or []:
+        out[round(float(attempt.get("timestamp", 0.0)), 1)] = attempt
+    return out
+
+
+def _attempt_frame_context(
+    attempt: dict[str, Any] | None,
+    evidence: str,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "detector_attempt_evidence": evidence,
+        "detector_attempt_status": None,
+        "reacquire_attempted": None,
+        "reacquire_succeeded": None,
+        "reacquire_failed": None,
+        "candidate_count": None,
+        "rejected_candidate_count": None,
+        "selection_method": None,
+    }
+    for prefix in ("initial_search_region", "detection_region"):
+        for metric in _ATTEMPT_REGION_METRICS:
+            out[f"{prefix}_{metric}"] = None
+    for prefix in ("search", "reacquire"):
+        for suffix in _ATTEMPT_CONDITION_KEYS.values():
+            out[f"{prefix}_{suffix}"] = None
+
+    if not isinstance(attempt, dict):
+        return out
+
+    attempted = bool(attempt.get("reacquireAttempted"))
+    reacquired = bool(attempt.get("reacquired"))
+    out.update({
+        "detector_attempt_status": attempt.get("status"),
+        "reacquire_attempted": attempted,
+        "reacquire_succeeded": attempted and reacquired,
+        "reacquire_failed": attempted and not reacquired,
+        "candidate_count": attempt.get("candidateCount"),
+        "rejected_candidate_count": attempt.get("rejectedCandidateCount"),
+        "selection_method": attempt.get("selectionMethod"),
+    })
+    for prefix, source_key in (
+        ("initial_search_region", "initialSearchRegion"),
+        ("detection_region", "detectionRegion"),
+    ):
+        for metric in _ATTEMPT_REGION_METRICS:
+            out[f"{prefix}_{metric}"] = _region_metric(attempt.get(source_key), metric)
+    for prefix, source_key in (
+        ("search", "searchConditions"),
+        ("reacquire", "reacquireConditions"),
+    ):
+        conditions = attempt.get(source_key)
+        for src_key, suffix in _ATTEMPT_CONDITION_KEYS.items():
+            value = conditions.get(src_key) if isinstance(conditions, dict) else None
+            out[f"{prefix}_{suffix}"] = float(value) if isinstance(value, (int, float)) else None
+    for name, value in _condition_flags(attempt.get("searchConditions")).items():
+        out[f"search_flag_{name}"] = value
+    return out
+
 
 def _video_stats_conditions(video_dir: Path) -> dict[str, float]:
     """Numeric Video Stats condition values for one bundle (issue #23 → #44), or {}."""
@@ -685,6 +763,10 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
 
     rows: list[dict[str, Any]] = []
     vs_cache: dict[tuple[str, str], dict[str, float]] = {}
+    pose_cache: dict[
+        tuple[str, str],
+        dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
+    ] = {}
     for rec in recs:
         fq = rec.data.get("frameQuality")
         if not isinstance(fq, dict):
@@ -693,16 +775,28 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
         if vid not in vs_cache:
             vs_cache[vid] = _video_stats_conditions(
                 analysis_root / rec.route_folder / rec.video_key)
+        if vid not in pose_cache:
+            pose_cache[vid] = _load_pose_runs(
+                analysis_root / rec.route_folder / rec.video_key)
         conds = vs_cache[vid]
+        _, _, attempts = pose_cache[vid].get(rec.run_ts, ("", [], None))
+        attempt_index = _attempts_by_timestamp(attempts)
+        attempt_evidence = "unknown" if attempts is None else "attempts"
         loose = bool(rec.data.get("loosePaired"))
         conforming = record_conforms(rec.data)
         for e in fq.get("frames") or []:
             cls = str(e.get("class") or "ok")
+            t = e.get("t")
+            attempt = (
+                attempt_index.get(round(float(t), 1))
+                if isinstance(t, (int, float))
+                else None
+            )
             rows.append({
                 "route_folder": rec.route_folder,
                 "video_key": rec.video_key,
                 "run_ts": rec.run_ts,
-                "t": e.get("t"),
+                "t": t,
                 "class": cls,
                 "auto_class": e.get("autoClass"),
                 "failure_class": e.get("failureClass"),
@@ -715,6 +809,7 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
                 "crop": e.get("crop"),
                 "loose": loose,
                 "conforming": conforming,
+                **_attempt_frame_context(attempt, attempt_evidence),
                 **{f"vs_{k}": v for k, v in conds.items()},
             })
     return pd.DataFrame(rows)
@@ -771,8 +866,12 @@ def _frame_quality_worklist(fq_df: pd.DataFrame) -> pd.DataFrame:
     sub = sub.sort_values(
         ["_sev", "centroid_dist"], ascending=[True, False], na_position="last")
     cols = ["route_folder", "video_key", "run_ts", "t", "class", "frozen_stale",
-            "centroid_dist", "residual", "crop"]
-    return sub[cols].reset_index(drop=True)
+            "centroid_dist", "residual", "detector_attempt_evidence",
+            "detector_attempt_status", "reacquire_attempted", "reacquire_succeeded",
+            "reacquire_failed", "search_luma_mean", "search_luma_stdDev",
+            "search_sharpness", "initial_search_region_area",
+            "detection_region_area", "crop"]
+    return sub[[c for c in cols if c in sub.columns]].reset_index(drop=True)
 
 
 def _frame_quality_condition_bands(fq_df: pd.DataFrame, bins: int = 3) -> pd.DataFrame:
@@ -808,6 +907,126 @@ def _frame_quality_condition_bands(fq_df: pd.DataFrame, bins: int = 3) -> pd.Dat
                 "ci_high": boot[2],
                 "band_min": float(bg[col].min()),
                 "band_max": float(bg[col].max()),
+            })
+    return pd.DataFrame(rows)
+
+
+def _bootstrap_mean(values: list[float], n_boot: int = N_BOOT) -> tuple[float, float, float] | None:
+    vals = [float(v) for v in values if not math.isnan(float(v))]
+    if not vals:
+        return None
+    rng = random.Random(BOOT_SEED)
+    n = len(vals)
+    mean = sum(vals) / n
+    draws: list[float] = []
+    for _ in range(n_boot):
+        sample = [vals[rng.randrange(n)] for _ in range(n)]
+        draws.append(sum(sample) / n)
+    lo, hi = _pct_ci(draws)
+    return mean, lo, hi
+
+
+_ATTEMPT_ERROR_PREDICTORS = [
+    "attempt_search_luma_mean_mean",
+    "attempt_search_luma_stdDev_mean",
+    "attempt_search_sharpness_mean",
+    "attempt_initial_search_region_area_mean",
+    "attempt_initial_search_region_edge_distance_mean",
+    "attempt_detection_region_area_mean",
+    "attempt_detection_region_edge_distance_mean",
+    "attempt_reacquire_attempt_rate",
+    "attempt_reacquire_success_rate",
+    "attempt_full_frame_reacquire_success_rate",
+]
+
+
+def _detection_error_attempt_run_rows(
+    analysis_root: Path,
+    recs: list[EvalRecord],
+) -> pd.DataFrame:
+    """One row per evaluation record, joining Detection Errors to attempt summaries.
+
+    The outcome is the record's frameQuality flagged rate; predictors are aggregated
+    over that Run's Detector Attempts. This preserves the Run as the independent unit.
+    """
+
+    rows: list[dict[str, Any]] = []
+    pose_cache: dict[
+        tuple[str, str],
+        dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
+    ] = {}
+    for rec in recs:
+        fq = rec.data.get("frameQuality")
+        if not isinstance(fq, dict):
+            continue
+        frames = fq.get("frames") or []
+        detected = len(frames)
+        flagged = sum(
+            1 for e in frames
+            if str((e or {}).get("class") or "ok") in _FQ_FLAGGED
+        )
+        vid = (rec.route_folder, rec.video_key)
+        if vid not in pose_cache:
+            pose_cache[vid] = _load_pose_runs(
+                analysis_root / rec.route_folder / rec.video_key)
+        _, _, attempts = pose_cache[vid].get(rec.run_ts, ("", [], None))
+        rows.append({
+            "route_folder": rec.route_folder,
+            "video_key": rec.video_key,
+            "run_ts": rec.run_ts,
+            "loose": bool(rec.data.get("loosePaired")),
+            "conforming": record_conforms(rec.data),
+            "detected_frames": detected,
+            "flagged_frames": flagged,
+            "flagged_rate": flagged / detected if detected else None,
+            "frozen_stale_frames": int(fq.get("frozenStaleCount") or 0),
+            **_detector_attempt_summary(attempts),
+        })
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    return df.sort_values(["route_folder", "video_key", "run_ts"]).reset_index(drop=True)
+
+
+def _detection_error_attempt_bands(run_df: pd.DataFrame, bins: int = 3) -> pd.DataFrame:
+    """Group Detection Error rates against attempt evidence at the Run unit."""
+
+    if run_df.empty or "flagged_rate" not in run_df.columns:
+        return pd.DataFrame()
+    predictors = [
+        c for c in _ATTEMPT_ERROR_PREDICTORS
+        if c in run_df.columns and pd.api.types.is_numeric_dtype(run_df[c])
+    ]
+    predictors += [
+        c for c in run_df.columns
+        if c.startswith("attempt_search_flag_") and c.endswith("_rate")
+        and pd.api.types.is_numeric_dtype(run_df[c])
+    ]
+    rows: list[dict[str, Any]] = []
+    for predictor in predictors:
+        d = run_df[[predictor, "flagged_rate"]].dropna()
+        if len(d) < max(3, bins):
+            continue
+        if d[predictor].nunique() < 2:
+            continue
+        try:
+            d = d.assign(_bin=pd.qcut(d[predictor], q=bins, labels=False, duplicates="drop"))
+        except ValueError:
+            continue
+        for band, bg in d.groupby("_bin"):
+            vals = bg["flagged_rate"].astype(float).tolist()
+            boot = _bootstrap_mean(vals)
+            if boot is None:
+                continue
+            rows.append({
+                "predictor": predictor,
+                "band": int(band) + 1,
+                "n_runs": len(vals),
+                "flagged_rate_mean": boot[0],
+                "ci_low": boot[1],
+                "ci_high": boot[2],
+                "band_min": float(bg[predictor].min()),
+                "band_max": float(bg[predictor].max()),
             })
     return pd.DataFrame(rows)
 
@@ -863,7 +1082,10 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     quarantined = _quarantined_rows(all_recs)
     loose_records = _loose_rows(all_recs)
     recs = [r for r in all_recs if record_trusted(r.data)]
-    pose_cache: dict[tuple[str, str], dict[str, tuple[str, list[dict[str, Any]]]]] = {}
+    pose_cache: dict[
+        tuple[str, str],
+        dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
+    ] = {}
     for rec in recs:
         vid = (rec.route_folder, rec.video_key)
         if vid not in pose_cache:
@@ -871,7 +1093,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     app_versions = {
         (route, key, run_ts): av
         for (route, key), runs in pose_cache.items()
-        for run_ts, (av, _) in runs.items()
+        for run_ts, (av, _, _) in runs.items()
     }
     frame_joint_df = _build_frame_joint_rows(analysis_root, recs, pose_cache)
     joint_rank = _joint_ranking(frame_joint_df)
@@ -898,6 +1120,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     fq_distractors = _frame_quality_distractors(fq_df)
     fq_worklist = _frame_quality_worklist(fq_df)
     fq_condition_bands = _frame_quality_condition_bands(fq_df)
+    fq_attempt_runs = _detection_error_attempt_run_rows(analysis_root, all_recs)
+    fq_attempt_bands = _detection_error_attempt_bands(fq_attempt_runs)
 
     verified_total = 0
     verified_records = 0
@@ -931,6 +1155,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "frame_quality_distractors": fq_distractors,
         "frame_quality_worklist": fq_worklist,
         "frame_quality_condition_bands": fq_condition_bands,
+        "detection_error_attempt_runs": fq_attempt_runs,
+        "detection_error_attempt_bands": fq_attempt_bands,
         "frame_quality_detected": int(len(fq_df)),
         "frame_quality_flagged": int(fq_df["flagged"].sum()) if not fq_df.empty else 0,
         "frame_quality_frozen": int(fq_df["frozen_stale"].sum()) if not fq_df.empty else 0,
@@ -960,6 +1186,8 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_frame_quality_distractors.csv": ctx.get("frame_quality_distractors"),
         "eval_frame_quality_worklist.csv": ctx.get("frame_quality_worklist"),
         "eval_frame_quality_condition_bands.csv": ctx.get("frame_quality_condition_bands"),
+        "eval_detection_error_attempt_runs.csv": ctx.get("detection_error_attempt_runs"),
+        "eval_detection_error_attempt_bands.csv": ctx.get("detection_error_attempt_bands"),
     }
     for name, table in tables.items():
         if isinstance(table, pd.DataFrame) and not table.empty:
