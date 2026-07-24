@@ -9,19 +9,24 @@ harness will read it.
 
 The harness (`youtube-downloader`) collects climbing videos into per-route
 *bundles* and correlates video conditions against your detector's diagnostics to
-find what makes pose/ORB detection fail. Two gaps block that today:
+find what makes pose/ORB detection fail. Three gaps block that today:
 
 1. Your pose diagnostics ship `overlayQuality: null` and (usually)
-   `badStretches: []`, and per-frame keypoints are already post-processed — so the
-   harness has **no non-circular quality outcome** and its per-frame table is a
-   proxy, not raw detector behavior.
+   `badStretches: []`, and dense per-frame keypoints are already post-processed.
+   Per-frame `source` has proven useful, but issue #68 showed that dense playback
+   frames still mix detector evidence with expected interpolation/fill/smoothing.
+   Current detector analysis needs a first-class `detectorAttempts[]` stream.
 2. ORB diagnostics record only reference-feature *richness*
    (`refKeypointCount`, `keyframeCount`) — **never how well features matched**, so
    "improve ORB" has no outcome to optimize.
+3. User-entered `setup.json.analysisInputs` are useful context, but they are not
+   Ground Truth. Main scanner recommendations must come from Ground Truth joined
+   to detector evidence and computed pixel conditions.
 
 This handoff has two phases. **Phase 1 is runnable today** on data already on disk
 and delivers the first real ORB outcome. **Phase 2** enriches what every future
-scan exports.
+scan exports. The detector-attempt details are split into
+[scanner-detector-attempt-evidence.md](scanner-detector-attempt-evidence.md).
 
 ---
 
@@ -69,7 +74,7 @@ analysis/<route_folder>/<video_key>/
     video-stats.json       # harness-written Video Stats (region stats + camera angle;
                            #   you trigger it via POST /api/video-stats — see scanner-video-stats.md)
     detections/
-        <run_ts>_pose.json # envelope: { video_key, run_ts, ..., data:{ diagnostics, frames[] } }
+        <run_ts>_pose.json # envelope: { video_key, run_ts, ..., data:{ diagnostics, frames[], detectorAttempts[] } }
         <run_ts>_orb.json  # envelope: { ..., data:{ referenceFrameMeta, summary } }
     evaluations/           # harness-written eval records (do NOT write here)
         <run_ts>_vs_<truthHash8>.json
@@ -80,12 +85,27 @@ iff they share `route_folder`. **This is the cross-match ground truth.**
 
 ---
 
+## Payload authority model
+
+- **Ground Truth** owns the expected Climber pose and presence.
+- **`detectorAttempts[]`** owns scanner detector evidence: what was searched, what
+  MediaPipe returned, what the scanner accepted or rejected, and what pixels the
+  detector saw.
+- **Computed pixel conditions** are primary Predictors for failure correlation.
+- **`setup.json.analysisInputs`** are advisory metadata with provenance. Keep them
+  editable, but never treat them as truth for main backend scoring or scanner
+  recommendations.
+- Scanner-side scoring, if still posted for the dev UI, is preview evidence only.
+  Backend evaluation remains authoritative.
+
+---
+
 ## Calibration: write the condition labels into setup.json (do this now)
 
 The harness upload page no longer collects the manual "analysis inputs" (route
-orientation, contrast, shadows, blur, occlusion, notes, …). The harness now only files
-the bundle by `route_folder`; **the scanner owns these labels and writes them at
-calibration**, alongside the crops it already writes to `setup.json`.
+orientation, contrast, shadows, blur, occlusion, notes, ...). The harness now only files
+the bundle by `route_folder`; the scanner writes these advisory labels at
+calibration, alongside the crops it already writes to `setup.json`.
 
 Add an `analysisInputs` block to the `setup.json` the scanner writes:
 
@@ -120,6 +140,9 @@ Rules:
   existing corpus was backfilled from the old `metadata.json` location by a one-off
   migration (`scripts/backfill_analysis_inputs.py`), so no action is needed for old
   bundles.
+- These labels are advisory metadata, not Ground Truth. They may stratify reports
+  or preserve human notes, but main detector analysis should prefer Ground Truth,
+  `detectorAttempts[]`, and computed pixel conditions.
 
 ---
 
@@ -232,20 +255,28 @@ In the pose diagnostics `result` block (currently `overlayQuality: null`,
   — contiguous spans the overlay was visibly wrong/absent (lost track, sustained
   flip run, long gap-fill). `reason` is a short slug.
 
-### 2.2 Per-frame provenance + per-frame conditions
-Each element of `data.frames[]` currently carries `{ timestamp, keypoints[] }`.
-Add:
-- **`source`**: how this frame's pose was obtained —
-  `"raw" | "interpolated" | "filled" | "flipDiscarded" | "limbExpanded"`.
-  (`raw` = the detector actually detected it this frame; the others come from
-  `interpolatePoseFrames` / `estimateMissingLandmarks` / `fillPersistentGaps` /
-  the flip walk / limb-reach expansion.) This is the single most valuable field —
-  it turns the harness's proxy table into real raw-vs-filled analysis.
-- **`climber` / `wall`**: `{ "mean": n, "stdDev": n, "sharpness": n }` for this
-  frame's climber-crop and wall-crop regions — the *same* luma/Laplacian
-  computation you already run for the reference frame, applied per sampled frame.
-  This lets the harness join conditions to raw-detect success **without decoding
-  the git-ignored video**.
+### 2.2 Detector-attempt evidence + playback compatibility
+
+`data.frames[]` may continue to carry dense playback frames for the harness UI and
+legacy readers. It is no longer the preferred detector-evidence stream. Add
+`data.detectorAttempts[]` for the backend analysis path described in
+[scanner-detector-attempt-evidence.md](scanner-detector-attempt-evidence.md).
+
+Each Detector Attempt is one MediaPipe attempt on the sampled 100 ms analysis
+timeline. It carries the scanner's initial search region, raw selected Climber
+keypoints when present, accepted keypoints when accepted, status
+(`accepted`, `missing`, `flipRejected`, `qualityRejected`), full-frame reacquire
+flags, compact candidate metadata, and computed pixel conditions for the searched
+region.
+
+Rules:
+- The harness prefers `detectorAttempts[]` when present and falls back to
+  `frames[]` only for legacy runs.
+- Dense `interpolated`, `filled`, smoothed, or constrained playback frames are not
+  current detector evidence.
+- Full-frame regions are explicit normalized rectangles:
+  `{ "x": 0, "y": 0, "w": 1, "h": 1 }`. `null` means unknown or not applicable.
+- Missing `detectorAttempts[]` means unknown detector evidence, never raw success.
 
 ### 2.3 ORB per-keyframe match stats (panning captures)
 For panning captures you already store ordered keyframes. Add consecutive-keyframe
@@ -262,8 +293,16 @@ and also feeds the harness's per-video cards.)
 
 ### Phase 2 acceptance
 - A fresh scan produces `overlayQuality ∈ [0,1]`, a `badStretches` array,
-  per-frame `source` + `climber`/`wall` stats, and `reference_frame.png`.
+  `detectorAttempts[]` with crop/condition evidence, and `reference_frame.png`.
 - Old bundles remain readable (fields simply absent).
+- After re-scanning the corpus, run the harness evaluation/report cycle:
+  `python -m analysis_pipeline evaluate analysis` and
+  `python -m analysis_pipeline analysis -o reports --no-decode`.
+- The corpus is ready to suggest scanner updates only when regenerated
+  evaluation records have high `detectorAttempts[]` coverage. Until then, use
+  source-covered legacy frames cautiously: `raw_detected` and raw-only
+  `frozenStale` for detector/recovery changes; `heldPose` as a neutral
+  reconstruction/pose-stream diagnostic.
 
 ---
 
@@ -401,8 +440,10 @@ pose model so cross-model agreement can populate the accuracy tier (issue #12).
 ## What the harness does with all this (for your context, no action needed)
 - `overlayQuality`/`badStretches` become the **pose outcome**; detectionRate /
   flipRate / confidence are demoted to predictors/symptoms.
-- Per-frame `source` + region stats drive a **per-frame failure timeline** and
-  raw-detect-success correlations.
+- `detectorAttempts[]` + computed region stats drive a **per-frame failure
+  timeline** and raw detector/recovery correlations. Legacy schema-v8 `heldPose`
+  is a repeated-pose diagnostic; schema-v8 `frozenStale` is counted only for held
+  poses whose scanner `source` was `raw`.
 - `orb_match_matrix.json` renders an **NxN inlier heatmap** + same/cross-route
   separation and route-ID precision/recall.
 - `final_frame.png` (+ `reference_frame.png`) show as thumbnails on per-video
