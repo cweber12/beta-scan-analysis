@@ -34,15 +34,23 @@ not a spec — it carries no implementation detail.
   (stale exactly like Ground Truth when recalibration mints a new hash). Emitted
   by `POST /api/video-stats`; also carries the ViTPose-derived `cameraAngle`
   estimate. Continuous stats are Predictors; the *suggested labels* derived from
-  them only prefill the hand labels — the human-verified `analysisInputs` layer
-  stays authoritative, with per-label provenance (auto-accepted vs
-  human-overridden) recorded by the scanner.
+  them only prefill the hand labels. The saved `analysisInputs` layer is advisory
+  metadata with per-label provenance (auto-accepted vs human-overridden) recorded
+  by the scanner; it is not Ground Truth and must not be treated as the authority
+  for main detector scoring.
 - **Route** — a physical climb, identified by its `route_folder`. Multiple
   **Videos** of the same Route are the norm (different sessions/angles/lighting).
 - **Run** — one detection execution on one Video, recorded as a paired
   `<run_ts>_pose.json` + `<run_ts>_orb.json`. **The Run is the unit of
   statistical inference** — coefficients are summarized across Runs, not pooled
   across frames.
+- **Detector Attempt** — one scanner-owned MediaPipe attempt on the sampled
+  100 ms analysis timeline: the initial search region, whether full-frame
+  reacquire ran, the selected raw Climber pose when MediaPipe returned one, the
+  accepted pose when the scanner kept it, the rejection/missing status, compact
+  candidate-selection metadata, and scanner-computed pixel conditions for the
+  searched region. Detector Attempts are evidence, not recommendations; the
+  harness joins them to Ground Truth to derive Detection Errors.
 
 ## The condition → detection vocabulary
 
@@ -51,8 +59,10 @@ not a spec — it carries no implementation detail.
   **sharpness**), motion magnitude, climber coverage, or a **hand label**
   (route orientation, camera angle, occlusion, camera stability, …). Hand labels
   are written by the scanner at calibration into `setup.json.analysisInputs`
-  (snake_case keys matching `runs.LABEL_KEYS`); the harness upload no longer
-  collects them.
+  (snake_case keys matching `runs.LABEL_KEYS`) and are advisory context only.
+  They may stratify reports or preserve human notes, but computed pixel
+  conditions and Detector Attempts are the primary analysis predictors. The
+  harness upload no longer collects these labels.
 - **Outcome** — a measure of *how good detection actually was*. The trusted pose
   Outcome is **`overlayQuality`** (the scanner's end-to-end 0..1 verdict) plus
   **`badStretches`** (spans the overlay was visibly wrong). The ORB Outcome is
@@ -68,6 +78,12 @@ not a spec — it carries no implementation detail.
   smoothed, the Proxy is **not raw detector output**. Distinguished from
   raw-detect success, which comes from per-frame **provenance**
   (`source: raw | interpolated | filled | flipDiscarded | limbExpanded`).
+- **Detection Error** — a per-frame discrepancy derived by the harness after
+  joining scanner evidence to Ground Truth: missing Climber, hallucinated pose on
+  an absent frame, wrong subject, flip/rotation, distortion, drift, or stale raw
+  detector output. Causes are discovered by correlating Detection Errors against
+  Detector Attempts, crops, and computed pixel conditions, not by accepting
+  hand-authored frame metadata as truth.
 
 ## ORB cross-match
 

@@ -36,6 +36,9 @@ you push the branch. If the branch's PR has already merged, or the data is a dis
 concern, put it on a fresh branch instead.
 
 **General git rules** (also in the harness defaults):
+- Before starting work, check the current branch and worktree. If the branch is
+  not `main` and it has uncommitted changes or no merged PR, stop and tell the
+  human before doing any implementation.
 - If on the default branch (`main`), create a feature branch before committing.
 - End every commit message with:
   `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
@@ -49,8 +52,12 @@ concern, put it on a fresh branch instead.
 The agent pushes and opens PRs; **only the human merges**. Follow this lifecycle so
 branches and `main` never drift:
 
-1. **Start clean.** Before new work: `git checkout main && git pull`, then branch
-   from an up-to-date `main`.
+1. **Start clean.** Before new work: check `git status -sb`. If already on a
+   non-`main` branch, confirm whether that branch has an open/merged PR and
+   whether the worktree is clean. If it has uncommitted changes or has not been
+   merged, report that to the human and wait for direction before implementing.
+   Otherwise `git checkout main && git pull`, then branch from an up-to-date
+   `main`.
 2. **One branch = one PR = one concern.** Don't grow a PR's scope after it's opened
    without flagging it. If unrelated `analysis/` data appears mid-issue, prefer a
    separate branch/PR over appending it to a code PR under review.
@@ -103,3 +110,13 @@ Canonical five-role vocabulary — `needs-triage` / `needs-info` / `ready-for-ag
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
+
+### Pending local handoffs
+
+While issue #75 remains local/unpushed, agents working on
+[issue #73](https://github.com/cweber12/beta-scan-analysis/issues/73) or
+[issue #74](https://github.com/cweber12/beta-scan-analysis/issues/74) should first
+read the detector-attempt handoff in the local #75 worktree:
+`C:\tmp\beta-scan-analysis-75\docs\handoffs\scanner-detector-attempt-evidence.md`.
+It defines the attempt statuses, raw vs accepted keypoints, regions, reacquire
+fields, conditions, candidate metadata, and authority model those slices build on.
