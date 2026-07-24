@@ -12,9 +12,10 @@ The harness (`youtube-downloader`) collects climbing videos into per-route
 find what makes pose/ORB detection fail. Two gaps block that today:
 
 1. Your pose diagnostics ship `overlayQuality: null` and (usually)
-   `badStretches: []`, and per-frame keypoints are already post-processed — so the
-   harness has **no non-circular quality outcome** and its per-frame table is a
-   proxy, not raw detector behavior.
+   `badStretches: []`, and per-frame keypoints are already post-processed. Without
+   per-frame `source`, the harness can see repeated/held poses but cannot tell raw
+   detector failures from expected interpolation/fill/smoothing. That means the
+   corpus is **not decision-ready for scanner updates** until `source` is exported.
 2. ORB diagnostics record only reference-feature *richness*
    (`refKeypointCount`, `keyframeCount`) — **never how well features matched**, so
    "improve ORB" has no outcome to optimize.
@@ -241,6 +242,14 @@ Add:
   `interpolatePoseFrames` / `estimateMissingLandmarks` / `fillPersistentGaps` /
   the flip walk / limb-reach expansion.) This is the single most valuable field —
   it turns the harness's proxy table into real raw-vs-filled analysis.
+  - The harness's schema-v8 `frameQuality` output treats sustained near-identical
+    keypoints as **`heldPose`** only after the first frame in the run; the run
+    anchor is considered fresh.
+  - **`frozenStale` is raw-only**: `heldPose && source == "raw"`. Held poses from
+    `interpolated`, `filled`, `flipDiscarded`, or `limbExpanded` are expected
+    reconstruction behavior, not scanner-failure evidence.
+  - Missing `source` is treated as unknown, never as `raw`. In that state the
+    harness reports held-pose rate but cannot recommend scanner changes from it.
 - **`climber` / `wall`**: `{ "mean": n, "stdDev": n, "sharpness": n }` for this
   frame's climber-crop and wall-crop regions — the *same* luma/Laplacian
   computation you already run for the reference frame, applied per sampled frame.
@@ -264,6 +273,13 @@ and also feeds the harness's per-video cards.)
 - A fresh scan produces `overlayQuality ∈ [0,1]`, a `badStretches` array,
   per-frame `source` + `climber`/`wall` stats, and `reference_frame.png`.
 - Old bundles remain readable (fields simply absent).
+- After re-scanning the corpus, run the harness evaluation/report cycle:
+  `python -m analysis_pipeline evaluate analysis` and
+  `python -m analysis_pipeline analysis -o reports --no-decode`.
+- The corpus is ready to suggest scanner updates only when regenerated
+  schema-v8 evaluation records have high per-frame `source` coverage. At that
+  point use `raw_detected` and raw-only `frozenStale` for detector/recovery
+  changes; use `heldPose` as a neutral reconstruction/pose-stream diagnostic.
 
 ---
 
@@ -402,7 +418,9 @@ pose model so cross-model agreement can populate the accuracy tier (issue #12).
 - `overlayQuality`/`badStretches` become the **pose outcome**; detectionRate /
   flipRate / confidence are demoted to predictors/symptoms.
 - Per-frame `source` + region stats drive a **per-frame failure timeline** and
-  raw-detect-success correlations.
+  raw-detect-success correlations. Schema-v8 `heldPose` is a repeated-pose
+  diagnostic; schema-v8 `frozenStale` is counted only for held poses whose
+  scanner `source` was `raw`.
 - `orb_match_matrix.json` renders an **NxN inlier heatmap** + same/cross-route
   separation and route-ID precision/recall.
 - `final_frame.png` (+ `reference_frame.png`) show as thumbnails on per-video
