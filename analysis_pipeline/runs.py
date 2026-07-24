@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+from .detector_attempts import DETECTOR_ATTEMPT_STATUSES
 from .discovery import RunRecord
 
 # Hand labels carried in setup.json -> analysisInputs. Prefixed ``label_``.
@@ -64,6 +65,13 @@ _REGION_STAT_PATHS: dict[str, tuple[str, ...]] = {
     "shadowDriftRange": ("shadow", "drift", "range"),
 }
 
+_ATTEMPT_STAT_KEYS = {
+    "mean": "luma_mean",
+    "stdDev": "luma_stdDev",
+    "sharpness": "sharpness",
+}
+_REGION_GEOM_KEYS = ("area", "cx", "cy", "edge_distance")
+
 
 def _get(d: dict[str, Any], *path: str, default: Any = None) -> Any:
     cur: Any = d
@@ -84,6 +92,196 @@ def _reference_stats(ref: dict[str, Any], prefix: str) -> dict[str, Any]:
     flags = ref.get("flags", {}) if isinstance(ref, dict) else {}
     for flag, val in flags.items():
         out[f"{prefix}_flag_{flag}"] = bool(val)
+    return out
+
+
+def _slug(name: str) -> str:
+    out = []
+    prev_underscore = False
+    for ch in name:
+        if ch.isalnum():
+            if ch.isupper() and out and not prev_underscore:
+                out.append("_")
+            out.append(ch.lower())
+            prev_underscore = False
+        elif not prev_underscore:
+            out.append("_")
+            prev_underscore = True
+    return "".join(out).strip("_")
+
+
+def _num(value: Any) -> float | None:
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _mean(values: list[float]) -> float | None:
+    return sum(values) / len(values) if values else None
+
+
+def _region_metric(region: Any, metric: str) -> float | None:
+    if not isinstance(region, dict):
+        return None
+    x = _num(region.get("x"))
+    y = _num(region.get("y"))
+    w = _num(region.get("w"))
+    h = _num(region.get("h"))
+    if metric == "area" and w is not None and h is not None:
+        return max(0.0, w * h)
+    if metric == "cx" and x is not None and w is not None:
+        return x + w / 2
+    if metric == "cy" and y is not None and h is not None:
+        return y + h / 2
+    if metric == "edge_distance" and all(v is not None for v in (x, y, w, h)):
+        assert x is not None and y is not None and w is not None and h is not None
+        return max(0.0, min(x, y, 1.0 - (x + w), 1.0 - (y + h)))
+    return None
+
+
+def _is_full_frame(region: Any) -> bool:
+    if not isinstance(region, dict):
+        return False
+    x = _num(region.get("x"))
+    y = _num(region.get("y"))
+    w = _num(region.get("w"))
+    h = _num(region.get("h"))
+    return (
+        x is not None and y is not None and w is not None and h is not None
+        and x <= 0.001 and y <= 0.001 and w >= 0.999 and h >= 0.999
+    )
+
+
+def _condition_flags(conditions: Any) -> dict[str, bool]:
+    if not isinstance(conditions, dict):
+        return {}
+    out: dict[str, bool] = {}
+    flags = conditions.get("flags")
+    if isinstance(flags, dict):
+        for key, value in flags.items():
+            out[_slug(str(key))] = bool(value)
+    for key, value in conditions.items():
+        if key in _ATTEMPT_STAT_KEYS or key == "flags":
+            continue
+        if isinstance(value, bool):
+            out[_slug(str(key))] = value
+    return out
+
+
+def _detector_attempt_summary(attempts: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """Run-unit summaries of Detector Attempt evidence.
+
+    Missing attempts stay unknown (``None`` metrics) so legacy runs are not confused
+    with zero failures or zero reacquires.
+    """
+
+    out: dict[str, Any] = {
+        "attempt_evidence": "unknown" if attempts is None else "attempts",
+        "attempt_count": None,
+        "attempt_reacquire_attempted_count": None,
+        "attempt_reacquire_succeeded_count": None,
+        "attempt_reacquire_failed_count": None,
+        "attempt_reacquire_attempt_rate": None,
+        "attempt_reacquire_success_rate": None,
+        "attempt_full_frame_reacquire_success_count": None,
+        "attempt_full_frame_reacquire_success_rate": None,
+    }
+    for status in sorted(DETECTOR_ATTEMPT_STATUSES):
+        out[f"attempt_status_{_slug(status)}_count"] = None
+        out[f"attempt_status_{_slug(status)}_rate"] = None
+    out["attempt_status_unknown_count"] = None
+    out["attempt_status_unknown_rate"] = None
+    for region_prefix in ("initial_search_region", "detection_region"):
+        for metric in _REGION_GEOM_KEYS:
+            out[f"attempt_{region_prefix}_{metric}_mean"] = None
+            out[f"attempt_{region_prefix}_{metric}_min"] = None
+            out[f"attempt_{region_prefix}_{metric}_max"] = None
+    for prefix in ("search", "reacquire"):
+        for suffix in _ATTEMPT_STAT_KEYS.values():
+            out[f"attempt_{prefix}_{suffix}_mean"] = None
+
+    if attempts is None:
+        return out
+
+    n = len(attempts)
+    out["attempt_count"] = n
+    if n == 0:
+        return out
+
+    status_counts = {status: 0 for status in sorted(DETECTOR_ATTEMPT_STATUSES)}
+    status_counts["unknown"] = 0
+    reacquire_attempted = 0
+    reacquire_succeeded = 0
+    reacquire_failed = 0
+    full_frame_reacquire_success = 0
+    flag_counts: dict[str, int] = {}
+    flag_names: set[str] = set()
+
+    for attempt in attempts:
+        status = attempt.get("status")
+        status_counts[status if status in DETECTOR_ATTEMPT_STATUSES else "unknown"] += 1
+        did_reacquire = bool(attempt.get("reacquireAttempted"))
+        reacquired = bool(attempt.get("reacquired"))
+        if did_reacquire:
+            reacquire_attempted += 1
+            if reacquired:
+                reacquire_succeeded += 1
+                if _is_full_frame(attempt.get("detectionRegion")):
+                    full_frame_reacquire_success += 1
+            else:
+                reacquire_failed += 1
+        for name, value in _condition_flags(attempt.get("searchConditions")).items():
+            flag_names.add(name)
+            if value:
+                flag_counts[name] = flag_counts.get(name, 0) + 1
+
+    for status, count in status_counts.items():
+        key = _slug(status)
+        out[f"attempt_status_{key}_count"] = count
+        out[f"attempt_status_{key}_rate"] = count / n
+
+    out["attempt_reacquire_attempted_count"] = reacquire_attempted
+    out["attempt_reacquire_succeeded_count"] = reacquire_succeeded
+    out["attempt_reacquire_failed_count"] = reacquire_failed
+    out["attempt_reacquire_attempt_rate"] = reacquire_attempted / n
+    out["attempt_reacquire_success_rate"] = (
+        reacquire_succeeded / reacquire_attempted if reacquire_attempted else None
+    )
+    out["attempt_full_frame_reacquire_success_count"] = full_frame_reacquire_success
+    out["attempt_full_frame_reacquire_success_rate"] = full_frame_reacquire_success / n
+
+    for region_prefix, source_key in (
+        ("initial_search_region", "initialSearchRegion"),
+        ("detection_region", "detectionRegion"),
+    ):
+        for metric in _REGION_GEOM_KEYS:
+            vals = [
+                v for v in (_region_metric(a.get(source_key), metric) for a in attempts)
+                if v is not None
+            ]
+            if vals:
+                out[f"attempt_{region_prefix}_{metric}_mean"] = _mean(vals)
+                out[f"attempt_{region_prefix}_{metric}_min"] = min(vals)
+                out[f"attempt_{region_prefix}_{metric}_max"] = max(vals)
+
+    for prefix, source_key in (
+        ("search", "searchConditions"),
+        ("reacquire", "reacquireConditions"),
+    ):
+        for src_key, suffix in _ATTEMPT_STAT_KEYS.items():
+            vals = [
+                float(v)
+                for a in attempts
+                if isinstance(a.get(source_key), dict)
+                for v in [a[source_key].get(src_key)]
+                if isinstance(v, (int, float))
+            ]
+            if vals:
+                out[f"attempt_{prefix}_{suffix}_mean"] = _mean(vals)
+
+    for name in sorted(flag_names):
+        count = flag_counts.get(name, 0)
+        out[f"attempt_search_flag_{name}_rate"] = count / n
+        out[f"attempt_search_flag_{name}_count"] = count
+
     return out
 
 
@@ -137,6 +335,9 @@ def build_run_table(records: list[RunRecord]) -> pd.DataFrame:
         else:
             row["vs_stale"] = None
         row["vs_cameraAngle"] = _get(rec.video_stats, "cameraAngle", "estimate")
+
+        # --- predictors: Detector Attempt run-unit summaries (issue #74) ---
+        row.update(_detector_attempt_summary(rec.detector_attempts))
 
         # --- outcomes: pose (per-run aggregates) ---
         sampled = result_pose.get("sampledFrames")

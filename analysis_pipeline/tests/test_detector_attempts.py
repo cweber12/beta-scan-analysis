@@ -8,6 +8,7 @@ import pandas as pd
 
 from analysis_pipeline.discovery import discover_runs
 from analysis_pipeline.frames import build_frame_table
+from analysis_pipeline.runs import build_run_table
 
 
 def _kp(name: str = "nose", x: float = 0.5, y: float = 0.5) -> dict:
@@ -79,7 +80,10 @@ def test_detector_attempts_are_loaded_and_preferred_over_frames():
             "reacquired": False,
             "rawKeypoints": raw,
             "acceptedKeypoints": accepted,
-            "searchConditions": {"mean": 70, "stdDev": 12, "sharpness": 99},
+            "searchConditions": {
+                "mean": 70, "stdDev": 12, "sharpness": 99,
+                "flags": {"tooDark": True, "lowContrast": False},
+            },
             "reacquireConditions": None,
             "candidateCount": 2,
             "rejectedCandidateCount": 1,
@@ -158,8 +162,27 @@ def test_detector_attempts_are_loaded_and_preferred_over_frames():
         assert frame_df.iloc[0]["accepted_keypoints"] == accepted
         assert frame_df.iloc[2]["detection_region"] == full_frame
         assert frame_df.iloc[0]["initial_search_region"] == crop
+        assert frame_df.iloc[0]["initial_search_region_area"] == 0.34 * 0.45
+        assert frame_df.iloc[2]["detection_region_area"] == 1.0
         assert frame_df.iloc[0]["climber_luma_mean"] == 70.0
+        assert frame_df.iloc[0]["search_luma_mean"] == 70.0
+        assert frame_df.iloc[0]["search_luma_stdDev"] == 12.0
+        assert frame_df.iloc[0]["search_sharpness"] == 99.0
+        assert frame_df.iloc[0]["search_flag_too_dark"] == True  # noqa: E712
+        assert frame_df.iloc[1]["reacquire_failed"] == True  # noqa: E712
+        assert frame_df.iloc[1]["reacquire_succeeded"] == False  # noqa: E712
         assert frame_df.iloc[0]["candidate_count"] == 2
+
+        run = build_run_table(records).iloc[0]
+        assert run["attempt_evidence"] == "attempts"
+        assert run["attempt_count"] == 4
+        assert run["attempt_status_accepted_count"] == 1
+        assert run["attempt_reacquire_attempted_count"] == 2
+        assert run["attempt_reacquire_failed_count"] == 2
+        assert run["attempt_initial_search_region_area_mean"] == 0.34 * 0.45
+        assert run["attempt_detection_region_area_max"] == 1.0
+        assert run["attempt_search_luma_mean_mean"] == 70.0
+        assert run["attempt_search_flag_too_dark_rate"] == 0.25
 
 
 def test_legacy_frame_only_runs_have_unknown_detector_attempt_evidence():
@@ -177,3 +200,7 @@ def test_legacy_frame_only_runs_have_unknown_detector_attempt_evidence():
         assert frame_df["source"].eq("raw").all()
         assert frame_df["raw_detected"].sum() == 4
         assert isinstance(frame_df, pd.DataFrame)
+
+        run = build_run_table(records).iloc[0]
+        assert run["attempt_evidence"] == "unknown"
+        assert run["attempt_count"] is None or pd.isna(run["attempt_count"])

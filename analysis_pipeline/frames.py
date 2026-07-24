@@ -66,6 +66,12 @@ def _attempts_by_timestamp(rec: RunRecord) -> dict[float, dict[str, Any]]:
 # Map the scanner's per-frame region stat keys to the decode-path column suffixes
 # (so exported stats and cv2-computed stats land in the same columns).
 _REGION_STAT_KEYS = {"mean": "luma_mean", "stdDev": "luma_std", "sharpness": "sharpness"}
+_ATTEMPT_STAT_KEYS = {
+    "mean": "luma_mean",
+    "stdDev": "luma_stdDev",
+    "sharpness": "sharpness",
+}
+_REGION_GEOM_KEYS = ("x", "y", "w", "h", "area", "cx", "cy", "edge_distance")
 
 
 def _exported_region_stats(frame: dict[str, Any]) -> dict[str, Any]:
@@ -96,6 +102,74 @@ def _attempt_region_stats(attempt: dict[str, Any]) -> dict[str, Any]:
     for src_key, col_suffix in _REGION_STAT_KEYS.items():
         val = conditions.get(src_key)
         out[f"climber_{col_suffix}"] = float(val) if isinstance(val, (int, float)) else None
+    return out
+
+
+def _slug(name: str) -> str:
+    out = []
+    prev_underscore = False
+    for ch in name:
+        if ch.isalnum():
+            if ch.isupper() and out and not prev_underscore:
+                out.append("_")
+            out.append(ch.lower())
+            prev_underscore = False
+        elif not prev_underscore:
+            out.append("_")
+            prev_underscore = True
+    return "".join(out).strip("_")
+
+
+def _attempt_condition_columns(
+    conditions: Any,
+    prefix: str,
+) -> dict[str, Any]:
+    out = {f"{prefix}_{suffix}": None for suffix in _ATTEMPT_STAT_KEYS.values()}
+    if not isinstance(conditions, dict):
+        return out
+    for src_key, col_suffix in _ATTEMPT_STAT_KEYS.items():
+        val = conditions.get(src_key)
+        out[f"{prefix}_{col_suffix}"] = float(val) if isinstance(val, (int, float)) else None
+
+    flags = conditions.get("flags")
+    if isinstance(flags, dict):
+        for key, value in flags.items():
+            out[f"{prefix}_flag_{_slug(str(key))}"] = bool(value)
+    for key, value in conditions.items():
+        if key in _ATTEMPT_STAT_KEYS or key == "flags":
+            continue
+        if isinstance(value, bool):
+            out[f"{prefix}_flag_{_slug(str(key))}"] = value
+    return out
+
+
+def _region_geometry(region: Any, prefix: str) -> dict[str, Any]:
+    out = {f"{prefix}_{key}": None for key in _REGION_GEOM_KEYS}
+    if not isinstance(region, dict):
+        return out
+    x = region.get("x")
+    y = region.get("y")
+    w = region.get("w")
+    h = region.get("h")
+    if isinstance(x, (int, float)):
+        out[f"{prefix}_x"] = float(x)
+    if isinstance(y, (int, float)):
+        out[f"{prefix}_y"] = float(y)
+    if isinstance(w, (int, float)):
+        out[f"{prefix}_w"] = float(w)
+    if isinstance(h, (int, float)):
+        out[f"{prefix}_h"] = float(h)
+    if isinstance(w, (int, float)) and isinstance(h, (int, float)):
+        out[f"{prefix}_area"] = max(0.0, float(w) * float(h))
+    if isinstance(x, (int, float)) and isinstance(w, (int, float)):
+        out[f"{prefix}_cx"] = float(x) + float(w) / 2
+    if isinstance(y, (int, float)) and isinstance(h, (int, float)):
+        out[f"{prefix}_cy"] = float(y) + float(h) / 2
+    if all(isinstance(v, (int, float)) for v in (x, y, w, h)):
+        out[f"{prefix}_edge_distance"] = max(
+            0.0,
+            min(float(x), float(y), 1.0 - (float(x) + float(w)), 1.0 - (float(y) + float(h))),
+        )
     return out
 
 
@@ -282,6 +356,14 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
                 "reacquired": (
                     attempt.get("reacquired") if isinstance(attempt, dict) else None
                 ),
+                "reacquire_succeeded": (
+                    bool(attempt.get("reacquireAttempted")) and bool(attempt.get("reacquired"))
+                    if isinstance(attempt, dict) else None
+                ),
+                "reacquire_failed": (
+                    bool(attempt.get("reacquireAttempted")) and not bool(attempt.get("reacquired"))
+                    if isinstance(attempt, dict) else None
+                ),
                 "raw_keypoints": (
                     attempt.get("rawKeypoints") if isinstance(attempt, dict) else None
                 ),
@@ -307,6 +389,10 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
             }
 
             if isinstance(attempt, dict):
+                row.update(_region_geometry(attempt.get("initialSearchRegion"), "initial_search_region"))
+                row.update(_region_geometry(attempt.get("detectionRegion"), "detection_region"))
+                row.update(_attempt_condition_columns(attempt.get("searchConditions"), "search"))
+                row.update(_attempt_condition_columns(attempt.get("reacquireConditions"), "reacquire"))
                 row.update(_attempt_region_stats(attempt))
             elif has_frame_stats and isinstance(fr, dict):
                 row.update(_exported_region_stats(fr))
