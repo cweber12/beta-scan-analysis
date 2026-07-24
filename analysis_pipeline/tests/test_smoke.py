@@ -292,14 +292,17 @@ def _kp_list(joints: dict) -> list:
 
 
 def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list,
-                    app_version: str = "") -> None:
+                    app_version: str = "",
+                    detector_attempts: list[dict] | None = None) -> None:
     det = video_dir / "detections"
     det.mkdir(parents=True, exist_ok=True)
     diagnostics = {"appVersion": app_version} if app_version else {}
+    data = {"setupHash": setup_hash, "diagnostics": diagnostics, "frames": frames}
+    if detector_attempts is not None:
+        data["detectorAttempts"] = detector_attempts
     env = {"video_key": video_dir.name, "route_folder": video_dir.parent.name,
            "run_ts": stem, "type": "pose",
-           "data": {"setupHash": setup_hash, "diagnostics": diagnostics,
-                    "frames": frames}}
+           "data": data}
     (det / f"{stem}_pose.json").write_text(json.dumps(env), encoding="utf-8")
 
 
@@ -383,7 +386,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 6
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 7
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -781,6 +784,99 @@ def test_frame_quality_classification_one_per_class():
         assert by_t[6.0]["class"] == "flipped-rotated"
         # Every entry carries a crop placeholder for the exporter (deliverable 2).
         assert all("crop" in e for e in fq["frames"])
+
+
+def test_evaluate_prefers_detector_attempts_over_dense_frames():
+    """Issue #73: attempt-bearing runs use detectorAttempts[] as detector evidence.
+
+    The dense playback frames below all carry keypoints, but their sources are
+    post-processed legacy playback values. They must not turn missing/rejected attempts
+    into detector successes or frame-quality events.
+    """
+
+    from analysis_pipeline import evaluate as ev
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    doc = {
+        "version": 1,
+        "jointSet": list(_TRUTH_JOINTS),
+        "groundTruthHash": "attempt73attempt73",
+        "setupHash": "sh_attempt",
+        "frames": [
+            {"frameIndex": i, "timestamp": float(i), "state": "present",
+             "review": "auto", "joints": present}
+            for i in (1, 2, 3, 4)
+        ],
+    }
+
+    exact = _kp_list(_TRUTH_JOINTS)
+    cy = sum(y for _, y in _TRUTH_JOINTS.values()) / len(_TRUTH_JOINTS)
+    flipped = _kp_list({n: (x, 2 * cy - y) for n, (x, y) in _TRUTH_JOINTS.items()})
+    shifted = _kp_list({n: (x + 0.25, y) for n, (x, y) in _TRUTH_JOINTS.items()})
+    dense = [
+        {"timestamp": 1.0, "source": "interpolated", "keypoints": exact},
+        {"timestamp": 2.0, "source": "filled", "keypoints": exact},
+        {"timestamp": 3.0, "source": "smoothed", "keypoints": exact},
+        {"timestamp": 4.0, "source": "constrained", "keypoints": exact},
+    ]
+    attempts = [
+        {"timestamp": 1.0, "status": "accepted", "rawKeypoints": exact,
+         "acceptedKeypoints": exact, "candidateCount": 1, "selectionMethod": "tracked"},
+        {"timestamp": 2.0, "status": "missing", "rawKeypoints": [],
+         "acceptedKeypoints": [], "candidateCount": 0},
+        {"timestamp": 3.0, "status": "flipRejected", "rawKeypoints": flipped,
+         "acceptedKeypoints": [], "candidateCount": 1, "rejectedCandidateCount": 1,
+         "selectionMethod": "best"},
+        {"timestamp": 4.0, "status": "qualityRejected", "rawKeypoints": shifted,
+         "acceptedKeypoints": [], "candidateCount": 1, "rejectedCandidateCount": 1,
+         "selectionMethod": "best"},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeATT" / "vidATT"
+        _write_bundle_meta(vdir, setup_hash="sh_attempt")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(
+            vdir,
+            "20260101-000073",
+            "sh_attempt",
+            dense,
+            detector_attempts=attempts,
+        )
+
+        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        agr = rec["agreement"]
+        assert agr["frames"]["matchedPresent"] == 4
+        assert agr["presence"] == {"presentDetected": 1, "presentUndetected": 3,
+                                   "absentDetected": 0, "absentUndetected": 0}
+        assert agr["perJoint"]["nose"]["pck"] == {"correct": 1, "total": 4, "value": 0.25}
+        assert agr["perJoint"]["nose"]["coverage"] == {"emitted": 1, "frames": 4,
+                                                        "rate": 0.25}
+
+        fq = rec["frameQuality"]
+        assert fq["detectorEvidence"] == "attempts"
+        assert fq["detectorAttemptStatusCounts"] == {
+            "accepted": 1,
+            "flipRejected": 1,
+            "missing": 1,
+            "qualityRejected": 1,
+            "unknown": 0,
+        }
+        assert fq["classCounts"] == {"ok": 1, "wrong-subject": 0,
+                                     "hallucination-fp": 0, "flipped-rotated": 1,
+                                     "distorted": 1}
+        by_t = {e["t"]: e for e in fq["frames"]}
+        assert set(by_t) == {1.0, 3.0, 4.0}
+        assert by_t[1.0]["class"] == "ok"
+        assert by_t[1.0]["detectorAttemptStatus"] == "accepted"
+        assert by_t[1.0]["acceptedKeypoints"] == exact
+        assert by_t[3.0]["class"] == "flipped-rotated"
+        assert by_t[3.0]["detectorAttemptStatus"] == "flipRejected"
+        assert by_t[3.0]["rawKeypoints"] == flipped
+        assert by_t[4.0]["class"] == "distorted"
+        assert by_t[4.0]["detectorAttemptStatus"] == "qualityRejected"
+        assert by_t[4.0]["rawKeypoints"] == shifted
 
 
 def test_crop_export_selection_and_writes():
@@ -1523,6 +1619,7 @@ def _run_all():
            test_evaluate_setuphash_mismatch_is_skipped,
            test_evaluate_loose_overlap_pairing_fallback,
            test_frame_quality_classification_one_per_class,
+           test_evaluate_prefers_detector_attempts_over_dense_frames,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
            test_frame_quality_condition_bands_flagged_rate,

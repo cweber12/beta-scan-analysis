@@ -56,6 +56,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .detector_attempts import DETECTOR_ATTEMPT_STATUSES, parse_detector_attempts
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 
 # Evaluation record schema version. Bump on any record-shape change.
@@ -64,7 +65,10 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 # v6 adds the per-frame ``frameQuality`` block (issue #44 — auto divergence classes) and
 #    the optional ``loosePaired`` flag on best-overlap fallback records. Readers fail open
 #    on both (a pre-v6 record simply carries no frameQuality / loosePaired key).
-SCHEMA_VERSION = 6
+# v7 adds detector-attempt-backed evidence to evaluation records (issue #73). When a
+# run carries ``detectorAttempts[]``, scoring and frameQuality use that stream instead
+# of dense playback ``frames[]``; frame-only runs keep the legacy fallback behavior.
+SCHEMA_VERSION = 7
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -573,8 +577,16 @@ def _nearest_within(sorted_ts: list[float], target: float, tol: float) -> int | 
 def _pose_frame_joints(frame: dict[str, Any]) -> dict[str, tuple[float, float]]:
     """Scanner keypoints reduced to ``{name: (x, y)}`` over the core joints."""
 
+    return _keypoint_joints(frame.get("keypoints", []) or [])
+
+
+def _keypoint_joints(keypoints: list[dict[str, Any]]) -> dict[str, tuple[float, float]]:
+    """Keypoint list reduced to ``{name: (x, y)}`` over the core joints."""
+
     out: dict[str, tuple[float, float]] = {}
-    for kp in frame.get("keypoints", []) or []:
+    for kp in keypoints:
+        if not isinstance(kp, dict):
+            continue
         name = kp.get("name")
         if name not in COCO_CORE_JOINTS:
             continue
@@ -582,6 +594,37 @@ def _pose_frame_joints(frame: dict[str, Any]) -> dict[str, tuple[float, float]]:
         if x is not None and y is not None:
             out[name] = (float(x), float(y))
     return out
+
+
+def _scanner_observations(
+    pose_frames: list[dict[str, Any]],
+    detector_attempts: list[dict[str, Any]] | None,
+) -> list[_ScannerObservation]:
+    """Evaluation evidence for one Run.
+
+    Detector Attempts are the backend-owned detector stream. When present, accepted
+    attempts contribute their accepted keypoints to scoring while missing/rejected
+    attempts contribute a matched detector observation with no accepted pose. Dense
+    frames are used only for legacy runs where the attempt stream is absent.
+    """
+
+    if detector_attempts is not None:
+        observations: list[_ScannerObservation] = []
+        for attempt in detector_attempts:
+            status = attempt.get("status")
+            accepted = attempt.get("acceptedKeypoints") or []
+            scanner = _keypoint_joints(accepted) if status == "accepted" else {}
+            observations.append(_ScannerObservation(
+                float(attempt.get("timestamp", 0.0)),
+                scanner,
+                detector_attempt=attempt,
+            ))
+        return observations
+
+    return [
+        _ScannerObservation(float(f.get("timestamp", 0.0)), _pose_frame_joints(f))
+        for f in pose_frames
+    ]
 
 
 def _percentile(sorted_vals: list[float], q: float) -> float | None:
@@ -658,6 +701,16 @@ class _FramePair:
     truth: TruthFrame
     matched: bool  # a scanner frame exists within the join tolerance
     scanner: dict[str, tuple[float, float]]  # its core joints; {} when unmatched
+    detector_attempt: dict[str, Any] | None = None
+
+
+@dataclass
+class _ScannerObservation:
+    """One timestamped scanner evidence item used by evaluation pairing."""
+
+    timestamp: float
+    scanner: dict[str, tuple[float, float]]
+    detector_attempt: dict[str, Any] | None = None
 
 
 def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
@@ -831,6 +884,51 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
     }
 
 
+def _attempt_status_counts(pairs: list[_FramePair]) -> dict[str, int]:
+    counts = {status: 0 for status in sorted(DETECTOR_ATTEMPT_STATUSES)}
+    counts["unknown"] = 0
+    for p in pairs:
+        attempt = p.detector_attempt
+        if not p.matched or attempt is None:
+            continue
+        status = attempt.get("status")
+        counts[status if status in DETECTOR_ATTEMPT_STATUSES else "unknown"] += 1
+    return counts
+
+
+def _attempt_raw_joints(attempt: dict[str, Any] | None) -> dict[str, tuple[float, float]]:
+    if not isinstance(attempt, dict):
+        return {}
+    return _keypoint_joints(attempt.get("rawKeypoints") or [])
+
+
+def _attempt_keypoint_payload(
+    attempt: dict[str, Any] | None,
+    key: str,
+) -> list[dict[str, Any]] | None:
+    if not isinstance(attempt, dict):
+        return None
+    value = attempt.get(key)
+    return value if isinstance(value, list) else []
+
+
+def _quality_candidate(p: _FramePair) -> dict[str, tuple[float, float]]:
+    if p.scanner:
+        return p.scanner
+    status = (p.detector_attempt or {}).get("status")
+    if status in {"flipRejected", "qualityRejected"}:
+        return _attempt_raw_joints(p.detector_attempt)
+    return {}
+
+
+def _status_driven_class(status: str | None, geometric_class: str) -> str:
+    if status == "flipRejected":
+        return FQ_FLIPPED
+    if status == "qualityRejected":
+        return FQ_DISTORTED
+    return geometric_class
+
+
 def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
                    setup_hash: str) -> dict[str, Any]:
     """Per-frame detection-quality classification (issue #44 deliverable 1).
@@ -850,7 +948,7 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
     pairs as the agreement tier."""
 
     detected = sorted(
-        (p for p in pairs if p.matched and p.scanner),
+        (p for p in pairs if p.matched and _quality_candidate(p)),
         key=lambda p: p.truth.timestamp)
 
     counts = {c: 0 for c in FQ_CLASSES}
@@ -859,20 +957,24 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
     prev_scanner: dict[str, tuple[float, float]] | None = None
     for p in detected:
         tf = p.truth
+        attempt = p.detector_attempt
+        attempt_status = attempt.get("status") if isinstance(attempt, dict) else None
+        candidate = _quality_candidate(p)
         auto_cls: str
         if tf.present:
             auto_cls, centroid_dist, residual = _classify_detection(
-                tf.joints, p.scanner, torso_length(tf.joints))
+                tf.joints, candidate, torso_length(tf.joints))
         else:
             # A pose on a climber-absent frame — the presence-2x2 ``absentDetected``
             # cell, localized to this timestamp.
             auto_cls, centroid_dist, residual = FQ_HALLUCINATION, None, None
+        auto_cls = _status_driven_class(attempt_status, auto_cls)
         ann = _detection_annotation_for_frame(truth, tf.frame_index, setup_hash)
         effective_cls = ann.failure_class if ann is not None else auto_cls
-        frozen = _is_frozen(p.scanner, prev_scanner)
+        frozen = _is_frozen(p.scanner, prev_scanner) if p.scanner else False
         counts[effective_cls] += 1
         frozen_count += frozen
-        entries.append({
+        entry = {
             "t": _round6(tf.timestamp),
             "class": effective_cls,
             "autoClass": auto_cls,
@@ -883,8 +985,23 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "centroidDist": _round6(centroid_dist),
             "residual": _round6(residual),
             "crop": None,
-        })
-        prev_scanner = p.scanner
+        }
+        if isinstance(attempt, dict):
+            entry.update({
+                "detectorEvidence": "attempts",
+                "detectorAttemptStatus": attempt_status,
+                "detectorStatusKnown": bool(attempt.get("statusKnown")),
+                "rawKeypoints": _attempt_keypoint_payload(attempt, "rawKeypoints"),
+                "acceptedKeypoints": _attempt_keypoint_payload(attempt, "acceptedKeypoints"),
+                "candidateCount": attempt.get("candidateCount"),
+                "rejectedCandidateCount": attempt.get("rejectedCandidateCount"),
+                "selectionMethod": attempt.get("selectionMethod"),
+            })
+        else:
+            entry["detectorEvidence"] = "legacy-frames"
+        entries.append(entry)
+        if p.scanner:
+            prev_scanner = p.scanner
 
     return {
         "thresholds": {
@@ -893,6 +1010,11 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "flipResidual": FQ_FLIP_RESIDUAL,
             "frozenEps": FQ_FROZEN_EPS,
         },
+        "detectorEvidence": (
+            "attempts" if any(p.detector_attempt is not None for p in pairs)
+            else "legacy-frames"
+        ),
+        "detectorAttemptStatusCounts": _attempt_status_counts(pairs),
         "classCounts": counts,
         "frozenStaleCount": frozen_count,
         "flaggedCount": sum(v for c, v in counts.items() if c != FQ_OK),
@@ -923,7 +1045,8 @@ def record_trusted(record: dict[str, Any]) -> bool:
 
 
 def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
-                  setup_hash: str = "") -> dict[str, Any]:
+                  setup_hash: str = "",
+                  detector_attempts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Compute the full metric set for one pose Run against one truth doc.
 
     Returns the record body (counts + agreement/accuracy tiers); provenance is
@@ -934,9 +1057,9 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
     source yet, so it is present but empty (issue #12).
     """
 
-    scanner_ts = sorted(float(f.get("timestamp", 0.0)) for f in pose_frames)
-    by_ts: dict[float, dict[str, Any]] = {float(f.get("timestamp", 0.0)): f
-                                          for f in pose_frames}
+    observations = _scanner_observations(pose_frames, detector_attempts)
+    scanner_ts = sorted(o.timestamp for o in observations)
+    by_ts: dict[float, _ScannerObservation] = {o.timestamp: o for o in observations}
     interval = _scanner_frame_interval(scanner_ts)
     tol = interval / 2
 
@@ -946,8 +1069,9 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
         if idx is None:
             pairs.append(_FramePair(tf, False, {}))
         else:
+            observation = by_ts[scanner_ts[idx]]
             pairs.append(_FramePair(
-                tf, True, _pose_frame_joints(by_ts[scanner_ts[idx]])))
+                tf, True, observation.scanner, observation.detector_attempt))
 
     n_present = sum(1 for p in pairs if p.truth.present)
     n_wrong = sum(1 for p in pairs if p.truth.flagged_wrong)
@@ -994,10 +1118,11 @@ def _iter_pose_runs(detections_dir: Path):
         data = _unwrap(env)
         run_ts = env.get("run_ts", stem)
         setup_hash = data.get("setupHash", "")
-        yield run_ts, setup_hash, data.get("frames", []) or []
+        yield run_ts, setup_hash, data.get("frames", []) or [], parse_detector_attempts(data)
 
 
-def _present_overlap(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> int:
+def _present_overlap(pose_frames: list[dict[str, Any]], truth: TruthDoc,
+                     detector_attempts: list[dict[str, Any]] | None = None) -> int:
     """How many non-excluded, present truth frames a pose Run actually overlaps.
 
     Mirrors the join in ``evaluate_pair`` (nearest scanner frame within half the median
@@ -1005,7 +1130,7 @@ def _present_overlap(pose_frames: list[dict[str, Any]], truth: TruthDoc) -> int:
     (issue #44 deliverable 4). Zero means the Run's samples never land near a scorable
     truth frame, so it carries no per-frame evidence no matter its setupHash."""
 
-    scanner_ts = sorted(float(f.get("timestamp", 0.0)) for f in pose_frames)
+    scanner_ts = sorted(o.timestamp for o in _scanner_observations(pose_frames, detector_attempts))
     if not scanner_ts:
         return 0
     tol = _scanner_frame_interval(scanner_ts) / 2
@@ -1183,7 +1308,7 @@ def evaluate(analysis_root: Path, prune: bool = False,
         # "paired" set so truth-revision history for a still-pairing Run is retained exactly
         # as a full sweep would (current-truth records, trusted and loose, are protected by
         # the hash check regardless).
-        matched_run_ts = [rt for rt, sh, _ in runs if sh == effective_setup_hash]
+        matched_run_ts = [rt for rt, sh, _, _ in runs if sh == effective_setup_hash]
         if mode == EVAL_MODE_UNANALYZED and _bundle_already_analyzed(
                 eval_dir, matched_run_ts, truth_hash8):
             summary.analyzed_skipped.append(f"{route_folder}/{video_key}")
@@ -1193,7 +1318,7 @@ def evaluate(analysis_root: Path, prune: bool = False,
             continue
 
         best_trusted_overlap = 0
-        for run_ts, pose_setup_hash, pose_frames in runs:
+        for run_ts, pose_setup_hash, pose_frames, detector_attempts in runs:
             if pose_setup_hash != effective_setup_hash:
                 summary.pairings.append(Pairing(
                     route_folder, video_key, run_ts, truth.source, "skipped",
@@ -1202,7 +1327,7 @@ def evaluate(analysis_root: Path, prune: bool = False,
                 ))
                 continue
 
-            body = evaluate_pair(pose_frames, truth, effective_setup_hash)
+            body = evaluate_pair(pose_frames, truth, effective_setup_hash, detector_attempts)
             if export_crops:
                 _export_crops(video_dir, run_ts, pose_frames, body)
             record_path = _write_eval_record(
@@ -1222,16 +1347,17 @@ def evaluate(analysis_root: Path, prune: bool = False,
         # trusted pool. Recovers the IE4T94qX55g n=0 case.
         if best_trusted_overlap < LOOSE_PAIR_MIN_OVERLAP:
             best_overlap = best_trusted_overlap
-            candidate: tuple[str, str, list[dict[str, Any]]] | None = None
-            for run_ts, pose_setup_hash, pose_frames in runs:
+            candidate: tuple[str, str, list[dict[str, Any]], list[dict[str, Any]] | None] | None = None
+            for run_ts, pose_setup_hash, pose_frames, detector_attempts in runs:
                 if run_ts in paired_run_ts:
                     continue
-                ov = _present_overlap(pose_frames, truth)
+                ov = _present_overlap(pose_frames, truth, detector_attempts)
                 if ov > best_overlap:
-                    best_overlap, candidate = ov, (run_ts, pose_setup_hash, pose_frames)
+                    best_overlap, candidate = ov, (
+                        run_ts, pose_setup_hash, pose_frames, detector_attempts)
             if candidate is not None and best_overlap > 0:
-                run_ts, pose_setup_hash, pose_frames = candidate
-                body = evaluate_pair(pose_frames, truth, effective_setup_hash)
+                run_ts, pose_setup_hash, pose_frames, detector_attempts = candidate
+                body = evaluate_pair(pose_frames, truth, effective_setup_hash, detector_attempts)
                 if export_crops:
                     _export_crops(video_dir, run_ts, pose_frames, body)
                 reason = (
