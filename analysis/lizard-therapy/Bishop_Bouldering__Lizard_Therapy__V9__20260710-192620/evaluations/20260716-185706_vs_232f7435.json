@@ -1097,7 +1097,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": null,
         "t": 12.2
       },
@@ -1625,7 +1625,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 0.029058,
         "t": 22.0
       },
@@ -1834,11 +1834,12 @@
         "t": 30.0
       }
     ],
-    "frozenStaleCount": 2,
+    "frozenStaleCount": 0,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -1868,7 +1869,7 @@
   "routeFolder": "lizard-therapy",
   "runTs": "20260716-185706",
   "scannerFrameIntervalSec": 0.09999999999999964,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "477a2e8d83013e6f632a05ac6df323a223778e25f40e3ba48de845709b6325d0",
   "truthHash": "232f7435fb1a4273d55c3c20ec2fdd67e72271993528470af076dfdcf2fa2c4f",
   "truthSetupHashSource": "truth",

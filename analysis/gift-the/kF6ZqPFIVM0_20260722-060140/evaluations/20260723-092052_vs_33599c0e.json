@@ -608,7 +608,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.445642,
         "t": 2.5
       },
@@ -740,7 +740,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "distorted",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 1.171755,
         "t": 3.6
       },
@@ -860,7 +860,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.261012,
         "t": 4.6
       },
@@ -980,7 +980,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "distorted",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 1.237368,
         "t": 5.6
       },
@@ -1100,7 +1100,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "distorted",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 1.25855,
         "t": 6.6
       },
@@ -1220,7 +1220,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "distorted",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 1.003964,
         "t": 7.6
       },
@@ -1340,7 +1340,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "distorted",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.836733,
         "t": 8.6
       },
@@ -1460,7 +1460,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "distorted",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 1.412979,
         "t": 9.6
       },
@@ -1580,7 +1580,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 1.577625,
         "t": 10.6
       },
@@ -1700,7 +1700,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 1.131179,
         "t": 11.6
       },
@@ -1820,7 +1820,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.948082,
         "t": 12.6
       },
@@ -1952,7 +1952,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": null,
         "t": 76.4
       },
@@ -1964,7 +1964,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 123.0
       },
@@ -2036,7 +2036,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 182.0
       },
@@ -2096,7 +2096,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 191.5
       },
@@ -2149,11 +2149,12 @@
         "t": 191.9
       }
     ],
-    "frozenStaleCount": 113,
+    "frozenStaleCount": 126,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -2183,7 +2184,7 @@
   "routeFolder": "gift-the",
   "runTs": "20260723-092052",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "ac4209620013c066bbf87e0067b1117d9f4aace8c57cd3d2cfee3c5851899a45",
   "truthHash": "33599c0ef64440e8980d6ba82e4396a1334af6f35752216eacb1b45ab01816f7",
   "truthSetupHashSource": "truth",

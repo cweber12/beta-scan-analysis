@@ -608,7 +608,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 0.0
       },
@@ -680,7 +680,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.099262,
         "t": 0.6
       },
@@ -800,7 +800,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.474156,
         "t": 1.6
       },
@@ -920,7 +920,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.129954,
         "t": 2.6
       },
@@ -1040,7 +1040,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.162636,
         "t": 3.6
       },
@@ -1160,7 +1160,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.326164,
         "t": 5.5
       },
@@ -1292,7 +1292,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 8.5
       },
@@ -1424,7 +1424,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.454881,
         "t": 9.6
       },
@@ -1537,11 +1537,12 @@
         "t": 10.5
       }
     ],
-    "frozenStaleCount": 70,
+    "frozenStaleCount": 78,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -1571,7 +1572,7 @@
   "routeFolder": "lizard-therapy",
   "runTs": "20260722-071604",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "6bcb13b3f5168d49ac03f63b4416a17118dbdd2e2b69ad85371d55b0d57d8afe",
   "truthHash": "bdf4b0da6ffab2fa2c425febef909a618024cfe61aaab42c8c7d1c255195c546",
   "truthSetupHashSource": "truth",

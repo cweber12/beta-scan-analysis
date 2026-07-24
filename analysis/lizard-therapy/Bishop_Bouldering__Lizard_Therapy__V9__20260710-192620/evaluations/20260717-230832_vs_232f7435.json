@@ -1301,7 +1301,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 0.034306,
         "t": 22.0
       },
@@ -1486,11 +1486,12 @@
         "t": 28.0
       }
     ],
-    "frozenStaleCount": 1,
+    "frozenStaleCount": 0,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -1520,7 +1521,7 @@
   "routeFolder": "lizard-therapy",
   "runTs": "20260717-230832",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "477a2e8d83013e6f632a05ac6df323a223778e25f40e3ba48de845709b6325d0",
   "truthHash": "232f7435fb1a4273d55c3c20ec2fdd67e72271993528470af076dfdcf2fa2c4f",
   "truthSetupHashSource": "truth",

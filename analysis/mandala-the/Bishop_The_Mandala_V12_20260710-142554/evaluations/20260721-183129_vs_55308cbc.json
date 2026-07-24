@@ -631,7 +631,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.151172,
         "t": 4.6
       },
@@ -751,7 +751,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 5.6
       },
@@ -871,7 +871,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 6.6
       },
@@ -991,7 +991,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 7.6
       },
@@ -1111,7 +1111,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 8.6
       },
@@ -1231,7 +1231,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 9.6
       },
@@ -1351,7 +1351,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 10.6
       },
@@ -1471,7 +1471,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 11.6
       },
@@ -1591,7 +1591,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 12.6
       },
@@ -1711,7 +1711,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 13.6
       },
@@ -1831,7 +1831,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 14.6
       },
@@ -1944,11 +1944,12 @@
         "t": 15.5
       }
     ],
-    "frozenStaleCount": 99,
+    "frozenStaleCount": 110,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -1975,10 +1976,10 @@
     "presence2x2",
     "jointCoverage"
   ],
-  "routeFolder": "maze-of-death",
+  "routeFolder": "mandala-the",
   "runTs": "20260721-183129",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "cbde249e1b7f999ac27069e661cec37f34d5bb187e67e3fc95e137b7d9e02b63",
   "truthHash": "55308cbc27b90d121785382daa5fd4e02e3a6e047fd4fddeede07fbcc335c652",
   "truthSetupHashSource": "truth",

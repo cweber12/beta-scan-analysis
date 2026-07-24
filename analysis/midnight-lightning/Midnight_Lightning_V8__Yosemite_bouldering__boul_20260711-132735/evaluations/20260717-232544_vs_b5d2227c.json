@@ -797,7 +797,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 0.041833,
         "t": 14.1
       },
@@ -1829,7 +1829,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.096611,
         "t": 36.3
       },
@@ -1889,7 +1889,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 0.090731,
         "t": 36.8
       },
@@ -2134,11 +2134,12 @@
         "t": 49.0
       }
     ],
-    "frozenStaleCount": 5,
+    "frozenStaleCount": 4,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -2168,7 +2169,7 @@
   "routeFolder": "midnight-lightning",
   "runTs": "20260717-232544",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "0e466a4d4875e0dea1e7f75545d9d06e0b72d597ce71e470f2a7d4a0691f815a",
   "truthHash": "b5d2227c5fcb1e3ef8c5b6ec0c0451bf55ec4155c557e0f3e219d8642f6bc88a",
   "truthSetupHashSource": "truth",

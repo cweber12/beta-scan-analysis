@@ -1004,7 +1004,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 0.751189,
         "t": 8.8
       },
@@ -2096,7 +2096,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.060416,
         "t": 68.1
       },
@@ -2216,7 +2216,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.047847,
         "t": 69.1
       },
@@ -5281,11 +5281,12 @@
         "t": 188.0
       }
     ],
-    "frozenStaleCount": 11,
+    "frozenStaleCount": 12,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -5315,7 +5316,7 @@
   "routeFolder": "yin-yang",
   "runTs": "20260723-120141",
   "scannerFrameIntervalSec": 0.10000000000000853,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "45d2a92944953859521f76cc8a3a5168f9fa44c7e4eba8fb1de0ee708bf984b6",
   "truthHash": "26e5ab858d18d2de49b935c0ea335e90b60460f2f03d92f2800a2dc69dfde432",
   "truthSetupHashSource": "truth",

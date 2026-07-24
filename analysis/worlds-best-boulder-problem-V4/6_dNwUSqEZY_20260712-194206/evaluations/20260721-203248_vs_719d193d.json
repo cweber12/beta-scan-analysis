@@ -896,7 +896,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 0.040262,
         "t": 16.6
       },
@@ -1477,11 +1477,12 @@
         "t": 50.0
       }
     ],
-    "frozenStaleCount": 1,
+    "frozenStaleCount": 0,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -1511,7 +1512,7 @@
   "routeFolder": "worlds-best-boulder-problem-V4",
   "runTs": "20260721-203248",
   "scannerFrameIntervalSec": 0.15000049999999954,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "0a798e27e94d8243afbe23327c6a097fc2b33d7cef099f0ea9b506505d0226a8",
   "truthHash": "719d193da7354ed2173f766824cbd09541d47e9603f27da0aa10f911f43e6ccf",
   "truthSetupHashSource": "truth",

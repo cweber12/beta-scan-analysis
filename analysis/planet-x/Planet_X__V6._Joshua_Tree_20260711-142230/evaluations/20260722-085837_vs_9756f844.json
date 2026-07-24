@@ -605,7 +605,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 0.0
       },
@@ -677,7 +677,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.263326,
         "t": 0.6
       },
@@ -797,7 +797,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 4.5
       },
@@ -929,7 +929,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 5.6
       },
@@ -1049,7 +1049,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 7.5
       },
@@ -1181,7 +1181,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 9.5
       },
@@ -1313,7 +1313,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 10.6
       },
@@ -1433,7 +1433,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 11.6
       },
@@ -1553,7 +1553,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 12.6
       },
@@ -1673,7 +1673,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 13.6
       },
@@ -1786,11 +1786,12 @@
         "t": 14.5
       }
     ],
-    "frozenStaleCount": 89,
+    "frozenStaleCount": 99,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -1820,7 +1821,7 @@
   "routeFolder": "planet-x",
   "runTs": "20260722-085837",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "8876488b5cad95e261d5455e7dd8c0bbd2c7b167a725797767f577fd41c62628",
   "truthHash": "9756f844bec2898af9f018135da5740389e08766f9492083009e8918cadca36a",
   "truthSetupHashSource": "truth",

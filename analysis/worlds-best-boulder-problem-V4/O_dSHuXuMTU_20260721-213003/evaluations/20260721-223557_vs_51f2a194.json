@@ -908,7 +908,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.888563,
         "t": 22.3
       },
@@ -956,7 +956,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 0.962059,
         "t": 22.7
       },
@@ -980,7 +980,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 1.231943,
         "t": 22.9
       },
@@ -1376,7 +1376,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "wrong-subject",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": 0.729881,
         "t": 30.7
       },
@@ -2605,11 +2605,12 @@
         "t": 58.0
       }
     ],
-    "frozenStaleCount": 5,
+    "frozenStaleCount": 3,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -2639,7 +2640,7 @@
   "routeFolder": "worlds-best-boulder-problem-V4",
   "runTs": "20260721-223557",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "752224e10c48b45cb9acc0170bb7cd805b219be43e7e1159bae58fb37a8f3ffd",
   "truthHash": "51f2a194ebb23cf0daa148c817f5cbdcfa85f777038aaf2440504db3a79449fe",
   "truthSetupHashSource": "truth",

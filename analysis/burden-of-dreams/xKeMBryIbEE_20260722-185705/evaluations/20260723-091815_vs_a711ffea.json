@@ -607,7 +607,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.081142,
         "t": 0.5
       },
@@ -739,7 +739,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.093655,
         "t": 1.6
       },
@@ -859,7 +859,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.156256,
         "t": 2.6
       },
@@ -979,7 +979,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.169745,
         "t": 3.6
       },
@@ -1099,7 +1099,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 4.6
       },
@@ -1212,11 +1212,12 @@
         "t": 5.5
       }
     ],
-    "frozenStaleCount": 46,
+    "frozenStaleCount": 51,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -1246,7 +1247,7 @@
   "routeFolder": "burden-of-dreams",
   "runTs": "20260723-091815",
   "scannerFrameIntervalSec": 1.0,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "a0800f443b2dc539853e32244382de5a8cf982dbc0336ec02fd0554a22f26c41",
   "truthHash": "a711ffea1130db2ce6996fc6cc6d8c7728e9f779b1c56d416dd8886cb2f79a23",
   "truthSetupHashSource": "truth",

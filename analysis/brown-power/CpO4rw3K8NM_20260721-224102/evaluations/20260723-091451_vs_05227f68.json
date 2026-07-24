@@ -1016,7 +1016,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": null,
         "t": 11.0
       },
@@ -1148,7 +1148,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.113588,
         "t": 12.1
       },
@@ -1292,7 +1292,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": null,
         "t": 18.9
       },
@@ -1340,7 +1340,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "ok",
-        "frozenStale": false,
+        "frozenStale": true,
         "residual": 0.143133,
         "t": 19.3
       },
@@ -1424,7 +1424,7 @@
         "crop": null,
         "distractor": null,
         "failureClass": "hallucination-fp",
-        "frozenStale": true,
+        "frozenStale": false,
         "residual": null,
         "t": 20.0
       },
@@ -1693,11 +1693,12 @@
         "t": 39.0
       }
     ],
-    "frozenStaleCount": 10,
+    "frozenStaleCount": 11,
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
       "frozenEps": 0.005,
+      "frozenMinRun": 3,
       "wrongSubjectCentroid": 1.0
     }
   },
@@ -1727,7 +1728,7 @@
   "routeFolder": "brown-power",
   "runTs": "20260723-091451",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "setupHash": "4bd45f6b6fb7277185050c6d87e13e248e9e513234a723fe3fdd94e432eaa4e1",
   "truthHash": "05227f686cddb37ebdaae54d2453ebe79f11303065ed932a1836cd1a241391b2",
   "truthSetupHashSource": "truth",
