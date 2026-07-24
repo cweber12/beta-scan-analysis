@@ -560,7 +560,7 @@ def _shame_lists(analysis_root: Path) -> tuple[list[str], list[str]]:
             continue
         setup = _load_json(video_dir / "setup.json") if (video_dir / "setup.json").exists() else {}
         effective_setup_hash = truth.setup_hash or setup.get("setupHash", "")
-        for run_ts, pose_setup_hash, _ in _iter_pose_runs(video_dir / "detections"):
+        for run_ts, pose_setup_hash, _, _ in _iter_pose_runs(video_dir / "detections"):
             if pose_setup_hash != effective_setup_hash:
                 stale_runs.append(
                     f"{route}/{key} {run_ts} (run {pose_setup_hash[:8] or '∅'} vs truth {effective_setup_hash[:8] or '∅'})"

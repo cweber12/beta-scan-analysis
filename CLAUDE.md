@@ -39,10 +39,10 @@ concern, put it on a fresh branch instead.
 - If on the default branch (`main`), create a feature branch before committing.
 - End every commit message with:
   `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
-- Only push when explicitly asked.
-- On task completion, if the human explicitly asks to deliver the work, confirm
-  the target branch is not already merged, then push and open the PR before
-  reporting completion. This applies to Codex agents as well as Claude agents.
+- Push and open a PR automatically after completing a self-contained task, unless
+  there are loose ends to clarify or the human explicitly asks to keep the work
+  local. Before pushing, confirm the target branch is not already merged. This
+  applies to Codex agents as well as Claude agents.
 
 ## Branch, PR & sync flow
 
