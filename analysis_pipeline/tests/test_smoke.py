@@ -383,7 +383,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 7
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 8
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -770,13 +770,16 @@ def test_frame_quality_classification_one_per_class():
         assert fq["classCounts"] == {"ok": 2, "wrong-subject": 1, "hallucination-fp": 1,
                                      "flipped-rotated": 1, "distorted": 1}
         assert fq["flaggedCount"] == 4
+        assert fq["heldPoseCount"] == 0
         assert fq["frozenStaleCount"] == 0  # #68: a 2-frame duplicate is not a sustained freeze
         assert fq["thresholds"]["wrongSubjectCentroid"] == ev.FQ_WRONG_SUBJECT_CENTROID
         assert fq["thresholds"]["frozenMinRun"] == ev.FQ_FROZEN_MIN_RUN
 
         by_t = {e["t"]: e for e in fq["frames"]}
-        assert by_t[1.0]["class"] == "ok" and by_t[1.0]["frozenStale"] is False
-        assert by_t[2.0]["class"] == "ok" and by_t[2.0]["frozenStale"] is False
+        assert by_t[1.0]["class"] == "ok" and by_t[1.0]["heldPose"] is False
+        assert by_t[1.0]["frozenStale"] is False
+        assert by_t[2.0]["class"] == "ok" and by_t[2.0]["heldPose"] is False
+        assert by_t[2.0]["frozenStale"] is False
         assert by_t[3.0]["class"] == "hallucination-fp"
         assert by_t[4.0]["class"] == "wrong-subject"
         assert by_t[5.0]["class"] == "distorted"
@@ -786,9 +789,8 @@ def test_frame_quality_classification_one_per_class():
 
 
 def test_frozen_stale_requires_sustained_run():
-    """Issue #68: frozenStale flags a frame only inside a maximal run of ≥ FQ_FROZEN_MIN_RUN
-    near-identical detected poses. Isolated 1–2 frame near-duplicates (a paused climber) are
-    not stale; a sustained repeat is, for every frame in the run."""
+    """Issue #68: only non-anchor repeats inside a sustained near-identical run are held.
+    Source provenance decides whether a held pose is a raw frozen-stale failure."""
 
     from analysis_pipeline import evaluate as ev
 
@@ -807,16 +809,62 @@ def test_frozen_stale_requires_sustained_run():
     # A 2-frame duplicate is below the run floor → not frozen.
     assert ev._frozen_flags([still, still]) == [False, False]
 
-    # A 3-frame identical run → every frame in the run is frozen.
-    assert ev._frozen_flags([still, still, still]) == [True, True, True]
+    # A 3-frame identical run -> the anchor is fresh; only repeats are held.
+    assert ev._frozen_flags([still, still, still]) == [False, True, True]
 
-    # A sustained run bracketed by motion: only the sustained stretch flags.
+    # A sustained run bracketed by motion: only repeats in the sustained stretch flag.
     seq = [moved, still, still, still, moved, pose(0.55)]
-    assert ev._frozen_flags(seq) == [False, True, True, True, False, False]
+    assert ev._frozen_flags(seq) == [False, False, True, True, False, False]
 
     # Two short pauses (2 frames each) separated by motion → neither reaches the floor.
     seq2 = [still, still, moved, pose(0.52), pose(0.52)]
     assert ev._frozen_flags(seq2) == [False, False, False, False, False]
+
+
+def test_frame_quality_splits_held_pose_from_raw_frozen_stale():
+    """Issue #68 v8: held poses are neutral diagnostics; frozenStale is raw-only."""
+
+    from analysis_pipeline import evaluate as ev
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    frames = [
+        {"frameIndex": i, "timestamp": float(i), "state": "present",
+         "review": "auto", "joints": present}
+        for i in range(1, 6)
+    ]
+    doc = {"version": 1, "jointSet": list(_TRUTH_JOINTS),
+           "groundTruthHash": "heldheldheld0001", "frames": frames}
+    scanner = [
+        {"timestamp": 1.0, "source": "raw", "keypoints": _kp_list(_TRUTH_JOINTS)},
+        {"timestamp": 2.0, "source": "raw", "keypoints": _kp_list(_TRUTH_JOINTS)},
+        {"timestamp": 3.0, "source": "interpolated", "keypoints": _kp_list(_TRUTH_JOINTS)},
+        {"timestamp": 4.0, "source": "filled", "keypoints": _kp_list(_TRUTH_JOINTS)},
+        {"timestamp": 5.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeHeld" / "vidHeld"
+        _write_bundle_meta(vdir, setup_hash="sh_held")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000060", "sh_held", scanner)
+
+        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        fq = rec["frameQuality"]
+        assert fq["heldPoseCount"] == 4
+        assert fq["frozenStaleCount"] == 1
+
+        by_t = {e["t"]: e for e in fq["frames"]}
+        assert by_t[1.0]["source"] == "raw"
+        assert by_t[1.0]["heldPose"] is False and by_t[1.0]["frozenStale"] is False
+        assert by_t[2.0]["source"] == "raw"
+        assert by_t[2.0]["heldPose"] is True and by_t[2.0]["frozenStale"] is True
+        assert by_t[3.0]["source"] == "interpolated"
+        assert by_t[3.0]["heldPose"] is True and by_t[3.0]["frozenStale"] is False
+        assert by_t[4.0]["source"] == "filled"
+        assert by_t[4.0]["heldPose"] is True and by_t[4.0]["frozenStale"] is False
+        assert by_t[5.0]["source"] is None
+        assert by_t[5.0]["heldPose"] is True and by_t[5.0]["frozenStale"] is False
 
 
 def test_crop_export_selection_and_writes():
@@ -914,24 +962,40 @@ def test_frame_quality_aggregation_pools_all_records():
                 {n: (2 * x, 2 * y) for n, (x, y) in _TRUTH_JOINTS.items()})}
             for i in (1, 2, 3)])
 
+        # Held-but-ok bundle: all frames are geometrically correct and non-raw. These
+        # should increase held-pose diagnostics but must not inflate the failure worklist.
+        held_ok = root / "routeFA" / "vidHeldOk"
+        _write_bundle_meta(held_ok, setup_hash="sh_h")
+        (held_ok / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": "cccccccc33333333",
+            "frames": [{"frameIndex": i, "timestamp": float(i), "state": "present",
+                        "review": "auto", "joints": present} for i in (1, 2, 3)]}),
+            encoding="utf-8")
+        _write_pose_run(held_ok, "20260101-000003", "sh_h", [
+            {"timestamp": float(i), "source": "interpolated",
+             "keypoints": _kp_list(_TRUTH_JOINTS)}
+            for i in (1, 2, 3)])
+
         summary = ev.evaluate(root)
-        assert len(summary.written) == 2
+        assert len(summary.written) == 3
 
         ctx = trends.build_trend_context(root)
         # Trusted pool excludes the quarantined bundle; the frame-quality pool keeps it.
-        assert ctx["eval_count"] == 1 and ctx["quarantined_count"] == 1
-        assert ctx["frame_quality_detected"] == 6  # 3 good + 3 bad
+        assert ctx["eval_count"] == 2 and ctx["quarantined_count"] == 1
+        assert ctx["frame_quality_detected"] == 9  # 3 good + 3 bad + 3 held-ok
         assert ctx["frame_quality_flagged"] == 4   # 1 hallucination + 3 wrong-subject
+        assert ctx["frame_quality_held"] == 4       # 2 bad repeats + 2 held-ok repeats
+        assert ctx["frame_quality_frozen"] == 0     # no held frame has source == raw
 
         classes = ctx["frame_quality_classes"].set_index("class")["n"].to_dict()
-        assert classes["ok"] == 2
+        assert classes["ok"] == 5
         assert classes["hallucination-fp"] == 1
         assert classes["wrong-subject"] == 3
 
         wl = ctx["frame_quality_worklist"]
-        assert len(wl) == 4  # all flagged frames
+        assert len(wl) == 4  # all flagged frames; held-ok diagnostics stay out
         assert wl.iloc[0]["class"] == "hallucination-fp"  # worst class first
-        assert "crop" in wl.columns
+        assert {"crop", "source", "held_pose", "frozen_stale"}.issubset(wl.columns)
         assert set(wl["class"]) == {"hallucination-fp", "wrong-subject"}
 
 
@@ -1560,6 +1624,7 @@ def _run_all():
            test_evaluate_loose_overlap_pairing_fallback,
            test_frame_quality_classification_one_per_class,
            test_frozen_stale_requires_sustained_run,
+           test_frame_quality_splits_held_pose_from_raw_frozen_stale,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
            test_frame_quality_condition_bands_flagged_rate,

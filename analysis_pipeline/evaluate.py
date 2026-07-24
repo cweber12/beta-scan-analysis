@@ -64,11 +64,12 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 # v6 adds the per-frame ``frameQuality`` block (issue #44 — auto divergence classes) and
 #    the optional ``loosePaired`` flag on best-overlap fallback records. Readers fail open
 #    on both (a pre-v6 record simply carries no frameQuality / loosePaired key).
-# v7 redefines ``frameQuality.frozenStale`` as a sustained-run property (issue #68):
-#    frozen only inside a maximal run of ≥ ``FQ_FROZEN_MIN_RUN`` near-identical detected
-#    poses, not any single static step. ``thresholds`` gains ``frozenMinRun``. Regenerate
-#    to get the new semantics; readers of pre-v7 records see the old, over-firing flag.
-SCHEMA_VERSION = 7
+# v7 redefines ``frameQuality.frozenStale`` as a sustained-run property (issue #68),
+#    but still counts each run anchor and ignores scanner per-frame provenance.
+# v8 splits the neutral repeated-pose diagnostic from the raw-detector stale failure:
+#    ``heldPose`` is a non-anchor repeat in a sustained near-identical run, while
+#    ``frozenStale`` requires ``heldPose`` and scanner ``source == "raw"``.
+SCHEMA_VERSION = 8
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -561,12 +562,12 @@ def _is_frozen(cur: dict[str, tuple[float, float]],
 
 def _frozen_flags(poses: list[dict[str, tuple[float, float]]],
                   min_run: int = FQ_FROZEN_MIN_RUN) -> list[bool]:
-    """Per-frame frozen/stale flags over detected poses in timestamp order.
+    """Per-frame held-pose repeat flags over detected poses in timestamp order.
 
-    A frame is frozen only inside a maximal run of ``≥ min_run`` consecutive
-    near-identical poses (each adjacent pair ``_is_frozen``). Isolated one- or two-frame
-    near-duplicates — a paused or slow-moving climber — are not flagged; only a sustained
-    stale overlay is (issue #68)."""
+    A frame is held only when it is a non-anchor repeat inside a maximal run of
+    ``≥ min_run`` consecutive near-identical poses (each adjacent pair ``_is_frozen``).
+    The run anchor is the fresh pose and is not stale; source provenance later decides
+    whether the held pose is a raw-detector stale failure or benign reconstruction."""
 
     n = len(poses)
     flags = [False] * n
@@ -576,7 +577,7 @@ def _frozen_flags(poses: list[dict[str, tuple[float, float]]],
         while j + 1 < n and _is_frozen(poses[j + 1], poses[j]):
             j += 1
         if j - i + 1 >= min_run:  # frames i..j form one near-identical run
-            for k in range(i, j + 1):
+            for k in range(i + 1, j + 1):
                 flags[k] = True
         i = j + 1
     return flags
@@ -693,6 +694,7 @@ class _FramePair:
     truth: TruthFrame
     matched: bool  # a scanner frame exists within the join tolerance
     scanner: dict[str, tuple[float, float]]  # its core joints; {} when unmatched
+    scanner_source: str | None = None  # scanner pose ``source`` provenance, when exported
 
 
 def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
@@ -888,14 +890,16 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         (p for p in pairs if p.matched and p.scanner),
         key=lambda p: p.truth.timestamp)
 
-    # Frozen/stale is a sustained-run property (issue #68), so resolve it for the whole
-    # timestamp-ordered sequence up front rather than one adjacent pair at a time.
-    frozen_flags = _frozen_flags([p.scanner for p in detected])
+    # Held-pose detection is a sustained-run property (issue #68), so resolve it for the
+    # whole timestamp-ordered sequence up front. ``frozenStale`` is stricter: only a held
+    # pose emitted by the raw detector is a scanner stale failure.
+    held_flags = _frozen_flags([p.scanner for p in detected])
 
     counts = {c: 0 for c in FQ_CLASSES}
+    held_count = 0
     frozen_count = 0
     entries: list[dict[str, Any]] = []
-    for p, frozen in zip(detected, frozen_flags):
+    for p, held in zip(detected, held_flags):
         tf = p.truth
         auto_cls: str
         if tf.present:
@@ -907,15 +911,19 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             auto_cls, centroid_dist, residual = FQ_HALLUCINATION, None, None
         ann = _detection_annotation_for_frame(truth, tf.frame_index, setup_hash)
         effective_cls = ann.failure_class if ann is not None else auto_cls
+        frozen = bool(held and p.scanner_source == "raw")
         counts[effective_cls] += 1
+        held_count += held
         frozen_count += frozen
         entries.append({
             "t": _round6(tf.timestamp),
             "class": effective_cls,
             "autoClass": auto_cls,
             "failureClass": effective_cls,
+            "source": p.scanner_source,
             "distractor": ann.distractor if ann is not None else None,
             "annotationSetupHash": ann.setup_hash if ann is not None else None,
+            "heldPose": held,
             "frozenStale": frozen,
             "centroidDist": _round6(centroid_dist),
             "residual": _round6(residual),
@@ -931,6 +939,7 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "frozenMinRun": FQ_FROZEN_MIN_RUN,
         },
         "classCounts": counts,
+        "heldPoseCount": held_count,
         "frozenStaleCount": frozen_count,
         "flaggedCount": sum(v for c, v in counts.items() if c != FQ_OK),
         "detectedFrames": len(entries),
@@ -983,8 +992,9 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
         if idx is None:
             pairs.append(_FramePair(tf, False, {}))
         else:
+            frame = by_ts[scanner_ts[idx]]
             pairs.append(_FramePair(
-                tf, True, _pose_frame_joints(by_ts[scanner_ts[idx]])))
+                tf, True, _pose_frame_joints(frame), frame.get("source")))
 
     n_present = sum(1 for p in pairs if p.truth.present)
     n_wrong = sum(1 for p in pairs if p.truth.flagged_wrong)
