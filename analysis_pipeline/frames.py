@@ -1,14 +1,18 @@
 """Per-frame table: join per-frame image-quality predictors to per-frame pose
 outcomes.
 
-Two sources of per-frame conditions, in priority order:
+Three sources of per-frame conditions/evidence, in priority order:
 
-1. **Scanner export (preferred).** When the pose export carries per-frame
+1. **Detector Attempts (preferred).** When the pose export carries
+   ``detectorAttempts[]``, expose that scanner-owned attempt stream directly and
+   keep raw/accepted keypoints distinct. This is detector evidence, not a dense
+   playback-frame proxy.
+2. **Scanner frame export (legacy).** When the pose export carries per-frame
    ``source`` provenance and ``climber``/``wall`` region stats (the Phase 2 data
    contract), use them directly — no video decode, so the committed record is
    self-sufficient — and expose ``raw_detected`` (source == "raw") as a *real*
    outcome instead of the proxy.
-2. **cv2 decode (fallback).** For older bundles without exported per-frame stats,
+3. **cv2 decode (fallback).** For older bundles without exported per-frame stats,
    decode the video at sampled timestamps and compute the crop stats here. In this
    path ``kp_count`` / ``mean_score`` are an explicit quality *proxy* (the exported
    frames are already post-processed and filled), not raw detector output.
@@ -21,6 +25,7 @@ from typing import Any
 
 import pandas as pd
 
+from .detector_attempts import DETECTOR_ATTEMPT_EVIDENCE_UNKNOWN
 from .discovery import RunRecord
 
 try:  # optional at import time so discovery/stats work without cv2 installed
@@ -50,6 +55,14 @@ def _frames_by_timestamp(pose: dict[str, Any]) -> dict[float, dict[str, Any]]:
     return out
 
 
+def _attempts_by_timestamp(rec: RunRecord) -> dict[float, dict[str, Any]]:
+    out: dict[float, dict[str, Any]] = {}
+    for attempt in rec.detector_attempts or []:
+        ts = round(float(attempt.get("timestamp", 0.0)), 1)
+        out[ts] = attempt
+    return out
+
+
 # Map the scanner's per-frame region stat keys to the decode-path column suffixes
 # (so exported stats and cv2-computed stats land in the same columns).
 _REGION_STAT_KEYS = {"mean": "luma_mean", "stdDev": "luma_std", "sharpness": "sharpness"}
@@ -71,6 +84,27 @@ def _exported_region_stats(frame: dict[str, Any]) -> dict[str, Any]:
             else:
                 out[f"{region}_{col_suffix}"] = None
     return out if present else {}
+
+
+def _attempt_region_stats(attempt: dict[str, Any]) -> dict[str, Any]:
+    """Attempt-level search conditions mapped onto the legacy frame stat columns."""
+
+    out: dict[str, Any] = {}
+    conditions = attempt.get("searchConditions")
+    if not isinstance(conditions, dict):
+        return out
+    for src_key, col_suffix in _REGION_STAT_KEYS.items():
+        val = conditions.get(src_key)
+        out[f"climber_{col_suffix}"] = float(val) if isinstance(val, (int, float)) else None
+    return out
+
+
+def _attempt_source(status: str | None) -> str | None:
+    if status == "accepted":
+        return "raw"
+    if status in {"missing", "flipRejected", "qualityRejected"}:
+        return status
+    return None
 
 
 def _pose_export_flags(pose: dict[str, Any]) -> tuple[bool, bool]:
@@ -155,6 +189,8 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
             or 0.0
         )
         frame_index = _frames_by_timestamp(rec.pose)
+        attempt_index = _attempts_by_timestamp(rec)
+        has_attempts = rec.detector_attempts is not None
         has_frame_stats, has_provenance = _pose_export_flags(rec.pose)
 
         cap = None
@@ -182,7 +218,13 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
         for k in range(n_samples):
             t = round(k * interval, 1)
             fr = frame_index.get(t)
-            keypoints = (fr.get("keypoints") if isinstance(fr, dict) else None) or []
+            attempt = attempt_index.get(t) if has_attempts else None
+            if isinstance(attempt, dict):
+                keypoints = attempt.get("acceptedKeypoints") or []
+            elif has_attempts:
+                keypoints = []
+            else:
+                keypoints = (fr.get("keypoints") if isinstance(fr, dict) else None) or []
             kin = _proxy_and_kinematics(keypoints)
 
             velocity = None
@@ -192,13 +234,31 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
             if cx is not None:
                 prev_c = (cx, cy)
 
-            # Provenance -> real per-frame outcome. A sampled timestamp with no
-            # exported frame is an undetected frame *only* when this run carries
-            # provenance at all (else it's an old bundle and we can't tell).
-            source = fr.get("source") if isinstance(fr, dict) else None
-            if source is None and has_provenance:
-                source = "missing"
-            raw_detected = None if source is None else (1.0 if source == "raw" else 0.0)
+            if isinstance(attempt, dict):
+                attempt_status = attempt.get("status")
+                attempt_source = _attempt_source(attempt_status)
+                source = attempt_source
+                raw_detected = 1.0 if attempt_status == "accepted" else 0.0
+                evidence = rec.detector_attempt_evidence
+            else:
+                attempt_status = None
+                attempt_source = None
+                evidence = (
+                    rec.detector_attempt_evidence
+                    if has_attempts
+                    else DETECTOR_ATTEMPT_EVIDENCE_UNKNOWN
+                )
+                if has_attempts:
+                    source = None
+                    raw_detected = None
+                else:
+                    # Provenance -> real per-frame outcome. A sampled timestamp with no
+                    # exported frame is an undetected frame *only* when this run carries
+                    # provenance at all (else it's an old bundle and we can't tell).
+                    source = fr.get("source") if isinstance(fr, dict) else None
+                    if source is None and has_provenance:
+                        source = "missing"
+                    raw_detected = None if source is None else (1.0 if source == "raw" else 0.0)
 
             row: dict[str, Any] = {
                 "video_key": rec.video_key,
@@ -207,10 +267,48 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
                 "velocity": velocity,
                 "source": source,
                 "raw_detected": raw_detected,
+                "detector_attempt_evidence": evidence,
+                "detector_attempt_status": attempt_status,
+                "detector_attempt_source": attempt_source,
+                "initial_search_region": (
+                    attempt.get("initialSearchRegion") if isinstance(attempt, dict) else None
+                ),
+                "detection_region": (
+                    attempt.get("detectionRegion") if isinstance(attempt, dict) else None
+                ),
+                "reacquire_attempted": (
+                    attempt.get("reacquireAttempted") if isinstance(attempt, dict) else None
+                ),
+                "reacquired": (
+                    attempt.get("reacquired") if isinstance(attempt, dict) else None
+                ),
+                "raw_keypoints": (
+                    attempt.get("rawKeypoints") if isinstance(attempt, dict) else None
+                ),
+                "accepted_keypoints": (
+                    attempt.get("acceptedKeypoints") if isinstance(attempt, dict) else None
+                ),
+                "search_conditions": (
+                    attempt.get("searchConditions") if isinstance(attempt, dict) else None
+                ),
+                "reacquire_conditions": (
+                    attempt.get("reacquireConditions") if isinstance(attempt, dict) else None
+                ),
+                "candidate_count": (
+                    attempt.get("candidateCount") if isinstance(attempt, dict) else None
+                ),
+                "rejected_candidate_count": (
+                    attempt.get("rejectedCandidateCount") if isinstance(attempt, dict) else None
+                ),
+                "selection_method": (
+                    attempt.get("selectionMethod") if isinstance(attempt, dict) else None
+                ),
                 **kin,
             }
 
-            if has_frame_stats and isinstance(fr, dict):
+            if isinstance(attempt, dict):
+                row.update(_attempt_region_stats(attempt))
+            elif has_frame_stats and isinstance(fr, dict):
                 row.update(_exported_region_stats(fr))
             elif can_decode:
                 cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
