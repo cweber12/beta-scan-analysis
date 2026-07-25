@@ -37,6 +37,8 @@ from .runs import _detector_attempt_summary
 from .evaluate import (
     COCO_CORE_JOINTS,
     MISS_CAUSES,
+    NONCONFORMANCE_CAUSES,
+    NONCONFORMANCE_SUSPECTED_MISTRACK,
     _dist,
     _iter_pose_runs,
     _nearest_within,
@@ -44,6 +46,7 @@ from .evaluate import (
     _scanner_frame_interval,
     load_truth,
     record_conforms,
+    record_nonconformance_cause,
     record_trusted,
     torso_length,
 )
@@ -1270,25 +1273,55 @@ def _crop_totals(crop_df: pd.DataFrame) -> dict[str, Any]:
 
 def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
     """Non-conforming records (issue #15 gate), flattened for the report's shame
-    accounting: which bundle/run tripped the gate, why, and the offending fit."""
+    accounting: which bundle/run tripped the gate, why, and the offending fit.
+
+    Each row carries the issue #88 ``cause`` and the evidence behind it, so the section
+    can be read cause-first: a sparse-match row is a detector problem that happens to trip
+    a truth gate, and only a suspected-mistrack row is a truth problem."""
 
     rows: list[dict[str, Any]] = []
     for rec in recs:
         if record_conforms(rec.data):
             continue
         conf = rec.data.get("conformance") or {}
+        evidence = conf.get("causeEvidence") or {}
         rows.append({
             "route_folder": rec.route_folder,
             "video_key": rec.video_key,
             "run_ts": rec.run_ts,
+            "cause": record_nonconformance_cause(rec.data),
             "reasons": ", ".join(conf.get("reasons") or []),
             "n": conf.get("n"),
+            "fit_frames": evidence.get("fitFrames"),
+            "accepted_share": evidence.get("acceptedShare"),
             "slope_x": (conf.get("x") or {}).get("slope"),
             "r2_x": (conf.get("x") or {}).get("r2"),
             "slope_y": (conf.get("y") or {}).get("slope"),
             "r2_y": (conf.get("y") or {}).get("r2"),
         })
     return sorted(rows, key=lambda r: (r["route_folder"], r["video_key"], r["run_ts"]))
+
+
+def _quarantine_cause_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """Non-conforming records per cause. Every cause is keyed even at zero, so a report
+    reading "0 suspected mis-tracks" is distinguishable from a report that never split."""
+
+    counts = {c: 0 for c in NONCONFORMANCE_CAUSES}
+    for row in rows:
+        cause = row.get("cause")
+        if cause in counts:
+            counts[cause] += 1
+    return counts
+
+
+def _truth_repair_worklist(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The subset of quarantined records worth re-seeding truth for (issues #21/#34).
+
+    Scoped to ``suspected-mistrack`` by issue #88: a sparse-match record fails the gate
+    because the detector found almost nothing, and re-seeding its Ground Truth would burn
+    review effort on a bundle whose truth may be fine."""
+
+    return [r for r in rows if r.get("cause") == NONCONFORMANCE_SUSPECTED_MISTRACK]
 
 
 def _loose_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
@@ -1317,6 +1350,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     # Both classes stay on disk and inspectable; only the aggregation drops them, and
     # the report accounts for each by name.
     quarantined = _quarantined_rows(all_recs)
+    quarantine_causes = _quarantine_cause_counts(quarantined)
+    truth_repair = _truth_repair_worklist(quarantined)
     loose_records = _loose_rows(all_recs)
     recs = [r for r in all_recs if record_trusted(r.data)]
     pose_cache: dict[
@@ -1381,6 +1416,9 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "eval_count_total": len(all_recs),
         "quarantined_bundles": quarantined,
         "quarantined_count": len(quarantined),
+        "quarantine_cause_counts": quarantine_causes,
+        "truth_repair_worklist": truth_repair,
+        "truth_repair_count": len(truth_repair),
         "loose_bundles": loose_records,
         "loose_count": len(loose_records),
         "frame_joint_df": frame_joint_df,
@@ -1422,6 +1460,8 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
     outputs: dict[str, Path] = {}
     quarantined = ctx.get("quarantined_bundles") or []
     quarantined_df = pd.DataFrame(quarantined) if quarantined else pd.DataFrame()
+    truth_repair = ctx.get("truth_repair_worklist") or []
+    truth_repair_df = pd.DataFrame(truth_repair) if truth_repair else pd.DataFrame()
     tables = {
         "eval_joint_ranking.csv": ctx.get("joint_rank"),
         "eval_condition_bands.csv": ctx.get("condition_bands"),
@@ -1430,6 +1470,7 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_version_deltas.csv": ctx.get("version_deltas"),
         "eval_low_confidence_worklist.csv": ctx.get("low_conf_worklist"),
         "eval_quarantined_bundles.csv": quarantined_df,
+        "eval_truth_repair_worklist.csv": truth_repair_df,
         "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
         "eval_frame_quality_distractors.csv": ctx.get("frame_quality_distractors"),
         "eval_frame_quality_worklist.csv": ctx.get("frame_quality_worklist"),

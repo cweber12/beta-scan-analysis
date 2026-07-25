@@ -50,9 +50,12 @@ Per run×truth pairing: `analysis/<route>/<video>/evaluations/<run_ts>_vs_<truth
   (attempt-backed, or legacy `source == "raw"`). Never treat heldPose alone as a
   scanner failure.
 - `conformance.conforms` (#15 gate) — when false, keep the run out of pooled
-  metrics. With attempt evidence, non-conformance usually means the run barely
-  detected anything (high miss/flip) or the truth mis-tracked; check `miss%`
-  before blaming truth.
+  metrics. `conformance.cause` (#88) says which failure it was: `sparse-match`
+  (the detector supplied too little to fit — a detector problem tripping a truth
+  gate) or `suspected-mistrack` (ample accepted detections, fit still off
+  identity — the only class worth re-seeding truth for). Read the annotation;
+  don't re-derive it from `miss%`. `conformance.causeEvidence` carries the
+  matched-present frame count and accepted share it was decided from.
 - Raw streams: `detections/<run_ts>_pose.json` → `data.detectorAttempts[]` with
   `status`, `rawKeypoints` (pre-mutation selected pose), `acceptedKeypoints`
   (accepted only), `initialSearchRegion`/`detectionRegion` (normalized;

@@ -85,6 +85,17 @@ not a spec — it carries no implementation detail.
   rejections, and over Climber-present ones only. Climber-absent rejections are
   correct by construction, so including them measures how much of the scanner's
   rejecting is aimed at empty frames rather than how well the gate judges a pose.
+- **Non-conformance cause** — why a bundle failed the conformance gate (the
+  near-identity fit of scanner coordinates onto Ground Truth that quarantines a
+  bundle from pooled metrics), which the gate's own pass/fail verdict cannot
+  say: `sparse-match` (the detector supplied too little
+  to fit — too few matched-present frames, or too small a share of present
+  Detector Attempts accepted) or `suspected-mistrack` (ample accepted detections
+  and the fit still misses identity — the appearance-stitch signature the gate was
+  built for). The verdict is unchanged by the split; the cause only routes the
+  record. Only `suspected-mistrack` reaches the **truth-repair worklist**,
+  because re-seeding Ground Truth for a run whose detector found almost nothing
+  repairs nothing.
 
 ## The condition → detection vocabulary
 

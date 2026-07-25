@@ -90,7 +90,12 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 #    the IoU of its search regions against a truth bbox, and for each missing attempt a
 #    cause class. Additive and fail-open — a legacy frames-only record carries an empty
 #    block, and pre-v10 readers ignore it.
-SCHEMA_VERSION = 10
+# v11 annotates *why* a record fails the #15 gate (issue #88): ``conformance.cause`` is
+#    ``sparse-match`` or ``suspected-mistrack``, with the evidence it was decided from.
+#    The ``conforms`` verdict itself is untouched, so every existing consumer of the gate
+#    reads exactly what it read before. Additive and fail-open — a pre-v11 non-conforming
+#    record carries no cause and reads as ``suspected-mistrack``, its pre-#88 place.
+SCHEMA_VERSION = 11
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -168,6 +173,37 @@ CONFORMANCE_SLOPE_MAX = 1.15
 CONFORMANCE_R2_MIN = 0.90  # y-axis floor
 CONFORMANCE_R2_MIN_X = 0.75  # x-axis floor (narrow horizontal variance, issue #16)
 CONFORMANCE_MIN_POINTS = 20
+
+# Non-conformance cause (issue #88). The #15 gate says a bundle's truth↔scanner fit is not
+# near-identity. It does not say *whose* failure that is, and two different ones land in
+# the same verdict:
+#
+# - ``sparse-match`` — the detector barely produced anything to fit against. When most
+#   attempts miss, the surviving matched points are a thin, self-selected remnant (the
+#   frames easy enough to detect at all), and a fit over them says nothing about the truth.
+#   This is a *detector* failure wearing the gate's clothes.
+# - ``suspected-mistrack`` — the run matched plenty of accepted detections and the fit
+#   still misses identity. That is the #19 appearance-stitch signature the gate was built
+#   to catch, and the only class worth sending to the truth-repair worklist (#21/#34):
+#   re-seeding truth for a run whose detector found nothing repairs nothing.
+#
+# Both floors are evaluated over **truth-present matched frames** — the population the fit
+# is computed on — so a video where the Climber is off-screen half the time is not read as
+# a sparse detector. The volume floor is the degenerate guard (a fit carried by a handful
+# of frames cannot support a mis-track claim however many joint-points those frames
+# contribute); the share floor is what actually separates the corpus. Re-scoring the
+# 2026-07-24 batch's 20 non-conforming attempt-backed runs splits them 12 / 8 on accepted
+# share, with an empty gap from 0.49 to 0.54 that 0.5 sits inside — the sparse side runs
+# down to 0.00–0.05 accepted (>80% of present attempts missing).
+#
+# THRESHOLDS ARE PROVISIONAL, in the ``CONFORMANCE_*`` tradition, and are echoed into each
+# record's ``conformance.thresholds`` so a record captures the gate it was annotated under.
+NONCONFORMANCE_MIN_FIT_FRAMES = 20
+NONCONFORMANCE_MIN_ACCEPTED_SHARE = 0.5
+
+NONCONFORMANCE_SPARSE_MATCH = "sparse-match"
+NONCONFORMANCE_SUSPECTED_MISTRACK = "suspected-mistrack"
+NONCONFORMANCE_CAUSES = [NONCONFORMANCE_SPARSE_MATCH, NONCONFORMANCE_SUSPECTED_MISTRACK]
 
 # Best-overlap pairing fallback (issue #44 deliverable 4). A *trusted* pairing needs a
 # setupHash-matching pose Run that actually overlaps the truth timeline; a matching Run
@@ -959,23 +995,31 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
     ``n`` is the point count per axis. Below ``CONFORMANCE_MIN_POINTS`` the fit is too
     thin to trust, so the bundle is non-conforming with an ``insufficient-points``
     reason rather than a spurious pass. ``reasons`` is empty exactly when ``conforms``.
+
+    A non-conforming bundle additionally carries a ``cause`` (issue #88) separating a
+    detector that produced nothing to fit from a truth that mis-tracked. The cause never
+    feeds back into ``conforms`` — the gate's verdict is exactly what it was before.
     """
 
     tx: list[float] = []
     sx: list[float] = []
     ty: list[float] = []
     sy: list[float] = []
+    fit_frames = 0
     for p in pairs:
         if not p.matched or not p.truth.present:
             continue
+        contributed = False
         for name, truth_pt in p.truth.joints.items():
             pred = p.scanner.get(name)
             if pred is None:
                 continue
+            contributed = True
             tx.append(truth_pt[0])
             sx.append(pred[0])
             ty.append(truth_pt[1])
             sy.append(pred[1])
+        fit_frames += contributed
 
     n = len(tx)
     fit_x = _ols_fit(tx, sx)
@@ -989,20 +1033,73 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
             reasons.append(f"{axis}-nonconforming")
     conforms = not reasons
 
+    evidence = _nonconformance_evidence(pairs, fit_frames)
     return {
         "x": _axis_block(fit_x),
         "y": _axis_block(fit_y),
         "n": n,
         "conforms": conforms,
         "reasons": reasons,
+        # None exactly when the bundle conforms — a conforming record has nothing to
+        # explain, and a reader must never find a cause on one.
+        "cause": None if conforms else _nonconformance_cause(evidence),
+        "causeEvidence": evidence,
         "thresholds": {
             "slopeMin": CONFORMANCE_SLOPE_MIN,
             "slopeMax": CONFORMANCE_SLOPE_MAX,
             "r2Min": CONFORMANCE_R2_MIN,  # y-axis floor
             "r2MinX": CONFORMANCE_R2_MIN_X,  # x-axis floor (issue #16)
             "minPoints": CONFORMANCE_MIN_POINTS,
+            "minFitFrames": NONCONFORMANCE_MIN_FIT_FRAMES,  # cause split (issue #88)
+            "minAcceptedShare": NONCONFORMANCE_MIN_ACCEPTED_SHARE,
         },
     }
+
+
+def _nonconformance_evidence(pairs: list[_FramePair], fit_frames: int) -> dict[str, Any]:
+    """How much matched-present evidence the conformance fit actually had (issue #88).
+
+    Computed for every record, conforming or not, so a reader can see the volume behind a
+    pass as well as a fail. Detector Attempts are counted only on truth-present frames:
+    a miss where no Climber is there is a correct miss and says nothing about detector
+    supply, and an accepted pose on an absent frame is a hallucination, not fit material.
+    A legacy frames-only run has no attempts, so ``acceptedShare`` is ``None`` — unknown,
+    never zero.
+    """
+
+    present_attempts = 0
+    accepted_attempts = 0
+    for p in pairs:
+        if not p.matched or not p.truth.present or p.detector_attempt is None:
+            continue
+        present_attempts += 1
+        accepted_attempts += p.detector_attempt.get("status") == "accepted"
+
+    return {
+        "fitFrames": fit_frames,
+        "presentAttempts": present_attempts,
+        "acceptedAttempts": accepted_attempts,
+        "acceptedShare": (_round6(accepted_attempts / present_attempts)
+                          if present_attempts else None),
+    }
+
+
+def _nonconformance_cause(evidence: dict[str, Any]) -> str:
+    """Why one bundle failed the #15 gate (issue #88).
+
+    Sparse first: when the detector supplied too little to fit — too few matched-present
+    frames, or too small a share of the present attempts accepted — the fit is a remnant
+    and cannot indict the truth. Everything else is a mis-track suspect, which is the
+    fail-open direction: a run with unknown attempt evidence (legacy frames-only) keeps
+    the place it had before this split existed.
+    """
+
+    if evidence["fitFrames"] < NONCONFORMANCE_MIN_FIT_FRAMES:
+        return NONCONFORMANCE_SPARSE_MATCH
+    share = evidence["acceptedShare"]
+    if share is not None and share < NONCONFORMANCE_MIN_ACCEPTED_SHARE:
+        return NONCONFORMANCE_SPARSE_MATCH
+    return NONCONFORMANCE_SUSPECTED_MISTRACK
 
 
 def _attempt_status_counts(pairs: list[_FramePair]) -> dict[str, int]:
@@ -1474,6 +1571,21 @@ def record_conforms(record: dict[str, Any]) -> bool:
     if not isinstance(conf, dict) or "conforms" not in conf:
         return True
     return bool(conf["conforms"])
+
+
+def record_nonconformance_cause(record: dict[str, Any]) -> str | None:
+    """Why an on-disk record failed the #15 gate (issue #88), or ``None`` if it passed.
+
+    Fail-open in the direction that preserves the pre-#88 worklist: a non-conforming
+    record written before v11 carries no cause, and reads as ``suspected-mistrack`` —
+    exactly where the truth-repair flow (#21/#34) already had it. Re-run ``evaluate`` to
+    get a real verdict instead of that default."""
+
+    if record_conforms(record):
+        return None
+    conf = record.get("conformance")
+    cause = conf.get("cause") if isinstance(conf, dict) else None
+    return cause if cause in NONCONFORMANCE_CAUSES else NONCONFORMANCE_SUSPECTED_MISTRACK
 
 
 def record_trusted(record: dict[str, Any]) -> bool:

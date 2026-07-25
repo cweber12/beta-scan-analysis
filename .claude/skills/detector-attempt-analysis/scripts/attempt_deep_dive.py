@@ -46,11 +46,15 @@ def pct(a, b):
 
 
 def attempt_records(root: str):
-    """Current attempt-backed schema-v8 evaluation records: (path, record)."""
+    """Current attempt-backed evaluation records (schema v8+): (path, record).
+
+    A floor, not an equality: the record schema keeps gaining additive blocks (v9
+    rejection correctness, v10 crop quality, v11 non-conformance cause), and pinning to
+    one version would silently empty this script the first time the corpus regenerates."""
     out = []
     for r in glob.glob(os.path.join(root, "*", "*", "evaluations", "*.json")):
         d = load(r)
-        if d.get("schemaVersion") != 8:
+        if (d.get("schemaVersion") or 0) < 8:
             continue
         fq = d.get("frameQuality") or {}
         if fq.get("detectorEvidence") == "attempts":
@@ -72,6 +76,12 @@ def main() -> None:
     print(f"attempt-backed schema-v8 records: {len(recs)}")
     conform = sum(1 for _, d in recs if (d.get("conformance") or {}).get("conforms"))
     print(f"conforming (#15 gate): {conform}/{len(recs)}")
+    # Read the cause off the record (issue #88) — never re-derive it from miss rates here.
+    causes = collections.Counter(
+        (d.get("conformance") or {}).get("cause") or "unannotated (pre-v11)"
+        for _, d in recs if not (d.get("conformance") or {}).get("conforms"))
+    for cause, n in causes.most_common():
+        print(f"  non-conforming cause {cause}: {n}")
     tot = held = froz = 0
     pres = collections.Counter()
     cls = collections.Counter()
