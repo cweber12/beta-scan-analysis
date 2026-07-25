@@ -68,7 +68,12 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 # v7 adds detector-attempt-backed evidence to evaluation records (issue #73). When a
 # run carries ``detectorAttempts[]``, scoring and frameQuality use that stream instead
 # of dense playback ``frames[]``; frame-only runs keep the legacy fallback behavior.
-SCHEMA_VERSION = 7
+# v8 splits the neutral repeated-pose diagnostic from the raw-detector stale failure
+#    (issue #68): ``heldPose`` is membership in a sustained (>= frozenMinRun)
+#    near-identical run, while ``frozenStale`` additionally requires the pose to be
+#    direct detector output — legacy ``source == "raw"`` frames, or attempt-backed
+#    evidence (detector attempts are raw MediaPipe output by construction).
+SCHEMA_VERSION = 8
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -188,8 +193,14 @@ EVAL_MODES = (EVAL_MODE_ALL, EVAL_MODE_UNANALYZED)
 FQ_WRONG_SUBJECT_CENTROID = 1.0  # centroid ≥ 1 truth-torso off → locked on the wrong subject
 FQ_DISTORT_RESIDUAL = 0.5        # median shape residual ≥ 0.5 torso → joints scattered
 FQ_FLIP_RESIDUAL = 0.25          # a vertical flip that drops shape residual below this → flipped
-FQ_FROZEN_EPS = 0.005            # max keypoint move (normalized image coords) vs the prev
-#                                  detected frame → frozen/stale (cross-cutting flag)
+FQ_FROZEN_EPS = 0.005            # max keypoint move (normalized image coords) between two
+#                                  adjacent detected frames → the pair is "static"
+FQ_FROZEN_MIN_RUN = 3            # a static frame is frozen/stale only inside a maximal run
+#                                  of ≥ this many consecutive near-identical detected poses.
+#                                  A genuine stale overlay (lost tracking, repeating the last
+#                                  pose) is sustained; a single low-motion step is a paused
+#                                  climber, not a freeze — that distinction is why the old
+#                                  per-frame test fired on ~3/4 of frames (issue #68).
 
 FQ_OK = "ok"
 FQ_WRONG_SUBJECT = "wrong-subject"
@@ -540,8 +551,10 @@ def _classify_detection(truth: dict[str, tuple[float, float]],
 
 def _is_frozen(cur: dict[str, tuple[float, float]],
                prev: dict[str, tuple[float, float]] | None) -> bool:
-    """True when every joint shared with the previous detected frame moved less than
-    ``FQ_FROZEN_EPS`` in normalized image coords — a stale/frozen scanner pose."""
+    """True when ``cur`` is near-identical to the previous detected pose ``prev`` — every
+    shared joint moved ``≤ FQ_FROZEN_EPS`` in normalized image coords. This is the
+    pairwise "static" primitive; sustained-freeze detection is layered on top by
+    ``_frozen_flags`` (issue #68)."""
 
     if not prev:
         return False
@@ -549,6 +562,29 @@ def _is_frozen(cur: dict[str, tuple[float, float]],
     if not shared:
         return False
     return max(_dist(cur[j], prev[j]) for j in shared) <= FQ_FROZEN_EPS
+
+
+def _frozen_flags(poses: list[dict[str, tuple[float, float]]],
+                  min_run: int = FQ_FROZEN_MIN_RUN) -> list[bool]:
+    """Per-frame held-pose repeat flags over detected poses in timestamp order.
+
+    A frame is held only when it is a non-anchor repeat inside a maximal run of
+    ``≥ min_run`` consecutive near-identical poses (each adjacent pair ``_is_frozen``).
+    The run anchor is the fresh pose and is not stale; source provenance later decides
+    whether the held pose is a raw-detector stale failure or benign reconstruction."""
+
+    n = len(poses)
+    flags = [False] * n
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and _is_frozen(poses[j + 1], poses[j]):
+            j += 1
+        if j - i + 1 >= min_run:  # frames i..j form one near-identical run
+            for k in range(i + 1, j + 1):
+                flags[k] = True
+        i = j + 1
+    return flags
 
 
 def _scanner_frame_interval(timestamps: list[float]) -> float:
@@ -622,7 +658,8 @@ def _scanner_observations(
         return observations
 
     return [
-        _ScannerObservation(float(f.get("timestamp", 0.0)), _pose_frame_joints(f))
+        _ScannerObservation(float(f.get("timestamp", 0.0)), _pose_frame_joints(f),
+                            source=f.get("source"))
         for f in pose_frames
     ]
 
@@ -701,6 +738,7 @@ class _FramePair:
     truth: TruthFrame
     matched: bool  # a scanner frame exists within the join tolerance
     scanner: dict[str, tuple[float, float]]  # its core joints; {} when unmatched
+    scanner_source: str | None = None  # scanner pose ``source`` provenance, when exported
     detector_attempt: dict[str, Any] | None = None
 
 
@@ -710,6 +748,7 @@ class _ScannerObservation:
 
     timestamp: float
     scanner: dict[str, tuple[float, float]]
+    source: str | None = None  # legacy frames[] ``source`` provenance, when exported
     detector_attempt: dict[str, Any] | None = None
 
 
@@ -951,11 +990,16 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         (p for p in pairs if p.matched and _quality_candidate(p)),
         key=lambda p: p.truth.timestamp)
 
+    # Held-pose detection is a sustained-run property (issue #68), so resolve it for the
+    # whole timestamp-ordered sequence up front. ``frozenStale`` is stricter: only a held
+    # pose emitted by the raw detector is a scanner stale failure.
+    held_flags = _frozen_flags([p.scanner for p in detected])
+
     counts = {c: 0 for c in FQ_CLASSES}
+    held_count = 0
     frozen_count = 0
     entries: list[dict[str, Any]] = []
-    prev_scanner: dict[str, tuple[float, float]] | None = None
-    for p in detected:
+    for p, held in zip(detected, held_flags):
         tf = p.truth
         attempt = p.detector_attempt
         attempt_status = attempt.get("status") if isinstance(attempt, dict) else None
@@ -971,16 +1015,22 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         auto_cls = _status_driven_class(attempt_status, auto_cls)
         ann = _detection_annotation_for_frame(truth, tf.frame_index, setup_hash)
         effective_cls = ann.failure_class if ann is not None else auto_cls
-        frozen = _is_frozen(p.scanner, prev_scanner) if p.scanner else False
+        # Attempt-backed evidence is direct MediaPipe output by construction, so a
+        # held pose there is a raw-detector stale failure; legacy frames must carry
+        # ``source == "raw"`` to distinguish detector staleness from reconstruction.
+        frozen = bool(held and (attempt is not None or p.scanner_source == "raw"))
         counts[effective_cls] += 1
+        held_count += held
         frozen_count += frozen
         entry = {
             "t": _round6(tf.timestamp),
             "class": effective_cls,
             "autoClass": auto_cls,
             "failureClass": effective_cls,
+            "source": p.scanner_source,
             "distractor": ann.distractor if ann is not None else None,
             "annotationSetupHash": ann.setup_hash if ann is not None else None,
+            "heldPose": held,
             "frozenStale": frozen,
             "centroidDist": _round6(centroid_dist),
             "residual": _round6(residual),
@@ -1000,8 +1050,6 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         else:
             entry["detectorEvidence"] = "legacy-frames"
         entries.append(entry)
-        if p.scanner:
-            prev_scanner = p.scanner
 
     return {
         "thresholds": {
@@ -1009,6 +1057,7 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "distortResidual": FQ_DISTORT_RESIDUAL,
             "flipResidual": FQ_FLIP_RESIDUAL,
             "frozenEps": FQ_FROZEN_EPS,
+            "frozenMinRun": FQ_FROZEN_MIN_RUN,
         },
         "detectorEvidence": (
             "attempts" if any(p.detector_attempt is not None for p in pairs)
@@ -1016,6 +1065,7 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         ),
         "detectorAttemptStatusCounts": _attempt_status_counts(pairs),
         "classCounts": counts,
+        "heldPoseCount": held_count,
         "frozenStaleCount": frozen_count,
         "flaggedCount": sum(v for c, v in counts.items() if c != FQ_OK),
         "detectedFrames": len(entries),
@@ -1071,7 +1121,9 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
         else:
             observation = by_ts[scanner_ts[idx]]
             pairs.append(_FramePair(
-                tf, True, observation.scanner, observation.detector_attempt))
+                tf, True, observation.scanner,
+                scanner_source=observation.source,
+                detector_attempt=observation.detector_attempt))
 
     n_present = sum(1 for p in pairs if p.truth.present)
     n_wrong = sum(1 for p in pairs if p.truth.flagged_wrong)

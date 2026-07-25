@@ -800,9 +800,11 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
                 "class": cls,
                 "auto_class": e.get("autoClass"),
                 "failure_class": e.get("failureClass"),
+                "source": e.get("source"),
                 "distractor": e.get("distractor"),
                 "annotation_setup_hash": e.get("annotationSetupHash"),
                 "flagged": int(cls in _FQ_FLAGGED),
+                "held_pose": int(bool(e.get("heldPose"))),
                 "frozen_stale": int(bool(e.get("frozenStale"))),
                 "centroid_dist": e.get("centroidDist"),
                 "residual": e.get("residual"),
@@ -827,6 +829,7 @@ def _frame_quality_classes(fq_df: pd.DataFrame) -> pd.DataFrame:
             "class": str(cls),
             "n": int(len(g)),
             "share": len(g) / total,
+            "held_pose": int(g["held_pose"].sum()),
             "frozen_stale": int(g["frozen_stale"].sum()),
         })
     return pd.DataFrame(rows).sort_values(
@@ -848,6 +851,7 @@ def _frame_quality_distractors(fq_df: pd.DataFrame) -> pd.DataFrame:
             "distractor": str(distractor),
             "n": int(len(g)),
             "share": len(g) / total,
+            "held_pose": int(g["held_pose"].sum()),
             "frozen_stale": int(g["frozen_stale"].sum()),
         })
     return pd.DataFrame(rows).sort_values(
@@ -865,12 +869,12 @@ def _frame_quality_worklist(fq_df: pd.DataFrame) -> pd.DataFrame:
     sub["_sev"] = sub["class"].map(lambda c: _FQ_SEVERITY.get(c, 4))
     sub = sub.sort_values(
         ["_sev", "centroid_dist"], ascending=[True, False], na_position="last")
-    cols = ["route_folder", "video_key", "run_ts", "t", "class", "frozen_stale",
-            "centroid_dist", "residual", "detector_attempt_evidence",
-            "detector_attempt_status", "reacquire_attempted", "reacquire_succeeded",
-            "reacquire_failed", "search_luma_mean", "search_luma_stdDev",
-            "search_sharpness", "initial_search_region_area",
-            "detection_region_area", "crop"]
+    cols = ["route_folder", "video_key", "run_ts", "t", "class", "source",
+            "held_pose", "frozen_stale", "centroid_dist", "residual",
+            "detector_attempt_evidence", "detector_attempt_status",
+            "reacquire_attempted", "reacquire_succeeded", "reacquire_failed",
+            "search_luma_mean", "search_luma_stdDev", "search_sharpness",
+            "initial_search_region_area", "detection_region_area", "crop"]
     return sub[[c for c in cols if c in sub.columns]].reset_index(drop=True)
 
 
@@ -1159,6 +1163,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "detection_error_attempt_bands": fq_attempt_bands,
         "frame_quality_detected": int(len(fq_df)),
         "frame_quality_flagged": int(fq_df["flagged"].sum()) if not fq_df.empty else 0,
+        "frame_quality_held": int(fq_df["held_pose"].sum()) if not fq_df.empty else 0,
         "frame_quality_frozen": int(fq_df["frozen_stale"].sum()) if not fq_df.empty else 0,
         "verified_frames_total": verified_total,
         "verified_records": verified_records,

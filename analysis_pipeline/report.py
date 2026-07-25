@@ -598,13 +598,15 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
                 "evaluation records (re-run <code>evaluate</code>).</p>")
 
     flagged = int(ctx.get("frame_quality_flagged", 0))
+    held = int(ctx.get("frame_quality_held", 0))
     frozen = int(ctx.get("frame_quality_frozen", 0))
     rate = flagged / detected if detected else 0.0
     tiles = _stat_tiles([
         (str(detected), "scanner-detected frames [pooled]"),
         (str(flagged), "flagged (non-ok) frames"),
         (_fmt(rate), "flagged rate"),
-        (str(frozen), "frozen-stale frames"),
+        (str(held), "held-pose repeat frames"),
+        (str(frozen), "raw frozen-stale frames"),
     ])
 
     classes = ctx.get("frame_quality_classes")
@@ -612,11 +614,13 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
     if isinstance(classes, pd.DataFrame) and not classes.empty:
         rows = "".join(
             f"<tr><td>{_esc(r['class'])}</td><td>{int(r['n'])}</td>"
-            f"<td>{_fmt(r['share'])}</td><td>{int(r['frozen_stale'])}</td></tr>"
+            f"<td>{_fmt(r['share'])}</td><td>{int(r['held_pose'])}</td>"
+            f"<td>{int(r['frozen_stale'])}</td></tr>"
             for _, r in classes.iterrows()
         )
         class_tbl = ("<div class='tablewrap'><table><thead><tr><th>failure class</th>"
-                     "<th>frames</th><th>share</th><th>of which frozen-stale</th>"
+                     "<th>frames</th><th>share</th><th>held-pose repeats</th>"
+                     "<th>raw frozen-stale</th>"
                      f"</tr></thead><tbody>{rows}</tbody></table></div>")
 
     distractors = ctx.get("frame_quality_distractors")
@@ -624,12 +628,13 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
     if isinstance(distractors, pd.DataFrame) and not distractors.empty:
         rows = "".join(
             f"<tr><td>{_esc(r['distractor'])}</td><td>{int(r['n'])}</td>"
-            f"<td>{_fmt(r['share'])}</td><td>{int(r['frozen_stale'])}</td></tr>"
+            f"<td>{_fmt(r['share'])}</td><td>{int(r['held_pose'])}</td>"
+            f"<td>{int(r['frozen_stale'])}</td></tr>"
             for _, r in distractors.iterrows()
         )
         distractor_tbl = ("<div class='tablewrap'><table><thead><tr><th>distractor</th>"
                           "<th>frames</th><th>share of annotated frames</th>"
-                          "<th>of which frozen-stale</th></tr></thead>"
+                          "<th>held-pose repeats</th><th>raw frozen-stale</th></tr></thead>"
                           f"<tbody>{rows}</tbody></table></div>")
 
     # Worst-correlated conditions: rank Video Stats conditions by the spread of the
@@ -664,13 +669,13 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
             f"<tbody>{''.join(rows)}</tbody></table></div>")
 
     worklist = ctx.get("frame_quality_worklist")
-    wl_tbl = "<p class='muted'>No flagged or frozen frames.</p>"
+    wl_tbl = "<p class='muted'>No flagged or raw frozen-stale frames.</p>"
     if isinstance(worklist, pd.DataFrame) and not worklist.empty:
         shown = worklist.head(FRAME_QUALITY_WORKLIST_TOP_K)
         wl_tbl = _df_to_table(shown)
         if len(worklist) > len(shown):
             wl_tbl += (f"<p class='muted'>Showing the worst {len(shown)} of "
-                       f"{len(worklist)} flagged/frozen frames — full list in "
+                       f"{len(worklist)} flagged/raw frozen-stale frames — full list in "
                        "<code>eval_frame_quality_worklist.csv</code>.</p>")
 
     return (

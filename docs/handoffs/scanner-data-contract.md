@@ -277,6 +277,13 @@ Rules:
 - Full-frame regions are explicit normalized rectangles:
   `{ "x": 0, "y": 0, "w": 1, "h": 1 }`. `null` means unknown or not applicable.
 - Missing `detectorAttempts[]` means unknown detector evidence, never raw success.
+- Legacy dense frames keep their per-frame **`source`** provenance
+  (`"raw" | "interpolated" | "filled" | "flipDiscarded" | "limbExpanded"`). The
+  harness's schema-v8 `frameQuality` treats sustained near-identical keypoints as
+  **`heldPose`** (run anchor stays fresh) and flags **`frozenStale`** only for
+  raw detector output: `heldPose && source == "raw"` on legacy frames, or a held
+  pose on attempt-backed evidence (attempts are raw MediaPipe output by
+  construction). Missing `source` is unknown, never `raw`.
 
 ### 2.3 ORB per-keyframe match stats (panning captures)
 For panning captures you already store ordered keyframes. Add consecutive-keyframe
@@ -441,9 +448,10 @@ pose model so cross-model agreement can populate the accuracy tier (issue #12).
 - `overlayQuality`/`badStretches` become the **pose outcome**; detectionRate /
   flipRate / confidence are demoted to predictors/symptoms.
 - `detectorAttempts[]` + computed region stats drive a **per-frame failure
-  timeline** and raw detector/recovery correlations. Legacy schema-v8 `heldPose`
-  is a repeated-pose diagnostic; schema-v8 `frozenStale` is counted only for held
-  poses whose scanner `source` was `raw`.
+  timeline** and raw detector/recovery correlations. Schema-v8 `heldPose` is a
+  repeated-pose diagnostic; schema-v8 `frozenStale` is counted only for held
+  poses that are raw detector output (legacy `source == "raw"`, or any
+  attempt-backed pose).
 - `orb_match_matrix.json` renders an **NxN inlier heatmap** + same/cross-route
   separation and route-ID precision/recall.
 - `final_frame.png` (+ `reference_frame.png`) show as thumbnails on per-video
