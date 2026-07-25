@@ -466,24 +466,65 @@ def _loose_table(rows: list[dict[str, Any]]) -> str:
     return f"<div class='tablewrap'><table><thead>{head}</thead><tbody>{body}</tbody></table></div>"
 
 
-def _quarantine_table(rows: list[dict[str, Any]]) -> str:
-    """Bundles dropped from pooled metrics by the #15 conformance gate."""
+# Why each non-conformance cause is quarantined, and what to do about it (issue #88).
+# Ordered mis-track first: it is the actionable group, and the only one that feeds the
+# truth-repair worklist.
+_NONCONFORMANCE_CAUSE_BLURB = {
+    "suspected-mistrack": (
+        "Ample accepted detections and the fit still misses identity — the #19 "
+        "appearance-stitch signature. <strong>This is the truth-repair worklist</strong> "
+        "(#21/#34): re-seed these bundles' Ground Truth."),
+    "sparse-match": (
+        "The detector supplied too little to fit — too few matched-present frames, or "
+        "too small a share of present attempts accepted. A detector failure tripping a "
+        "truth gate; re-seeding truth here would repair nothing. Take these to the "
+        "attempt-funnel section instead."),
+}
 
-    if not rows:
-        return "<p class='muted'>No bundles quarantined — every record conforms.</p>"
+
+def _quarantine_cause_table(rows: list[dict[str, Any]]) -> str:
     head = ("<tr><th>route</th><th>video</th><th>run</th><th>reasons</th>"
-            "<th>n</th><th>slope x</th><th>r² x</th><th>slope y</th><th>r² y</th></tr>")
+            "<th>n</th><th>fit frames</th><th>accepted share</th>"
+            "<th>slope x</th><th>r² x</th><th>slope y</th><th>r² y</th></tr>")
     body = "".join(
         f"<tr><td>{_esc(r.get('route_folder'))}</td>"
         f"<td>{_esc(r.get('video_key'))}</td>"
         f"<td>{_esc(r.get('run_ts'))}</td>"
         f"<td>{_esc(r.get('reasons'))}</td>"
         f"<td>{_esc(r.get('n'))}</td>"
+        f"<td>{_esc(r.get('fit_frames'))}</td>"
+        f"<td>{_fmt(r.get('accepted_share'))}</td>"
         f"<td>{_fmt(r.get('slope_x'))}</td><td>{_fmt(r.get('r2_x'))}</td>"
         f"<td>{_fmt(r.get('slope_y'))}</td><td>{_fmt(r.get('r2_y'))}</td></tr>"
         for r in rows
     )
     return f"<div class='tablewrap'><table><thead>{head}</thead><tbody>{body}</tbody></table></div>"
+
+
+def _quarantine_table(rows: list[dict[str, Any]]) -> str:
+    """Bundles dropped from pooled metrics by the #15 conformance gate, grouped by the
+    issue #88 cause so a truth problem is never read off a detector problem.
+
+    Once anything is quarantined, every cause is named even at zero: "these all failed for
+    sparse detection, none are mis-track suspects" is a result, and dropping the empty
+    group would leave it to be inferred from an absence."""
+
+    if not rows:
+        return "<p class='muted'>No bundles quarantined — every record conforms.</p>"
+    by_cause: dict[str, list[dict[str, Any]]] = {c: [] for c in _NONCONFORMANCE_CAUSE_BLURB}
+    for r in rows:
+        by_cause.setdefault(str(r.get("cause")), []).append(r)
+
+    parts: list[str] = []
+    for cause, cause_rows in by_cause.items():
+        blurb = _NONCONFORMANCE_CAUSE_BLURB.get(cause, "")
+        parts.append(f"<h4><code>{_esc(cause)}</code> — {len(cause_rows)} record"
+                     f"{'' if len(cause_rows) == 1 else 's'}</h4>")
+        if blurb:
+            parts.append(f"<p class='sub'>{blurb}</p>")
+        parts.append(_quarantine_cause_table(cause_rows) if cause_rows
+                     else "<p class='muted'>(none this batch)</p>")
+    return "".join(parts)
 
 
 # --- new sections: overview, failure cards, ORB matrix, frame timeline -------
@@ -1100,6 +1141,8 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         _stat_tiles([
             (str(ctx.get("eval_count", 0)), "trusted records [pooled]"),
             (str(ctx.get("quarantined_count", 0)), "quarantined records [#15 gate]"),
+            (str(ctx.get("truth_repair_count", 0)),
+             "of those suspected mis-tracks [#88 truth-repair]"),
             (str(ctx.get("loose_count", 0)), "loose pairings [#44 fallback]"),
             (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
             (str(ctx.get("verified_records", 0)), "records with verified truth"),
@@ -1170,12 +1213,18 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "every trusted pooled metric above; their per-frame quality still feeds the "
         "detection-quality worklist and crops.</p>",
         _loose_table(ctx.get("loose_bundles", [])),
-        "<h3>Quarantined bundles (#15 conformance gate)</h3>",
+        "<h3>Quarantined bundles (#15 conformance gate), by cause (#88)</h3>",
         "<p class='sub'>Bundles whose truth↔scanner fit falls outside the "
-        "near-identity band (<code>scanner = a·truth + b</code>, per axis) — the "
-        "signature of truth mis-tracking (#19 stitch on the wrong subject). These "
+        "near-identity band (<code>scanner = a·truth + b</code>, per axis). These "
         "are excluded from every pooled metric above; their per-record tiers remain "
-        "on disk for inspection.</p>",
+        "on disk for inspection. The gate verdict is unchanged — it is split here by "
+        "<em>cause</em>, because a run whose detector found almost nothing fails the same "
+        "gate as a run whose truth mis-tracked, and only the second is a truth problem. "
+        f"Truth-repair worklist: {ctx.get('truth_repair_count', 0)} record(s), exported "
+        "as <code>eval_truth_repair_worklist.csv</code>. Records written before the split "
+        "carry no annotation and default to <code>suspected-mistrack</code> (their "
+        "pre-#88 place) with empty evidence columns — re-run <code>evaluate</code> to "
+        "classify them.</p>",
         _quarantine_table(ctx.get("quarantined_bundles", [])),
         "<h3>Bundles with no truth</h3>",
         _shame_list_html(ctx.get("truthless_bundles", []), "No truthless bundles."),

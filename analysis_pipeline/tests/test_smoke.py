@@ -386,7 +386,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 10
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 11
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -475,11 +475,14 @@ def test_evaluate_pck_exact_and_edge_cases():
         # does not trip the gate (x r² ≈ 0.94 > 0.9, y a perfect identity). Thresholds
         # echo the module constants so a record captures the gate it was judged under.
         conf = rec["conformance"]
-        assert set(conf) == {"x", "y", "n", "conforms", "reasons", "thresholds"}
+        assert set(conf) == {"x", "y", "n", "conforms", "reasons", "cause",
+                             "causeEvidence", "thresholds"}
         assert conf["thresholds"] == {
             "slopeMin": ev.CONFORMANCE_SLOPE_MIN, "slopeMax": ev.CONFORMANCE_SLOPE_MAX,
             "r2Min": ev.CONFORMANCE_R2_MIN, "r2MinX": ev.CONFORMANCE_R2_MIN_X,
-            "minPoints": ev.CONFORMANCE_MIN_POINTS}
+            "minPoints": ev.CONFORMANCE_MIN_POINTS,
+            "minFitFrames": ev.NONCONFORMANCE_MIN_FIT_FRAMES,
+            "minAcceptedShare": ev.NONCONFORMANCE_MIN_ACCEPTED_SHARE}
         assert conf["n"] == 37  # matched-present truth joints with a scanner pred
         assert conf["conforms"] is True and conf["reasons"] == []
         assert conf["y"] == {"slope": 1.0, "intercept": 0.0, "r2": 1.0}
@@ -594,6 +597,131 @@ def test_conformance_x_axis_has_looser_r2_floor():
     # A degenerate (None) fit never conforms on either axis.
     assert ev._axis_conforms(None, "x") is False
     assert ev._axis_conforms(None, "y") is False
+
+
+def test_nonconformance_cause_splits_sparse_match_from_suspected_mistrack():
+    """Issue #88: a non-conforming record is annotated with *why* it failed the #15 gate.
+
+    Two bundles fail the gate identically (scanner = 2×truth, slope off-band on both
+    axes) and differ only in how much the detector supplied: one accepted every attempt,
+    the other accepted 40% of them. Only the first is a truth-mis-track suspect, and only
+    it reaches the truth-repair worklist. The gate verdict itself is untouched — both are
+    still non-conforming and still quarantined out of the pooled metrics."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report
+    from analysis_pipeline import trends
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+
+    def _truth_doc(hash_: str, n_frames: int) -> dict:
+        return {"version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": hash_,
+                "setupHash": "sh88",
+                "frames": [{"frameIndex": i, "timestamp": float(i), "state": "present",
+                            "review": "auto", "joints": present}
+                           for i in range(1, n_frames + 1)]}
+
+    def _attempts(n_frames: int, accepted_upto: int, scale: float) -> list[dict]:
+        """Frames 1..accepted_upto are accepted (pose scaled off identity); the rest miss."""
+        out = []
+        for i in range(1, n_frames + 1):
+            if i <= accepted_upto:
+                kps = _kp_list({n: (scale * x, scale * y)
+                                for n, (x, y) in _TRUTH_JOINTS.items()})
+                out.append({"timestamp": float(i), "status": "accepted",
+                            "rawKeypoints": kps, "acceptedKeypoints": kps})
+            else:
+                out.append({"timestamp": float(i), "status": "missing",
+                            "reacquireAttempted": True,
+                            "rawKeypoints": [], "acceptedKeypoints": []})
+        return out
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # Mis-track suspect: 24 present frames, every attempt accepted, fit at slope 2.
+        mistrack = root / "route88" / "vidMistrack"
+        _write_bundle_meta(mistrack, setup_hash="sh88")
+        (mistrack / "ground-truth.json").write_text(
+            json.dumps(_truth_doc("88mistrack00", 24)), encoding="utf-8")
+        _write_pose_run(mistrack, "20260101-000088", "sh88", [],
+                        detector_attempts=_attempts(24, 24, 2.0))
+        # Sparse match: the same off-band fit over the same 24 accepted frames, but 36
+        # further attempts missed -> accepted share 0.4. The fit-frame floor is cleared,
+        # so this is the *share* floor firing on its own.
+        sparse = root / "route88" / "vidSparse"
+        _write_bundle_meta(sparse, setup_hash="sh88")
+        (sparse / "ground-truth.json").write_text(
+            json.dumps(_truth_doc("88sparse0000", 60)), encoding="utf-8")
+        _write_pose_run(sparse, "20260101-000089", "sh88", [],
+                        detector_attempts=_attempts(60, 24, 2.0))
+        # Control: same evidence volume, identity fit -> conforms, so no cause at all.
+        clean = root / "route88" / "vidClean"
+        _write_bundle_meta(clean, setup_hash="sh88")
+        (clean / "ground-truth.json").write_text(
+            json.dumps(_truth_doc("88clean0000", 24)), encoding="utf-8")
+        _write_pose_run(clean, "20260101-000090", "sh88", [],
+                        detector_attempts=_attempts(24, 24, 1.0))
+
+        summary = ev.evaluate(root)
+        recs = {p.video_key: json.loads(p.record_path.read_text(encoding="utf-8"))
+                for p in summary.written}
+        assert recs["vidMistrack"]["schemaVersion"] >= 11  # the cause split landed in v11
+
+        mc = recs["vidMistrack"]["conformance"]
+        assert mc["conforms"] is False  # the #15 verdict is unchanged by the split
+        assert mc["cause"] == ev.NONCONFORMANCE_SUSPECTED_MISTRACK
+        assert mc["causeEvidence"] == {"fitFrames": 24, "presentAttempts": 24,
+                                       "acceptedAttempts": 24, "acceptedShare": 1.0}
+        assert ev.record_nonconformance_cause(recs["vidMistrack"]) == "suspected-mistrack"
+
+        sc = recs["vidSparse"]["conformance"]
+        assert sc["conforms"] is False
+        assert sc["cause"] == ev.NONCONFORMANCE_SPARSE_MATCH
+        # Same fit, same fit-frame count as the mis-track bundle: only the share differs.
+        assert sc["causeEvidence"]["fitFrames"] == 24
+        assert sc["causeEvidence"]["acceptedShare"] == 0.4
+        assert sc["x"]["slope"] == mc["x"]["slope"] == 2.0
+
+        # A conforming record carries no cause, and its evidence is still reported.
+        cc = recs["vidClean"]["conformance"]
+        assert cc["conforms"] is True and cc["cause"] is None
+        assert cc["causeEvidence"]["acceptedShare"] == 1.0
+        assert ev.record_nonconformance_cause(recs["vidClean"]) is None
+
+        # The volume floor fires independently of the share floor: plenty accepted, but
+        # too few frames for the fit to indict the truth.
+        assert ev._nonconformance_cause(
+            {"fitFrames": ev.NONCONFORMANCE_MIN_FIT_FRAMES - 1,
+             "acceptedShare": 1.0}) == ev.NONCONFORMANCE_SPARSE_MATCH
+        # Fail-open: a pre-v11 non-conforming record keeps its pre-#88 place.
+        assert ev.record_nonconformance_cause(
+            {"conformance": {"conforms": False}}) == ev.NONCONFORMANCE_SUSPECTED_MISTRACK
+
+        # Trend seam: the gate still quarantines both, grouped by cause, and only the
+        # mis-track suspect feeds the truth-repair worklist.
+        ctx = trends.build_trend_context(root)
+        assert ctx["quarantined_count"] == 2
+        assert ctx["quarantine_cause_counts"] == {"sparse-match": 1,
+                                                  "suspected-mistrack": 1}
+        assert ctx["truth_repair_count"] == 1
+        worklist = ctx["truth_repair_worklist"]
+        assert [r["video_key"] for r in worklist] == ["vidMistrack"]
+        assert worklist[0]["accepted_share"] == 1.0
+        by_video = {r["video_key"]: r for r in ctx["quarantined_bundles"]}
+        assert by_video["vidSparse"]["cause"] == "sparse-match"
+        assert by_video["vidSparse"]["fit_frames"] == 24
+
+        csvs = trends.write_trend_tables(Path(tmp) / "reports", ctx)
+        repair_csv = pd.read_csv(csvs["eval_truth_repair_worklist.csv"])
+        assert list(repair_csv["video_key"]) == ["vidMistrack"]
+        quarantine_csv = pd.read_csv(csvs["eval_quarantined_bundles.csv"])
+        assert set(quarantine_csv["cause"]) == {"sparse-match", "suspected-mistrack"}
+
+        # Report seam: the section is grouped by cause and names the worklist scope.
+        html = report._quarantine_table(ctx["quarantined_bundles"])
+        assert "sparse-match" in html and "suspected-mistrack" in html
+        assert "vidSparse" in html and "vidMistrack" in html
+        assert "truth-repair worklist" in html
 
 
 def test_evaluate_setuphash_mismatch_is_skipped():
@@ -2095,6 +2223,7 @@ def _run_all():
            test_evaluate_pck_exact_and_edge_cases,
            test_evaluate_conformance_gate_and_pooled_quarantine,
            test_conformance_x_axis_has_looser_r2_floor,
+           test_nonconformance_cause_splits_sparse_match_from_suspected_mistrack,
            test_evaluate_setuphash_mismatch_is_skipped,
            test_evaluate_loose_overlap_pairing_fallback,
            test_frame_quality_classification_one_per_class,
