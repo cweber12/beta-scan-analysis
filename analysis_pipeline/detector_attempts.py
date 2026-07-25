@@ -198,8 +198,14 @@ def rect_intersection_area(a: tuple[float, float, float, float] | None,
 def rect_iou(a: tuple[float, float, float, float] | None,
              b: tuple[float, float, float, float] | None) -> float | None:
     """Intersection-over-union of two rects, or ``None`` when either is absent or the
-    union is degenerate (a zero-area rect has no meaningful overlap ratio)."""
+    union is degenerate (a zero-area rect has no meaningful overlap ratio).
 
+    An absent rect is *unknown* overlap, never zero overlap: a missing attempt reports no
+    ``detectionRegion`` at all, and scoring that as a perfect miss would invent evidence
+    the scanner never gave us."""
+
+    if a is None or b is None:
+        return None
     inter = rect_intersection_area(a, b)
     union = rect_area(a) + rect_area(b) - inter
     if union <= 0:

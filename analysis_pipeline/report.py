@@ -746,8 +746,50 @@ def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
             "<th>Detection Error rate</th><th>bootstrap 95% CI</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table></div>")
 
+    # Crop placement + miss causes (issue #86). The crop-miss rate is deliberately not
+    # folded into the cause table: on a corpus where full-frame reacquire always runs, no
+    # miss is *caused* by the crop even though the crop may have excluded the Climber on
+    # most of them.
+    crop = ctx.get("crop_quality") or {}
+    causes = ctx.get("crop_quality_miss_causes")
+    cause_tbl = ("<p class='muted'>No missing attempts scored yet — needs schema-v10 "
+                 "records with detector-attempt evidence.</p>")
+    if isinstance(causes, pd.DataFrame) and not causes.empty:
+        rows = []
+        for _, r in causes.iterrows():
+            rows.append(
+                "<tr>"
+                f"<td>{_esc(r['miss_cause'])}</td>"
+                f"<td>{int(r['n'])}</td>"
+                f"<td>{_fmt(r['share'])}</td>"
+                f"<td>{int(r['crop_missed_truth'])}/{int(r['crop_containment_scored'])}</td>"
+                f"<td>{_fmt(r['median_initial_crop_containment'])}</td>"
+                f"<td>{int(r['flags_fired'])}</td>"
+                "</tr>"
+            )
+        cause_tbl = (
+            "<p class='sub'>Why the detector found no Climber, per matched missing "
+            "attempt. <code>crop-misplaced</code> requires that the misplaced crop was "
+            "the <em>only</em> place searched &mdash; when a full-frame reacquire also "
+            "ran and failed, the Climber was searched for everywhere, so the crop cannot "
+            "be what lost them. Crop placement is still measured on every miss in the "
+            "next column.</p>"
+            "<div class='tablewrap'><table><thead><tr><th>miss cause</th><th>n</th>"
+            "<th>share</th><th>crop excluded Climber</th>"
+            "<th>median crop containment</th><th>condition flags fired</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>")
+
+    crop_tiles = _stat_tiles([
+        (_fmt(crop.get("crop_missed_truth_rate")), "attempts whose crop excluded Climber"),
+        (_fmt(crop.get("median_initial_crop_containment")), "median crop containment"),
+        (_fmt(crop.get("median_initial_search_region_iou")), "median crop↔truth IoU"),
+        (str(int(crop.get("missing_attempts") or 0)), "missing attempts scored"),
+    ])
+
     display_cols = [
         "route_folder", "video_key", "run_ts", "flagged_rate",
+        "crop_contained_truth_rate", "miss_crop_misplaced_share",
+        "miss_unexplained_share", "missing_attempts",
         "over_rejection_rate", "over_rejection_rate_truth_present",
         "flip_over_rejection_rate", "rejection_truth_checkable", "rejected_attempts",
         "attempt_evidence", "attempt_count", "attempt_reacquire_attempt_rate",
@@ -760,6 +802,8 @@ def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
     top = top[[c for c in display_cols if c in top.columns]].head(20)
     return (
         tiles
+        + "<h3>Crop placement vs Ground Truth</h3>" + crop_tiles
+        + "<h3>Missing-attempt causes</h3>" + cause_tbl
         + "<h3>Run-level attempt conditions vs Detection Errors</h3>" + band_tbl
         + "<h3>Worst runs with attempt evidence</h3>" + _df_to_table(top)
     )

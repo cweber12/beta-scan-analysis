@@ -386,7 +386,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 9
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 10
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -1077,7 +1077,7 @@ def test_rejection_correctness_verdicts_and_pooled_rate():
         by_run = {p.run_ts: json.loads(p.record_path.read_text(encoding="utf-8"))
                   for p in summary.written}
         rec = by_run["20260101-000085"]
-        assert rec["schemaVersion"] == 9
+        assert rec["schemaVersion"] >= 9  # rejection scoring landed in v9
 
         rc = rec["frameQuality"]["rejectionCorrectness"]
         assert rc["rejected"] == 5
@@ -1175,6 +1175,171 @@ def test_rejection_correctness_verdicts_and_pooled_rate():
         assert "over-rejection rate (Climber present)" in html
         assert "truth-checkable rejections" in html
         assert "0.33" in html
+
+
+def test_crop_quality_iou_and_miss_causes():
+    """Issue #86: every matched Detector Attempt is scored against a truth bbox, and each
+    missing attempt gets a cause class.
+
+    All four causes are crafted, including the case that decides the taxonomy: a miss
+    whose crop excluded the Climber but which *also* ran a full-frame reacquire is NOT
+    crop-misplaced — everywhere was searched, so the crop cannot be what lost them — yet
+    its crop-placement failure is still recorded."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report
+    from analysis_pipeline import trends
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    doc = {
+        "version": 1,
+        "jointSet": list(_TRUTH_JOINTS),
+        "groundTruthHash": "crop86crop86crop86",
+        "setupHash": "sh_crop",
+        "frames": [
+            {"frameIndex": i, "timestamp": float(i), "state": "present",
+             "review": "auto", "joints": present}
+            for i in (1, 2, 3, 4)
+        ] + [
+            {"frameIndex": 5, "timestamp": 5.0, "state": "absent",
+             "review": "auto", "joints": {}},
+        ],
+    }
+
+    # _TRUTH_JOINTS spans x 0.3..0.7, y 0.2..0.95 -> extent 0.4 x 0.75, pad = 0.075
+    # -> bbox (0.225, 0.125) .. (0.775, 1.025), i.e. w=0.55 h=0.90, area 0.495.
+    bbox_area = 0.55 * 0.90
+    on_truth = {"x": 0.225, "y": 0.125, "w": 0.55, "h": 0.90}   # exactly the truth bbox
+    elsewhere = {"x": 0.0, "y": 0.0, "w": 0.15, "h": 0.15}      # nowhere near the Climber
+    full_frame = {"x": 0, "y": 0, "w": 1, "h": 1}
+    clean = {"mean": 120, "stdDev": 40, "sharpness": 200,
+             "flags": {"isBlurry": False, "isUnderexposed": False}}
+    adverse = {"mean": 20, "stdDev": 5, "sharpness": 10,
+               "flags": {"isBlurry": True, "isUnderexposed": True}}
+    exact = _kp_list(_TRUTH_JOINTS)
+    attempts = [
+        # t1 accepted, crop sits exactly on truth -> IoU 1.0, contained.
+        {"timestamp": 1.0, "status": "accepted", "initialSearchRegion": on_truth,
+         "detectionRegion": on_truth, "rawKeypoints": exact, "acceptedKeypoints": exact,
+         "searchConditions": clean},
+        # t2 missing, crop excluded the Climber, NO reacquire -> crop-misplaced.
+        {"timestamp": 2.0, "status": "missing", "initialSearchRegion": elsewhere,
+         "reacquireAttempted": False, "rawKeypoints": [], "acceptedKeypoints": [],
+         "searchConditions": clean},
+        # t3 missing, crop excluded the Climber, but full-frame reacquire ran and failed
+        # -> NOT crop-misplaced. Conditions fired, so: adverse-conditions.
+        {"timestamp": 3.0, "status": "missing", "initialSearchRegion": elsewhere,
+         "reacquireAttempted": True, "reacquired": False, "rawKeypoints": [],
+         "acceptedKeypoints": [], "searchConditions": adverse},
+        # t4 missing, everywhere searched, conditions clean -> unexplained.
+        {"timestamp": 4.0, "status": "missing", "initialSearchRegion": on_truth,
+         "reacquireAttempted": True, "reacquired": False, "rawKeypoints": [],
+         "acceptedKeypoints": [], "searchConditions": clean},
+        # t5 missing on a Climber-absent frame -> climber-absent (a correct miss).
+        {"timestamp": 5.0, "status": "missing", "initialSearchRegion": full_frame,
+         "reacquireAttempted": True, "rawKeypoints": [], "acceptedKeypoints": [],
+         "searchConditions": clean},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeCQ" / "vidCQ"
+        _write_bundle_meta(vdir, setup_hash="sh_crop")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000086", "sh_crop", [],
+                        detector_attempts=attempts)
+        # Legacy frames-only bundle: no attempts, so nothing to score.
+        legacy = root / "routeCQL" / "vidCQL"
+        _write_bundle_meta(legacy, setup_hash="sh_cqlegacy")
+        (legacy / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        _write_pose_run(legacy, "20260101-000087", "sh_cqlegacy", _scanner_frames_for_pck())
+
+        summary = ev.evaluate(root)
+        by_run = {p.run_ts: json.loads(p.record_path.read_text(encoding="utf-8"))
+                  for p in summary.written}
+        rec = by_run["20260101-000086"]
+        assert rec["schemaVersion"] >= 10  # cropQuality landed in v10
+
+        cq = rec["cropQuality"]
+        assert cq["matchedAttempts"] == 5
+        assert cq["missingAttempts"] == 4
+        assert cq["missCauseCounts"] == {"climber-absent": 1, "crop-misplaced": 1,
+                                        "adverse-conditions": 1, "unexplained": 1}
+        assert cq["thresholds"]["truthBboxPad"] == ev.TRUTH_BBOX_PAD
+        assert cq["thresholds"]["reacquireSearchesFullFrame"] is True
+
+        by_t = {e["t"]: e for e in cq["frames"]}
+        # A crop placed exactly on the truth bbox scores IoU 1 and full containment.
+        assert by_t[1.0]["initialSearchRegionIou"] == 1.0
+        assert by_t[1.0]["detectionRegionIou"] == 1.0
+        assert by_t[1.0]["initialCropContainment"] == 1.0
+        assert by_t[1.0]["cropContainedTruth"] is True
+        assert by_t[1.0]["missCause"] is None
+        assert by_t[1.0]["truthBbox"] == {"x": 0.225, "y": 0.125, "w": 0.55, "h": 0.9}
+        # A crop nowhere near the Climber: zero overlap on both measures.
+        assert by_t[2.0]["missCause"] == "crop-misplaced"
+        assert by_t[2.0]["initialSearchRegionIou"] == 0.0
+        assert by_t[2.0]["initialCropContainment"] == 0.0
+        assert by_t[2.0]["cropContainedTruth"] is False
+        # The decisive case: crop excluded the Climber, but everywhere was searched.
+        assert by_t[3.0]["missCause"] == "adverse-conditions"
+        assert by_t[3.0]["cropContainedTruth"] is False  # still recorded
+        assert by_t[3.0]["firedSearchFlags"] == ["is_blurry", "is_underexposed"]
+        assert by_t[4.0]["missCause"] == "unexplained"
+        assert by_t[4.0]["searchFlagsFired"] is False
+        # Climber absent -> no bbox to score against, and the miss is correct.
+        assert by_t[5.0]["missCause"] == "climber-absent"
+        assert by_t[5.0]["truthBbox"] is None
+        assert by_t[5.0]["initialSearchRegionIou"] is None
+        assert by_t[5.0]["initialCropContainment"] is None
+
+        # A full-frame crop containing the bbox: containment 1, but IoU only bbox/frame.
+        assert cq["cropContainedTruth"] == {"contained": 2, "scored": 4,
+                                            "rate": 0.5}
+        assert cq["initialSearchRegionIou"]["n"] == 4
+        assert cq["initialSearchRegionIou"]["median"] == round((1.0 + 0.0) / 2, 6)
+
+        # Legacy record: block present, nothing scored — not "zero misplaced crops".
+        legacy_cq = by_run["20260101-000087"]["cropQuality"]
+        assert legacy_cq["matchedAttempts"] == 0
+        assert legacy_cq["missingAttempts"] == 0
+        assert legacy_cq["cropContainedTruth"]["rate"] is None
+        assert legacy_cq["frames"] == []
+
+        # ...and the trend seam.
+        ctx = trends.build_trend_context(root)
+        causes = ctx["crop_quality_miss_causes"].set_index("miss_cause")
+        assert int(causes.loc["crop-misplaced", "n"]) == 1
+        assert int(causes.loc["adverse-conditions", "crop_missed_truth"]) == 1
+        totals = ctx["crop_quality"]
+        assert totals["matched_attempts"] == 5
+        assert totals["missing_attempts"] == 4
+        # Two of four scorable crops excluded the Climber (t2, t3).
+        assert totals["crop_missed_truth"] == 2
+        assert totals["crop_missed_truth_rate"] == 0.5
+        assert totals["miss_cause_counts"]["unexplained"] == 1
+
+        runs = ctx["detection_error_attempt_runs"].set_index("run_ts")
+        row = runs.loc["20260101-000086"]
+        assert row["missing_attempts"] == 4
+        assert row["miss_crop_misplaced_count"] == 1
+        assert row["miss_crop_misplaced_share"] == 0.25
+        assert row["crop_contained_truth_rate"] == 0.5
+        legacy_row = runs.loc["20260101-000087"]
+        assert legacy_row["missing_attempts"] == 0
+        assert pd.isna(legacy_row["crop_contained_truth_rate"])
+
+        csvs = trends.write_trend_tables(Path(tmp) / "reports", ctx)
+        attempts_csv = pd.read_csv(csvs["eval_crop_quality_attempts.csv"])
+        assert len(attempts_csv) == 5
+        assert "initial_search_region_iou" in attempts_csv.columns
+        assert "eval_crop_quality_miss_causes.csv" in csvs
+
+        html = report._detection_error_attempt_html(ctx)
+        assert "Missing-attempt causes" in html
+        assert "crop-misplaced" in html
+        assert "attempts whose crop excluded Climber" in html
 
 
 def test_crop_export_selection_and_writes():
@@ -1937,6 +2102,7 @@ def _run_all():
            test_frame_quality_splits_held_pose_from_raw_frozen_stale,
            test_evaluate_prefers_detector_attempts_over_dense_frames,
            test_rejection_correctness_verdicts_and_pooled_rate,
+           test_crop_quality_iou_and_miss_causes,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
            test_frame_quality_condition_bands_flagged_rate,
