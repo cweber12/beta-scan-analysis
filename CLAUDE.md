@@ -114,13 +114,3 @@ Canonical five-role vocabulary — `needs-triage` / `needs-info` / `ready-for-ag
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
-
-### Pending local handoffs
-
-While issue #75 remains local/unpushed, agents working on
-[issue #73](https://github.com/cweber12/beta-scan-analysis/issues/73) or
-[issue #74](https://github.com/cweber12/beta-scan-analysis/issues/74) should first
-read the detector-attempt handoff in the local #75 worktree:
-`C:\tmp\beta-scan-analysis-75\docs\handoffs\scanner-detector-attempt-evidence.md`.
-It defines the attempt statuses, raw vs accepted keypoints, regions, reacquire
-fields, conditions, candidate metadata, and authority model those slices build on.
