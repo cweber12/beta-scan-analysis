@@ -550,6 +550,13 @@
     ]
   },
   "conformance": {
+    "cause": "sparse-match",
+    "causeEvidence": {
+      "acceptedAttempts": 28,
+      "acceptedShare": 0.110672,
+      "fitFrames": 28,
+      "presentAttempts": 253
+    },
     "conforms": false,
     "n": 263,
     "reasons": [
@@ -557,6 +564,8 @@
       "y-nonconforming"
     ],
     "thresholds": {
+      "minAcceptedShare": 0.5,
+      "minFitFrames": 20,
       "minPoints": 20,
       "r2Min": 0.9,
       "r2MinX": 0.75,
@@ -588,6 +597,5475 @@
     "truthFramesPresent": 463,
     "truthFramesTotal": 508,
     "truthFramesVerified": 0
+  },
+  "cropQuality": {
+    "cropContainedTruth": {
+      "contained": 162,
+      "rate": 0.640316,
+      "scored": 253
+    },
+    "detectionRegionIou": {
+      "median": 0.20531,
+      "n": 28,
+      "p90": 0.281208
+    },
+    "frames": [
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.0,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.1,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.2,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 0.3,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.19471,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.19471,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.4,
+        "truthBbox": {
+          "h": 0.191571,
+          "w": 0.113391,
+          "x": 0.514874,
+          "y": 0.372524
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.191168,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.191168,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.5,
+        "truthBbox": {
+          "h": 0.189774,
+          "w": 0.104748,
+          "x": 0.512335,
+          "y": 0.373492
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.266773,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.266773,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.6,
+        "truthBbox": {
+          "h": 0.186038,
+          "w": 0.119946,
+          "x": 0.504096,
+          "y": 0.376807
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.298666,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.298666,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.7,
+        "truthBbox": {
+          "h": 0.184197,
+          "w": 0.120342,
+          "x": 0.501967,
+          "y": 0.378938
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.266057,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.266057,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.8,
+        "truthBbox": {
+          "h": 0.181893,
+          "w": 0.1477,
+          "x": 0.46872,
+          "y": 0.380326
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.173634,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.173634,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 0.9,
+        "truthBbox": {
+          "h": 0.175413,
+          "w": 0.086956,
+          "x": 0.512397,
+          "y": 0.381561
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.12295,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.12295,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 1.0,
+        "truthBbox": {
+          "h": 0.133129,
+          "w": 0.072529,
+          "x": 0.514578,
+          "y": 0.384277
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.279017,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.279017,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 1.1,
+        "truthBbox": {
+          "h": 0.183112,
+          "w": 0.114639,
+          "x": 0.506832,
+          "y": 0.380349
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 1.2,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 1.3,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.162604,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 1.4,
+        "truthBbox": {
+          "h": 0.183273,
+          "w": 0.086874,
+          "x": 0.507396,
+          "y": 0.379938
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.218098,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 1.5,
+        "truthBbox": {
+          "h": 0.183755,
+          "w": 0.116217,
+          "x": 0.47882,
+          "y": 0.380789
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.247133,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 1.6,
+        "truthBbox": {
+          "h": 0.184429,
+          "w": 0.131208,
+          "x": 0.462995,
+          "y": 0.380206
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.216127,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 1.7,
+        "truthBbox": {
+          "h": 0.183636,
+          "w": 0.115241,
+          "x": 0.480126,
+          "y": 0.380331
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.240869,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.240869,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 1.8,
+        "truthBbox": {
+          "h": 0.184875,
+          "w": 0.127573,
+          "x": 0.466604,
+          "y": 0.380243
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.167356,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.167356,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 1.9,
+        "truthBbox": {
+          "h": 0.184374,
+          "w": 0.098137,
+          "x": 0.49773,
+          "y": 0.380514
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.187755,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.187755,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.0,
+        "truthBbox": {
+          "h": 0.183544,
+          "w": 0.094302,
+          "x": 0.50694,
+          "y": 0.381097
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.204829,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.204829,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.1,
+        "truthBbox": {
+          "h": 0.182764,
+          "w": 0.10358,
+          "x": 0.496294,
+          "y": 0.381053
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.177967,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.177967,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.2,
+        "truthBbox": {
+          "h": 0.183904,
+          "w": 0.089379,
+          "x": 0.508428,
+          "y": 0.380476
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.154583,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.154583,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.3,
+        "truthBbox": {
+          "h": 0.184238,
+          "w": 0.086067,
+          "x": 0.511365,
+          "y": 0.380999
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.205791,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.205791,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.4,
+        "truthBbox": {
+          "h": 0.182952,
+          "w": 0.103515,
+          "x": 0.494942,
+          "y": 0.380828
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.218126,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.218126,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.5,
+        "truthBbox": {
+          "h": 0.181412,
+          "w": 0.112337,
+          "x": 0.484216,
+          "y": 0.381241
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.252465,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.252465,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.6,
+        "truthBbox": {
+          "h": 0.180651,
+          "w": 0.120385,
+          "x": 0.474491,
+          "y": 0.380459
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.24315,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.24315,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.7,
+        "truthBbox": {
+          "h": 0.183199,
+          "w": 0.115581,
+          "x": 0.477311,
+          "y": 0.379271
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.200788,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.200788,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.8,
+        "truthBbox": {
+          "h": 0.187097,
+          "w": 0.121594,
+          "x": 0.468886,
+          "y": 0.37716
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.263057,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.263057,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 2.9,
+        "truthBbox": {
+          "h": 0.19245,
+          "w": 0.120261,
+          "x": 0.469695,
+          "y": 0.37242
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.216885,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.216885,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 3.0,
+        "truthBbox": {
+          "h": 0.197327,
+          "w": 0.106501,
+          "x": 0.485683,
+          "y": 0.367007
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 3.1,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 3.2,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 3.3,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 3.4,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.394057,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.394057,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 3.5,
+        "truthBbox": {
+          "h": 0.233451,
+          "w": 0.119095,
+          "x": 0.458062,
+          "y": 0.337931
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.133623,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.694568,
+        "initialSearchRegionIou": 0.133623,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 3.6,
+        "truthBbox": {
+          "h": 0.251924,
+          "w": 0.118319,
+          "x": 0.457655,
+          "y": 0.319929
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.345851,
+        "initialSearchRegionIou": 0.036422,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 3.7,
+        "truthBbox": {
+          "h": 0.258146,
+          "w": 0.121171,
+          "x": 0.454694,
+          "y": 0.313947
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.344754,
+        "initialSearchRegionIou": 0.036404,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 3.8,
+        "truthBbox": {
+          "h": 0.259754,
+          "w": 0.120784,
+          "x": 0.456072,
+          "y": 0.31261
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.346461,
+        "initialSearchRegionIou": 0.038219,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 3.9,
+        "truthBbox": {
+          "h": 0.26146,
+          "w": 0.125752,
+          "x": 0.454304,
+          "y": 0.311939
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.347106,
+        "initialSearchRegionIou": 0.038679,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.0,
+        "truthBbox": {
+          "h": 0.260929,
+          "w": 0.127376,
+          "x": 0.455311,
+          "y": 0.312453
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.347463,
+        "initialSearchRegionIou": 0.038333,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.1,
+        "truthBbox": {
+          "h": 0.259557,
+          "w": 0.126671,
+          "x": 0.455647,
+          "y": 0.313442
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.349397,
+        "initialSearchRegionIou": 0.038941,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.2,
+        "truthBbox": {
+          "h": 0.25994,
+          "w": 0.127851,
+          "x": 0.455677,
+          "y": 0.313695
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.346669,
+        "initialSearchRegionIou": 0.039161,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.3,
+        "truthBbox": {
+          "h": 0.259082,
+          "w": 0.130194,
+          "x": 0.454981,
+          "y": 0.313546
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.344667,
+        "initialSearchRegionIou": 0.03936,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.4,
+        "truthBbox": {
+          "h": 0.259092,
+          "w": 0.131757,
+          "x": 0.454302,
+          "y": 0.313021
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.5,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.34599,
+        "initialSearchRegionIou": 0.038393,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.6,
+        "truthBbox": {
+          "h": 0.261398,
+          "w": 0.126588,
+          "x": 0.456117,
+          "y": 0.311855
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.346611,
+        "initialSearchRegionIou": 0.038934,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.7,
+        "truthBbox": {
+          "h": 0.260577,
+          "w": 0.12866,
+          "x": 0.453868,
+          "y": 0.312554
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.348323,
+        "initialSearchRegionIou": 0.039634,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.8,
+        "truthBbox": {
+          "h": 0.261186,
+          "w": 0.130132,
+          "x": 0.452083,
+          "y": 0.312603
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.347106,
+        "initialSearchRegionIou": 0.039024,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 4.9,
+        "truthBbox": {
+          "h": 0.261059,
+          "w": 0.128538,
+          "x": 0.452458,
+          "y": 0.312369
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.34625,
+        "initialSearchRegionIou": 0.038495,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.0,
+        "truthBbox": {
+          "h": 0.261355,
+          "w": 0.126865,
+          "x": 0.451703,
+          "y": 0.311951
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.346164,
+        "initialSearchRegionIou": 0.037569,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.1,
+        "truthBbox": {
+          "h": 0.261028,
+          "w": 0.123772,
+          "x": 0.451733,
+          "y": 0.312143
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.343906,
+        "initialSearchRegionIou": 0.036578,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.2,
+        "truthBbox": {
+          "h": 0.25975,
+          "w": 0.121738,
+          "x": 0.452408,
+          "y": 0.312392
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.348403,
+        "initialSearchRegionIou": 0.037822,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.3,
+        "truthBbox": {
+          "h": 0.261908,
+          "w": 0.123358,
+          "x": 0.452947,
+          "y": 0.312154
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": 0.035028,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.351805,
+        "initialSearchRegionIou": 0.035028,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 5.4,
+        "truthBbox": {
+          "h": 0.25872,
+          "w": 0.113775,
+          "x": 0.460006,
+          "y": 0.315112
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.689129,
+        "initialSearchRegionIou": 0.163614,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.5,
+        "truthBbox": {
+          "h": 0.258465,
+          "w": 0.117774,
+          "x": 0.454729,
+          "y": 0.314963
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.683615,
+        "initialSearchRegionIou": 0.161872,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.6,
+        "truthBbox": {
+          "h": 0.259593,
+          "w": 0.11709,
+          "x": 0.455161,
+          "y": 0.313181
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.683341,
+        "initialSearchRegionIou": 0.132292,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.7,
+        "truthBbox": {
+          "h": 0.248759,
+          "w": 0.098452,
+          "x": 0.455232,
+          "y": 0.316541
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.8,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.680478,
+        "initialSearchRegionIou": 0.188645,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 5.9,
+        "truthBbox": {
+          "h": 0.253901,
+          "w": 0.142259,
+          "x": 0.420269,
+          "y": 0.314186
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.678869,
+        "initialSearchRegionIou": 0.191414,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.0,
+        "truthBbox": {
+          "h": 0.249832,
+          "w": 0.147365,
+          "x": 0.407806,
+          "y": 0.315084
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.685391,
+        "initialSearchRegionIou": 0.224812,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.1,
+        "truthBbox": {
+          "h": 0.250155,
+          "w": 0.173623,
+          "x": 0.38405,
+          "y": 0.316612
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.623942,
+        "initialSearchRegionIou": 0.185631,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.2,
+        "truthBbox": {
+          "h": 0.199392,
+          "w": 0.199509,
+          "x": 0.358713,
+          "y": 0.32033
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.61461,
+        "initialSearchRegionIou": 0.183926,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.3,
+        "truthBbox": {
+          "h": 0.196633,
+          "w": 0.204286,
+          "x": 0.354584,
+          "y": 0.319532
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.612882,
+        "initialSearchRegionIou": 0.189499,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.4,
+        "truthBbox": {
+          "h": 0.198255,
+          "w": 0.21038,
+          "x": 0.350481,
+          "y": 0.318564
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.617836,
+        "initialSearchRegionIou": 0.187678,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.5,
+        "truthBbox": {
+          "h": 0.198679,
+          "w": 0.205407,
+          "x": 0.351195,
+          "y": 0.319385
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.624306,
+        "initialSearchRegionIou": 0.196442,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.6,
+        "truthBbox": {
+          "h": 0.202921,
+          "w": 0.208824,
+          "x": 0.348809,
+          "y": 0.319076
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.623362,
+        "initialSearchRegionIou": 0.197478,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.7,
+        "truthBbox": {
+          "h": 0.201561,
+          "w": 0.211927,
+          "x": 0.345722,
+          "y": 0.319397
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.619827,
+        "initialSearchRegionIou": 0.200056,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 6.8,
+        "truthBbox": {
+          "h": 0.200801,
+          "w": 0.217572,
+          "x": 0.345786,
+          "y": 0.318973
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.26466,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.676705,
+        "initialSearchRegionIou": 0.26466,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 6.9,
+        "truthBbox": {
+          "h": 0.244499,
+          "w": 0.217447,
+          "x": 0.342293,
+          "y": 0.316267
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.286318,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.286318,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 7.0,
+        "truthBbox": {
+          "h": 0.246707,
+          "w": 0.222641,
+          "x": 0.339251,
+          "y": 0.315909
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.194934,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.194934,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 7.1,
+        "truthBbox": {
+          "h": 0.24913,
+          "w": 0.217567,
+          "x": 0.340231,
+          "y": 0.315198
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.175204,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 7.2,
+        "truthBbox": {
+          "h": 0.249049,
+          "w": 0.245838,
+          "x": 0.340556,
+          "y": 0.314978
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.155772,
+        "firedSearchFlags": [],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.155772,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 7.3,
+        "truthBbox": {
+          "h": 0.244632,
+          "w": 0.222517,
+          "x": 0.339019,
+          "y": 0.316781
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.986119,
+        "initialSearchRegionIou": 0.173277,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 7.4,
+        "truthBbox": {
+          "h": 0.205494,
+          "w": 0.227188,
+          "x": 0.341659,
+          "y": 0.31746
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.985005,
+        "initialSearchRegionIou": 0.174099,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 7.5,
+        "truthBbox": {
+          "h": 0.207267,
+          "w": 0.226616,
+          "x": 0.342248,
+          "y": 0.317205
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.986629,
+        "initialSearchRegionIou": 0.176239,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 7.6,
+        "truthBbox": {
+          "h": 0.207293,
+          "w": 0.228935,
+          "x": 0.340595,
+          "y": 0.317541
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.992642,
+        "initialSearchRegionIou": 0.174341,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 7.7,
+        "truthBbox": {
+          "h": 0.204451,
+          "w": 0.227976,
+          "x": 0.340604,
+          "y": 0.318808
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.988007,
+        "initialSearchRegionIou": 0.175366,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 7.8,
+        "truthBbox": {
+          "h": 0.206461,
+          "w": 0.228341,
+          "x": 0.339926,
+          "y": 0.317836
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.987129,
+        "initialSearchRegionIou": 0.208032,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 7.9,
+        "truthBbox": {
+          "h": 0.245621,
+          "w": 0.228024,
+          "x": 0.337391,
+          "y": 0.317151
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.985484,
+        "initialSearchRegionIou": 0.208727,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.0,
+        "truthBbox": {
+          "h": 0.246085,
+          "w": 0.228818,
+          "x": 0.338881,
+          "y": 0.31674
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.980981,
+        "initialSearchRegionIou": 0.167991,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.1,
+        "truthBbox": {
+          "h": 0.196391,
+          "w": 0.231861,
+          "x": 0.344113,
+          "y": 0.31739
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.961263,
+        "initialSearchRegionIou": 0.155308,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.2,
+        "truthBbox": {
+          "h": 0.184275,
+          "w": 0.233841,
+          "x": 0.345632,
+          "y": 0.316629
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.925034,
+        "initialSearchRegionIou": 0.154015,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.3,
+        "truthBbox": {
+          "h": 0.178948,
+          "w": 0.249715,
+          "x": 0.338013,
+          "y": 0.315788
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.4,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.5,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.6,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.906502,
+        "initialSearchRegionIou": 0.1317,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.7,
+        "truthBbox": {
+          "h": 0.160658,
+          "w": 0.242976,
+          "x": 0.348615,
+          "y": 0.315965
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.904964,
+        "initialSearchRegionIou": 0.131431,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.8,
+        "truthBbox": {
+          "h": 0.160113,
+          "w": 0.243773,
+          "x": 0.347704,
+          "y": 0.3156
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.907664,
+        "initialSearchRegionIou": 0.132125,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 8.9,
+        "truthBbox": {
+          "h": 0.160111,
+          "w": 0.244247,
+          "x": 0.346726,
+          "y": 0.315697
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.902043,
+        "initialSearchRegionIou": 0.131522,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.0,
+        "truthBbox": {
+          "h": 0.159705,
+          "w": 0.245475,
+          "x": 0.347316,
+          "y": 0.315925
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.907445,
+        "initialSearchRegionIou": 0.13027,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.1,
+        "truthBbox": {
+          "h": 0.158742,
+          "w": 0.242914,
+          "x": 0.348351,
+          "y": 0.315957
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.906554,
+        "initialSearchRegionIou": 0.130338,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.2,
+        "truthBbox": {
+          "h": 0.159187,
+          "w": 0.242635,
+          "x": 0.348263,
+          "y": 0.315556
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.892322,
+        "initialSearchRegionIou": 0.130751,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.3,
+        "truthBbox": {
+          "h": 0.159568,
+          "w": 0.247283,
+          "x": 0.347031,
+          "y": 0.315194
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.892232,
+        "initialSearchRegionIou": 0.130786,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.4,
+        "truthBbox": {
+          "h": 0.159653,
+          "w": 0.247248,
+          "x": 0.346959,
+          "y": 0.315105
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.884837,
+        "initialSearchRegionIou": 0.129066,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.5,
+        "truthBbox": {
+          "h": 0.158762,
+          "w": 0.247668,
+          "x": 0.348345,
+          "y": 0.315053
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.884536,
+        "initialSearchRegionIou": 0.128582,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.6,
+        "truthBbox": {
+          "h": 0.158171,
+          "w": 0.247742,
+          "x": 0.348529,
+          "y": 0.315191
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.88183,
+        "initialSearchRegionIou": 0.128657,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.7,
+        "truthBbox": {
+          "h": 0.158832,
+          "w": 0.247728,
+          "x": 0.34886,
+          "y": 0.314914
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.876991,
+        "initialSearchRegionIou": 0.129238,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.8,
+        "truthBbox": {
+          "h": 0.159541,
+          "w": 0.249332,
+          "x": 0.348257,
+          "y": 0.314626
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.882872,
+        "initialSearchRegionIou": 0.12848,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 9.9,
+        "truthBbox": {
+          "h": 0.158452,
+          "w": 0.247638,
+          "x": 0.349015,
+          "y": 0.315157
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.879039,
+        "initialSearchRegionIou": 0.127918,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.0,
+        "truthBbox": {
+          "h": 0.158232,
+          "w": 0.248115,
+          "x": 0.349275,
+          "y": 0.314969
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.875524,
+        "initialSearchRegionIou": 0.127703,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.1,
+        "truthBbox": {
+          "h": 0.158407,
+          "w": 0.248556,
+          "x": 0.349286,
+          "y": 0.31463
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.888082,
+        "initialSearchRegionIou": 0.126914,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.2,
+        "truthBbox": {
+          "h": 0.15745,
+          "w": 0.244471,
+          "x": 0.350322,
+          "y": 0.315009
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.881418,
+        "initialSearchRegionIou": 0.125408,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.3,
+        "truthBbox": {
+          "h": 0.156442,
+          "w": 0.245183,
+          "x": 0.351622,
+          "y": 0.315222
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.871551,
+        "initialSearchRegionIou": 0.126321,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.4,
+        "truthBbox": {
+          "h": 0.157418,
+          "w": 0.248656,
+          "x": 0.349928,
+          "y": 0.314469
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.775065,
+        "initialSearchRegionIou": 0.1218,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.5,
+        "truthBbox": {
+          "h": 0.176801,
+          "w": 0.244209,
+          "x": 0.351843,
+          "y": 0.293471
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.751481,
+        "initialSearchRegionIou": 0.120528,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.6,
+        "truthBbox": {
+          "h": 0.181797,
+          "w": 0.243532,
+          "x": 0.352224,
+          "y": 0.287861
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.744224,
+        "initialSearchRegionIou": 0.119658,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.7,
+        "truthBbox": {
+          "h": 0.1852,
+          "w": 0.239962,
+          "x": 0.352991,
+          "y": 0.284089
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.727714,
+        "initialSearchRegionIou": 0.118989,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.8,
+        "truthBbox": {
+          "h": 0.185895,
+          "w": 0.243988,
+          "x": 0.35308,
+          "y": 0.283148
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.718396,
+        "initialSearchRegionIou": 0.118412,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 10.9,
+        "truthBbox": {
+          "h": 0.185824,
+          "w": 0.246537,
+          "x": 0.353772,
+          "y": 0.283256
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.71263,
+        "initialSearchRegionIou": 0.119854,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.0,
+        "truthBbox": {
+          "h": 0.186807,
+          "w": 0.250736,
+          "x": 0.351825,
+          "y": 0.28307
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.69326,
+        "initialSearchRegionIou": 0.119906,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.1,
+        "truthBbox": {
+          "h": 0.18809,
+          "w": 0.257375,
+          "x": 0.351476,
+          "y": 0.282365
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.689023,
+        "initialSearchRegionIou": 0.120273,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.2,
+        "truthBbox": {
+          "h": 0.189423,
+          "w": 0.258255,
+          "x": 0.350921,
+          "y": 0.281312
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.679219,
+        "initialSearchRegionIou": 0.119453,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.3,
+        "truthBbox": {
+          "h": 0.192756,
+          "w": 0.256276,
+          "x": 0.351874,
+          "y": 0.277932
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.684432,
+        "initialSearchRegionIou": 0.119545,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.4,
+        "truthBbox": {
+          "h": 0.193747,
+          "w": 0.252872,
+          "x": 0.352245,
+          "y": 0.277101
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.693334,
+        "initialSearchRegionIou": 0.119351,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.5,
+        "truthBbox": {
+          "h": 0.193305,
+          "w": 0.249175,
+          "x": 0.352098,
+          "y": 0.27683
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.701276,
+        "initialSearchRegionIou": 0.122219,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.6,
+        "truthBbox": {
+          "h": 0.197103,
+          "w": 0.247222,
+          "x": 0.349058,
+          "y": 0.274451
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.713064,
+        "initialSearchRegionIou": 0.12195,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.7,
+        "truthBbox": {
+          "h": 0.196009,
+          "w": 0.243188,
+          "x": 0.349822,
+          "y": 0.275249
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.720399,
+        "initialSearchRegionIou": 0.11849,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.8,
+        "truthBbox": {
+          "h": 0.193296,
+          "w": 0.236397,
+          "x": 0.353454,
+          "y": 0.275601
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.730945,
+        "initialSearchRegionIou": 0.120887,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 11.9,
+        "truthBbox": {
+          "h": 0.19313,
+          "w": 0.237533,
+          "x": 0.351192,
+          "y": 0.277007
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.720551,
+        "initialSearchRegionIou": 0.119187,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.0,
+        "truthBbox": {
+          "h": 0.192973,
+          "w": 0.238193,
+          "x": 0.35155,
+          "y": 0.275561
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.700715,
+        "initialSearchRegionIou": 0.110313,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.1,
+        "truthBbox": {
+          "h": 0.185446,
+          "w": 0.236123,
+          "x": 0.356678,
+          "y": 0.275406
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.676306,
+        "initialSearchRegionIou": 0.098894,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.2,
+        "truthBbox": {
+          "h": 0.173954,
+          "w": 0.233862,
+          "x": 0.361879,
+          "y": 0.275454
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.671459,
+        "initialSearchRegionIou": 0.091788,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.3,
+        "truthBbox": {
+          "h": 0.167842,
+          "w": 0.226012,
+          "x": 0.370508,
+          "y": 0.277029
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.665934,
+        "initialSearchRegionIou": 0.091991,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.4,
+        "truthBbox": {
+          "h": 0.167971,
+          "w": 0.228512,
+          "x": 0.370025,
+          "y": 0.277043
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.659202,
+        "initialSearchRegionIou": 0.09299,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.5,
+        "truthBbox": {
+          "h": 0.170123,
+          "w": 0.230867,
+          "x": 0.368825,
+          "y": 0.275766
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.659792,
+        "initialSearchRegionIou": 0.092278,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.6,
+        "truthBbox": {
+          "h": 0.16908,
+          "w": 0.230188,
+          "x": 0.370096,
+          "y": 0.276556
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.662473,
+        "initialSearchRegionIou": 0.090421,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.7,
+        "truthBbox": {
+          "h": 0.168271,
+          "w": 0.225365,
+          "x": 0.373291,
+          "y": 0.27659
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.663857,
+        "initialSearchRegionIou": 0.090499,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.8,
+        "truthBbox": {
+          "h": 0.16634,
+          "w": 0.227642,
+          "x": 0.373418,
+          "y": 0.278674
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.651952,
+        "initialSearchRegionIou": 0.089604,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 12.9,
+        "truthBbox": {
+          "h": 0.168961,
+          "w": 0.226425,
+          "x": 0.375053,
+          "y": 0.276093
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.649337,
+        "initialSearchRegionIou": 0.090557,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.0,
+        "truthBbox": {
+          "h": 0.170739,
+          "w": 0.227617,
+          "x": 0.373617,
+          "y": 0.274883
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.650192,
+        "initialSearchRegionIou": 0.088753,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.1,
+        "truthBbox": {
+          "h": 0.168531,
+          "w": 0.225435,
+          "x": 0.375727,
+          "y": 0.275745
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.663397,
+        "initialSearchRegionIou": 0.088803,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.2,
+        "truthBbox": {
+          "h": 0.167173,
+          "w": 0.222239,
+          "x": 0.376531,
+          "y": 0.277325
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.3,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.4,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.678019,
+        "initialSearchRegionIou": 0.069488,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.5,
+        "truthBbox": {
+          "h": 0.125811,
+          "w": 0.223269,
+          "x": 0.374313,
+          "y": 0.289402
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.616416,
+        "initialSearchRegionIou": 0.06881,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.6,
+        "truthBbox": {
+          "h": 0.134743,
+          "w": 0.229395,
+          "x": 0.374374,
+          "y": 0.280538
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.57117,
+        "initialSearchRegionIou": 0.068839,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.7,
+        "truthBbox": {
+          "h": 0.139745,
+          "w": 0.241042,
+          "x": 0.372907,
+          "y": 0.275769
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.550573,
+        "initialSearchRegionIou": 0.069522,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.8,
+        "truthBbox": {
+          "h": 0.141371,
+          "w": 0.250975,
+          "x": 0.371932,
+          "y": 0.275139
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.553615,
+        "initialSearchRegionIou": 0.068729,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 13.9,
+        "truthBbox": {
+          "h": 0.139802,
+          "w": 0.249164,
+          "x": 0.372507,
+          "y": 0.275745
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.593411,
+        "initialSearchRegionIou": 0.093451,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.0,
+        "truthBbox": {
+          "h": 0.176008,
+          "w": 0.253362,
+          "x": 0.372709,
+          "y": 0.275118
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.5957,
+        "initialSearchRegionIou": 0.091143,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.1,
+        "truthBbox": {
+          "h": 0.17127,
+          "w": 0.252382,
+          "x": 0.372847,
+          "y": 0.276418
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.599909,
+        "initialSearchRegionIou": 0.089801,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.2,
+        "truthBbox": {
+          "h": 0.17013,
+          "w": 0.248054,
+          "x": 0.374289,
+          "y": 0.276319
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.602795,
+        "initialSearchRegionIou": 0.089795,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.3,
+        "truthBbox": {
+          "h": 0.170493,
+          "w": 0.246136,
+          "x": 0.375415,
+          "y": 0.276562
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.614922,
+        "initialSearchRegionIou": 0.090047,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.4,
+        "truthBbox": {
+          "h": 0.168423,
+          "w": 0.244212,
+          "x": 0.375144,
+          "y": 0.278442
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.615924,
+        "initialSearchRegionIou": 0.090687,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.5,
+        "truthBbox": {
+          "h": 0.168436,
+          "w": 0.245568,
+          "x": 0.374457,
+          "y": 0.278912
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.618717,
+        "initialSearchRegionIou": 0.090887,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.6,
+        "truthBbox": {
+          "h": 0.166636,
+          "w": 0.247505,
+          "x": 0.374548,
+          "y": 0.280978
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.587604,
+        "initialSearchRegionIou": 0.088556,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.7,
+        "truthBbox": {
+          "h": 0.170489,
+          "w": 0.249813,
+          "x": 0.372906,
+          "y": 0.273659
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.564887,
+        "initialSearchRegionIou": 0.090927,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.8,
+        "truthBbox": {
+          "h": 0.166027,
+          "w": 0.276311,
+          "x": 0.37014,
+          "y": 0.280783
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.569507,
+        "initialSearchRegionIou": 0.092006,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 14.9,
+        "truthBbox": {
+          "h": 0.167885,
+          "w": 0.274106,
+          "x": 0.370937,
+          "y": 0.280857
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.572857,
+        "initialSearchRegionIou": 0.0928,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.0,
+        "truthBbox": {
+          "h": 0.168697,
+          "w": 0.273429,
+          "x": 0.370812,
+          "y": 0.281026
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.568813,
+        "initialSearchRegionIou": 0.092467,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.1,
+        "truthBbox": {
+          "h": 0.168419,
+          "w": 0.275103,
+          "x": 0.370041,
+          "y": 0.280479
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.568002,
+        "initialSearchRegionIou": 0.091781,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.2,
+        "truthBbox": {
+          "h": 0.168091,
+          "w": 0.273902,
+          "x": 0.371742,
+          "y": 0.280881
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.56673,
+        "initialSearchRegionIou": 0.091563,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.3,
+        "truthBbox": {
+          "h": 0.168273,
+          "w": 0.273627,
+          "x": 0.371404,
+          "y": 0.280208
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.557425,
+        "initialSearchRegionIou": 0.091314,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.4,
+        "truthBbox": {
+          "h": 0.168604,
+          "w": 0.277638,
+          "x": 0.37143,
+          "y": 0.279888
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.620384,
+        "initialSearchRegionIou": 0.091274,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.5,
+        "truthBbox": {
+          "h": 0.16573,
+          "w": 0.249206,
+          "x": 0.373291,
+          "y": 0.281609
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.629118,
+        "initialSearchRegionIou": 0.093479,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.6,
+        "truthBbox": {
+          "h": 0.168101,
+          "w": 0.247935,
+          "x": 0.372145,
+          "y": 0.281469
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.625309,
+        "initialSearchRegionIou": 0.093336,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.7,
+        "truthBbox": {
+          "h": 0.168838,
+          "w": 0.248191,
+          "x": 0.372066,
+          "y": 0.280596
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.621796,
+        "initialSearchRegionIou": 0.092432,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.8,
+        "truthBbox": {
+          "h": 0.168521,
+          "w": 0.247719,
+          "x": 0.372869,
+          "y": 0.28021
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.630006,
+        "initialSearchRegionIou": 0.091198,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 15.9,
+        "truthBbox": {
+          "h": 0.166025,
+          "w": 0.244166,
+          "x": 0.373411,
+          "y": 0.280976
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.623114,
+        "initialSearchRegionIou": 0.09278,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.0,
+        "truthBbox": {
+          "h": 0.16768,
+          "w": 0.249343,
+          "x": 0.372082,
+          "y": 0.281021
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.621449,
+        "initialSearchRegionIou": 0.091397,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.1,
+        "truthBbox": {
+          "h": 0.166485,
+          "w": 0.247938,
+          "x": 0.373406,
+          "y": 0.281074
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.625594,
+        "initialSearchRegionIou": 0.095192,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.2,
+        "truthBbox": {
+          "h": 0.171828,
+          "w": 0.248886,
+          "x": 0.372378,
+          "y": 0.280523
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.630661,
+        "initialSearchRegionIou": 0.099727,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.3,
+        "truthBbox": {
+          "h": 0.178118,
+          "w": 0.249892,
+          "x": 0.371279,
+          "y": 0.279985
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.630604,
+        "initialSearchRegionIou": 0.105844,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.4,
+        "truthBbox": {
+          "h": 0.187823,
+          "w": 0.252506,
+          "x": 0.371706,
+          "y": 0.279603
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.621797,
+        "initialSearchRegionIou": 0.110671,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.5,
+        "truthBbox": {
+          "h": 0.19552,
+          "w": 0.258683,
+          "x": 0.370883,
+          "y": 0.278866
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.607057,
+        "initialSearchRegionIou": 0.111621,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.6,
+        "truthBbox": {
+          "h": 0.200554,
+          "w": 0.261919,
+          "x": 0.373053,
+          "y": 0.277661
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.7,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.8,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.551828,
+        "initialSearchRegionIou": 0.077864,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 16.9,
+        "truthBbox": {
+          "h": 0.153001,
+          "w": 0.260925,
+          "x": 0.372632,
+          "y": 0.276172
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.540114,
+        "initialSearchRegionIou": 0.072987,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.0,
+        "truthBbox": {
+          "h": 0.146959,
+          "w": 0.25986,
+          "x": 0.373467,
+          "y": 0.275701
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.529355,
+        "initialSearchRegionIou": 0.071665,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.1,
+        "truthBbox": {
+          "h": 0.147148,
+          "w": 0.26044,
+          "x": 0.374093,
+          "y": 0.274139
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.572602,
+        "initialSearchRegionIou": 0.092934,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.2,
+        "truthBbox": {
+          "h": 0.176796,
+          "w": 0.261443,
+          "x": 0.373148,
+          "y": 0.274637
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.584406,
+        "initialSearchRegionIou": 0.100425,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.3,
+        "truthBbox": {
+          "h": 0.185103,
+          "w": 0.264972,
+          "x": 0.370462,
+          "y": 0.275347
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.546445,
+        "initialSearchRegionIou": 0.063782,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.4,
+        "truthBbox": {
+          "h": 0.170094,
+          "w": 0.192041,
+          "x": 0.439615,
+          "y": 0.282061
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.560262,
+        "initialSearchRegionIou": 0.071152,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.5,
+        "truthBbox": {
+          "h": 0.16113,
+          "w": 0.221252,
+          "x": 0.411934,
+          "y": 0.28167
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.497286,
+        "initialSearchRegionIou": 0.042996,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.6,
+        "truthBbox": {
+          "h": 0.123538,
+          "w": 0.193924,
+          "x": 0.439169,
+          "y": 0.284482
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.542987,
+        "initialSearchRegionIou": 0.064357,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.7,
+        "truthBbox": {
+          "h": 0.155799,
+          "w": 0.213177,
+          "x": 0.422232,
+          "y": 0.282563
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.525454,
+        "initialSearchRegionIou": 0.053583,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.8,
+        "truthBbox": {
+          "h": 0.148958,
+          "w": 0.190668,
+          "x": 0.44275,
+          "y": 0.284199
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.51956,
+        "initialSearchRegionIou": 0.047704,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 17.9,
+        "truthBbox": {
+          "h": 0.133969,
+          "w": 0.190029,
+          "x": 0.441048,
+          "y": 0.285087
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.533518,
+        "initialSearchRegionIou": 0.070096,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.0,
+        "truthBbox": {
+          "h": 0.140362,
+          "w": 0.264284,
+          "x": 0.372866,
+          "y": 0.277861
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.529234,
+        "initialSearchRegionIou": 0.068828,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.1,
+        "truthBbox": {
+          "h": 0.138598,
+          "w": 0.264914,
+          "x": 0.371861,
+          "y": 0.277372
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.2,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.442578,
+        "initialSearchRegionIou": 0.029481,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.3,
+        "truthBbox": {
+          "h": 0.096196,
+          "w": 0.190608,
+          "x": 0.440097,
+          "y": 0.284271
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.438798,
+        "initialSearchRegionIou": 0.029265,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.4,
+        "truthBbox": {
+          "h": 0.096782,
+          "w": 0.189743,
+          "x": 0.441015,
+          "y": 0.283671
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.509021,
+        "initialSearchRegionIou": 0.0684,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.5,
+        "truthBbox": {
+          "h": 0.141012,
+          "w": 0.270408,
+          "x": 0.373281,
+          "y": 0.27552
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.506147,
+        "initialSearchRegionIou": 0.069998,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.6,
+        "truthBbox": {
+          "h": 0.143616,
+          "w": 0.273929,
+          "x": 0.370962,
+          "y": 0.274287
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.515184,
+        "initialSearchRegionIou": 0.070334,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.7,
+        "truthBbox": {
+          "h": 0.143854,
+          "w": 0.26936,
+          "x": 0.370158,
+          "y": 0.273912
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.512483,
+        "initialSearchRegionIou": 0.070476,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.8,
+        "truthBbox": {
+          "h": 0.14525,
+          "w": 0.268964,
+          "x": 0.370272,
+          "y": 0.272856
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.51509,
+        "initialSearchRegionIou": 0.070413,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 18.9,
+        "truthBbox": {
+          "h": 0.144396,
+          "w": 0.268729,
+          "x": 0.370632,
+          "y": 0.273717
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.512835,
+        "initialSearchRegionIou": 0.070428,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.0,
+        "truthBbox": {
+          "h": 0.14485,
+          "w": 0.269297,
+          "x": 0.370847,
+          "y": 0.27345
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.510458,
+        "initialSearchRegionIou": 0.070337,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.1,
+        "truthBbox": {
+          "h": 0.146088,
+          "w": 0.26807,
+          "x": 0.370964,
+          "y": 0.2722
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.504038,
+        "initialSearchRegionIou": 0.070342,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.2,
+        "truthBbox": {
+          "h": 0.147643,
+          "w": 0.269153,
+          "x": 0.371026,
+          "y": 0.270867
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.490802,
+        "initialSearchRegionIou": 0.069926,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.3,
+        "truthBbox": {
+          "h": 0.150381,
+          "w": 0.270743,
+          "x": 0.371817,
+          "y": 0.26828
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.480634,
+        "initialSearchRegionIou": 0.069494,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.4,
+        "truthBbox": {
+          "h": 0.152369,
+          "w": 0.271926,
+          "x": 0.372366,
+          "y": 0.26622
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.494185,
+        "initialSearchRegionIou": 0.068949,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.5,
+        "truthBbox": {
+          "h": 0.152098,
+          "w": 0.261582,
+          "x": 0.373095,
+          "y": 0.265595
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.471968,
+        "initialSearchRegionIou": 0.068242,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.6,
+        "truthBbox": {
+          "h": 0.154475,
+          "w": 0.268587,
+          "x": 0.371364,
+          "y": 0.261999
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.462657,
+        "initialSearchRegionIou": 0.066873,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.7,
+        "truthBbox": {
+          "h": 0.156164,
+          "w": 0.26597,
+          "x": 0.372165,
+          "y": 0.258888
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.473183,
+        "initialSearchRegionIou": 0.067363,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.8,
+        "truthBbox": {
+          "h": 0.152748,
+          "w": 0.267046,
+          "x": 0.373485,
+          "y": 0.263346
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.441324,
+        "initialSearchRegionIou": 0.070723,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 19.9,
+        "truthBbox": {
+          "h": 0.155019,
+          "w": 0.300927,
+          "x": 0.368636,
+          "y": 0.265057
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.512951,
+        "initialSearchRegionIou": 0.068939,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.0,
+        "truthBbox": {
+          "h": 0.146425,
+          "w": 0.260305,
+          "x": 0.372084,
+          "y": 0.270239
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.520546,
+        "initialSearchRegionIou": 0.069275,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.1,
+        "truthBbox": {
+          "h": 0.144625,
+          "w": 0.260507,
+          "x": 0.3723,
+          "y": 0.272441
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.517843,
+        "initialSearchRegionIou": 0.069466,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.2,
+        "truthBbox": {
+          "h": 0.14568,
+          "w": 0.260928,
+          "x": 0.372476,
+          "y": 0.271827
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.511657,
+        "initialSearchRegionIou": 0.069225,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.3,
+        "truthBbox": {
+          "h": 0.146645,
+          "w": 0.261826,
+          "x": 0.372804,
+          "y": 0.270827
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.508396,
+        "initialSearchRegionIou": 0.068783,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.4,
+        "truthBbox": {
+          "h": 0.146621,
+          "w": 0.261989,
+          "x": 0.372389,
+          "y": 0.270078
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.504933,
+        "initialSearchRegionIou": 0.068797,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.5,
+        "truthBbox": {
+          "h": 0.14712,
+          "w": 0.263211,
+          "x": 0.37074,
+          "y": 0.268918
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.519297,
+        "initialSearchRegionIou": 0.070426,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.6,
+        "truthBbox": {
+          "h": 0.148843,
+          "w": 0.258333,
+          "x": 0.372367,
+          "y": 0.27001
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.520501,
+        "initialSearchRegionIou": 0.072289,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.7,
+        "truthBbox": {
+          "h": 0.151175,
+          "w": 0.26086,
+          "x": 0.370964,
+          "y": 0.269739
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.496851,
+        "initialSearchRegionIou": 0.062127,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.8,
+        "truthBbox": {
+          "h": 0.139834,
+          "w": 0.252914,
+          "x": 0.377431,
+          "y": 0.269418
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.463372,
+        "initialSearchRegionIou": 0.045408,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 20.9,
+        "truthBbox": {
+          "h": 0.127434,
+          "w": 0.215123,
+          "x": 0.410813,
+          "y": 0.270247
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.458194,
+        "initialSearchRegionIou": 0.038504,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.0,
+        "truthBbox": {
+          "h": 0.120889,
+          "w": 0.193029,
+          "x": 0.431878,
+          "y": 0.274129
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.454962,
+        "initialSearchRegionIou": 0.040515,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.1,
+        "truthBbox": {
+          "h": 0.122472,
+          "w": 0.202545,
+          "x": 0.426593,
+          "y": 0.273887
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.460295,
+        "initialSearchRegionIou": 0.041904,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.2,
+        "truthBbox": {
+          "h": 0.123224,
+          "w": 0.205926,
+          "x": 0.422448,
+          "y": 0.273653
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.452609,
+        "initialSearchRegionIou": 0.040971,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.3,
+        "truthBbox": {
+          "h": 0.124778,
+          "w": 0.202299,
+          "x": 0.424117,
+          "y": 0.271255
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.442316,
+        "initialSearchRegionIou": 0.038943,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.4,
+        "truthBbox": {
+          "h": 0.123466,
+          "w": 0.198756,
+          "x": 0.430591,
+          "y": 0.27201
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.444912,
+        "initialSearchRegionIou": 0.040651,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.5,
+        "truthBbox": {
+          "h": 0.126179,
+          "w": 0.202176,
+          "x": 0.426239,
+          "y": 0.27043
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.446075,
+        "initialSearchRegionIou": 0.042088,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.6,
+        "truthBbox": {
+          "h": 0.1262,
+          "w": 0.209082,
+          "x": 0.420045,
+          "y": 0.270071
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.434396,
+        "initialSearchRegionIou": 0.041651,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.7,
+        "truthBbox": {
+          "h": 0.128437,
+          "w": 0.209204,
+          "x": 0.42087,
+          "y": 0.267604
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.414482,
+        "initialSearchRegionIou": 0.040761,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.8,
+        "truthBbox": {
+          "h": 0.132648,
+          "w": 0.208498,
+          "x": 0.421149,
+          "y": 0.262174
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.394044,
+        "initialSearchRegionIou": 0.038098,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 21.9,
+        "truthBbox": {
+          "h": 0.136278,
+          "w": 0.199738,
+          "x": 0.429269,
+          "y": 0.257635
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.37756,
+        "initialSearchRegionIou": 0.041305,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.0,
+        "truthBbox": {
+          "h": 0.143858,
+          "w": 0.216283,
+          "x": 0.420251,
+          "y": 0.252367
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.368907,
+        "initialSearchRegionIou": 0.041387,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.1,
+        "truthBbox": {
+          "h": 0.14533,
+          "w": 0.220188,
+          "x": 0.419927,
+          "y": 0.251108
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.35141,
+        "initialSearchRegionIou": 0.041137,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.2,
+        "truthBbox": {
+          "h": 0.149143,
+          "w": 0.225121,
+          "x": 0.420276,
+          "y": 0.247426
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.344145,
+        "initialSearchRegionIou": 0.040616,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.3,
+        "truthBbox": {
+          "h": 0.14833,
+          "w": 0.228573,
+          "x": 0.421149,
+          "y": 0.247822
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.337985,
+        "initialSearchRegionIou": 0.040644,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.4,
+        "truthBbox": {
+          "h": 0.15005,
+          "w": 0.230782,
+          "x": 0.421368,
+          "y": 0.246445
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.335839,
+        "initialSearchRegionIou": 0.040794,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.5,
+        "truthBbox": {
+          "h": 0.150805,
+          "w": 0.232216,
+          "x": 0.420984,
+          "y": 0.245869
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.336517,
+        "initialSearchRegionIou": 0.040989,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.6,
+        "truthBbox": {
+          "h": 0.151194,
+          "w": 0.232293,
+          "x": 0.421622,
+          "y": 0.246176
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.331346,
+        "initialSearchRegionIou": 0.040359,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.7,
+        "truthBbox": {
+          "h": 0.152392,
+          "w": 0.230624,
+          "x": 0.421718,
+          "y": 0.243893
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.337815,
+        "initialSearchRegionIou": 0.040573,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.8,
+        "truthBbox": {
+          "h": 0.150454,
+          "w": 0.229858,
+          "x": 0.421309,
+          "y": 0.245872
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.346357,
+        "initialSearchRegionIou": 0.039727,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 22.9,
+        "truthBbox": {
+          "h": 0.145068,
+          "w": 0.226539,
+          "x": 0.42269,
+          "y": 0.249977
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.3591,
+        "initialSearchRegionIou": 0.039892,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.0,
+        "truthBbox": {
+          "h": 0.137045,
+          "w": 0.23131,
+          "x": 0.42113,
+          "y": 0.257248
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.381036,
+        "initialSearchRegionIou": 0.040912,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.1,
+        "truthBbox": {
+          "h": 0.132454,
+          "w": 0.230142,
+          "x": 0.420208,
+          "y": 0.262896
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.408435,
+        "initialSearchRegionIou": 0.040837,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.2,
+        "truthBbox": {
+          "h": 0.123261,
+          "w": 0.228504,
+          "x": 0.419725,
+          "y": 0.271138
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.43456,
+        "initialSearchRegionIou": 0.040837,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.3,
+        "truthBbox": {
+          "h": 0.117927,
+          "w": 0.223055,
+          "x": 0.42066,
+          "y": 0.276448
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.442382,
+        "initialSearchRegionIou": 0.041303,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.4,
+        "truthBbox": {
+          "h": 0.116271,
+          "w": 0.224514,
+          "x": 0.420329,
+          "y": 0.278704
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.428368,
+        "initialSearchRegionIou": 0.041245,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.5,
+        "truthBbox": {
+          "h": 0.120158,
+          "w": 0.224746,
+          "x": 0.420194,
+          "y": 0.274881
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.59121,
+        "initialSearchRegionIou": 0.038971,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.6,
+        "truthBbox": {
+          "h": 0.107954,
+          "w": 0.166318,
+          "x": 0.424572,
+          "y": 0.282924
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.340129,
+        "initialSearchRegionIou": 0.041567,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.7,
+        "truthBbox": {
+          "h": 0.148608,
+          "w": 0.237077,
+          "x": 0.418669,
+          "y": 0.248357
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.303087,
+        "initialSearchRegionIou": 0.041504,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.8,
+        "truthBbox": {
+          "h": 0.164501,
+          "w": 0.243906,
+          "x": 0.418268,
+          "y": 0.233401
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.283627,
+        "initialSearchRegionIou": 0.040988,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 23.9,
+        "truthBbox": {
+          "h": 0.175702,
+          "w": 0.243168,
+          "x": 0.419273,
+          "y": 0.222426
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.269432,
+        "initialSearchRegionIou": 0.03924,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.0,
+        "truthBbox": {
+          "h": 0.180615,
+          "w": 0.239162,
+          "x": 0.425415,
+          "y": 0.217502
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.227729,
+        "initialSearchRegionIou": 0.038908,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.1,
+        "truthBbox": {
+          "h": 0.210579,
+          "w": 0.24772,
+          "x": 0.424537,
+          "y": 0.188686
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.221322,
+        "initialSearchRegionIou": 0.038274,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.2,
+        "truthBbox": {
+          "h": 0.2089,
+          "w": 0.253551,
+          "x": 0.424702,
+          "y": 0.189409
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.221605,
+        "initialSearchRegionIou": 0.038057,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.3,
+        "truthBbox": {
+          "h": 0.209125,
+          "w": 0.251238,
+          "x": 0.426377,
+          "y": 0.189528
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.227017,
+        "initialSearchRegionIou": 0.037493,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.4,
+        "truthBbox": {
+          "h": 0.207713,
+          "w": 0.241572,
+          "x": 0.428562,
+          "y": 0.190388
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.268348,
+        "initialSearchRegionIou": 0.038468,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.5,
+        "truthBbox": {
+          "h": 0.180417,
+          "w": 0.235262,
+          "x": 0.427859,
+          "y": 0.217305
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.264023,
+        "initialSearchRegionIou": 0.037037,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.6,
+        "truthBbox": {
+          "h": 0.182321,
+          "w": 0.227404,
+          "x": 0.429708,
+          "y": 0.213333
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.271288,
+        "initialSearchRegionIou": 0.03744,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.7,
+        "truthBbox": {
+          "h": 0.184344,
+          "w": 0.220604,
+          "x": 0.428876,
+          "y": 0.211469
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.270167,
+        "initialSearchRegionIou": 0.037186,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.8,
+        "truthBbox": {
+          "h": 0.182699,
+          "w": 0.221975,
+          "x": 0.429643,
+          "y": 0.21299
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.267511,
+        "initialSearchRegionIou": 0.036604,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 24.9,
+        "truthBbox": {
+          "h": 0.178135,
+          "w": 0.226261,
+          "x": 0.431089,
+          "y": 0.217099
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.267473,
+        "initialSearchRegionIou": 0.036691,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.0,
+        "truthBbox": {
+          "h": 0.176526,
+          "w": 0.22897,
+          "x": 0.429951,
+          "y": 0.21832
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.271781,
+        "initialSearchRegionIou": 0.037257,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.1,
+        "truthBbox": {
+          "h": 0.177731,
+          "w": 0.227097,
+          "x": 0.42987,
+          "y": 0.218166
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.231298,
+        "initialSearchRegionIou": 0.03625,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.2,
+        "truthBbox": {
+          "h": 0.207525,
+          "w": 0.227576,
+          "x": 0.429354,
+          "y": 0.187789
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.27013,
+        "initialSearchRegionIou": 0.036953,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.3,
+        "truthBbox": {
+          "h": 0.176465,
+          "w": 0.228251,
+          "x": 0.42932,
+          "y": 0.218534
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.227714,
+        "initialSearchRegionIou": 0.036616,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.4,
+        "truthBbox": {
+          "h": 0.207539,
+          "w": 0.234468,
+          "x": 0.42901,
+          "y": 0.188675
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.272591,
+        "initialSearchRegionIou": 0.037657,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.5,
+        "truthBbox": {
+          "h": 0.174164,
+          "w": 0.23371,
+          "x": 0.428059,
+          "y": 0.221658
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.272716,
+        "initialSearchRegionIou": 0.037607,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.6,
+        "truthBbox": {
+          "h": 0.172486,
+          "w": 0.235511,
+          "x": 0.428336,
+          "y": 0.223362
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.2701,
+        "initialSearchRegionIou": 0.036896,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.7,
+        "truthBbox": {
+          "h": 0.169474,
+          "w": 0.237285,
+          "x": 0.428676,
+          "y": 0.225068
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.269409,
+        "initialSearchRegionIou": 0.036333,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.8,
+        "truthBbox": {
+          "h": 0.167158,
+          "w": 0.237206,
+          "x": 0.43183,
+          "y": 0.227767
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.218678,
+        "initialSearchRegionIou": 0.033056,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 25.9,
+        "truthBbox": {
+          "h": 0.200091,
+          "w": 0.227042,
+          "x": 0.440601,
+          "y": 0.194139
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.198516,
+        "initialSearchRegionIou": 0.027032,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.0,
+        "truthBbox": {
+          "h": 0.198561,
+          "w": 0.204026,
+          "x": 0.463152,
+          "y": 0.193655
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.184551,
+        "initialSearchRegionIou": 0.0238,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.1,
+        "truthBbox": {
+          "h": 0.200127,
+          "w": 0.190866,
+          "x": 0.477259,
+          "y": 0.192308
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.136743,
+        "initialSearchRegionIou": 0.012518,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.2,
+        "truthBbox": {
+          "h": 0.156637,
+          "w": 0.16819,
+          "x": 0.498352,
+          "y": 0.210676
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.114715,
+        "initialSearchRegionIou": 0.009859,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.3,
+        "truthBbox": {
+          "h": 0.147835,
+          "w": 0.166774,
+          "x": 0.502023,
+          "y": 0.211234
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.112107,
+        "initialSearchRegionIou": 0.009484,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.4,
+        "truthBbox": {
+          "h": 0.144381,
+          "w": 0.167913,
+          "x": 0.503098,
+          "y": 0.213731
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.5,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.6,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.7,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.8,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 26.9,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.0,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.0,
+        "initialSearchRegionIou": 0.0,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.1,
+        "truthBbox": {
+          "h": 0.041715,
+          "w": 0.101427,
+          "x": 0.698612,
+          "y": 0.322404
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.0,
+        "initialSearchRegionIou": 0.0,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.2,
+        "truthBbox": {
+          "h": 0.042021,
+          "w": 0.105371,
+          "x": 0.677369,
+          "y": 0.31619
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.0,
+        "initialSearchRegionIou": 0.0,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.3,
+        "truthBbox": {
+          "h": 0.032343,
+          "w": 0.088465,
+          "x": 0.654706,
+          "y": 0.306829
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.178822,
+        "initialSearchRegionIou": 0.025404,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.4,
+        "truthBbox": {
+          "h": 0.204382,
+          "w": 0.208557,
+          "x": 0.475033,
+          "y": 0.192179
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.371449,
+        "initialSearchRegionIou": 0.025098,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.5,
+        "truthBbox": {
+          "h": 0.116193,
+          "w": 0.16096,
+          "x": 0.478934,
+          "y": 0.276435
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.218606,
+        "initialSearchRegionIou": 0.025801,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.6,
+        "truthBbox": {
+          "h": 0.179801,
+          "w": 0.191656,
+          "x": 0.472417,
+          "y": 0.213946
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.7,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.8,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 27.9,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.148606,
+        "initialSearchRegionIou": 0.023133,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 28.0,
+        "truthBbox": {
+          "h": 0.204481,
+          "w": 0.232594,
+          "x": 0.476664,
+          "y": 0.187706
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": false,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": 0.137333,
+        "initialSearchRegionIou": 0.021138,
+        "missCause": "unexplained",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 28.1,
+        "truthBbox": {
+          "h": 0.198966,
+          "w": 0.236429,
+          "x": 0.476862,
+          "y": 0.187176
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 28.2,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 28.3,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 28.4,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 28.5,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 28.6,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": false,
+        "status": "accepted",
+        "t": 32.4,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 32.6,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 49.7,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 49.8,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 49.9,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 50.0,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 50.1,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 50.2,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 50.3,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 50.4,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": "climber-absent",
+        "reacquireAttempted": true,
+        "searchFlagsFired": false,
+        "status": "missing",
+        "t": 50.5,
+        "truthBbox": null,
+        "truthPresent": false
+      }
+    ],
+    "initialSearchRegionIou": {
+      "median": 0.089604,
+      "n": 253,
+      "p90": 0.194889
+    },
+    "matchedAttempts": 298,
+    "missCauseCounts": {
+      "adverse-conditions": 0,
+      "climber-absent": 31,
+      "crop-misplaced": 0,
+      "unexplained": 225
+    },
+    "missingAttempts": 256,
+    "thresholds": {
+      "cropContainmentMin": 0.5,
+      "reacquireSearchesFullFrame": true,
+      "truthBboxPad": 0.1
+    }
   },
   "frameQuality": {
     "classCounts": {
@@ -843,6 +6321,12 @@
           }
         ],
         "rejectedCandidateCount": 1,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tap",
         "source": null,
@@ -1143,6 +6627,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -1455,6 +6945,12 @@
           }
         ],
         "rejectedCandidateCount": 1,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -1719,6 +7215,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.224588,
         "selectionMethod": "tracked",
         "source": null,
@@ -2043,6 +7545,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.139642,
         "selectionMethod": "tracked",
         "source": null,
@@ -2391,6 +7899,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.207762,
         "selectionMethod": "tracked",
         "source": null,
@@ -2739,6 +8253,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.168697,
         "selectionMethod": "tracked",
         "source": null,
@@ -3087,6 +8607,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.159604,
         "selectionMethod": "tracked",
         "source": null,
@@ -3411,6 +8937,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.185808,
         "selectionMethod": "tracked",
         "source": null,
@@ -3723,6 +9255,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.11989,
         "selectionMethod": "tracked",
         "source": null,
@@ -4071,6 +9609,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.14137,
         "selectionMethod": "tracked",
         "source": null,
@@ -4383,6 +9927,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -4719,6 +10269,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.096488,
         "selectionMethod": "tracked",
         "source": null,
@@ -5031,6 +10587,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.110072,
         "selectionMethod": "tracked",
         "source": null,
@@ -5343,6 +10905,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.211188,
         "selectionMethod": "tracked",
         "source": null,
@@ -5679,6 +11247,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.127754,
         "selectionMethod": "tracked",
         "source": null,
@@ -5967,6 +11541,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.072443,
         "selectionMethod": "tracked",
         "source": null,
@@ -6303,6 +11883,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.174474,
         "selectionMethod": "tracked",
         "source": null,
@@ -6639,6 +12225,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.168339,
         "selectionMethod": "tracked",
         "source": null,
@@ -6975,6 +12567,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.121402,
         "selectionMethod": "tracked",
         "source": null,
@@ -7323,6 +12921,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.159578,
         "selectionMethod": "tracked",
         "source": null,
@@ -7659,6 +13263,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.252018,
         "selectionMethod": "tracked",
         "source": null,
@@ -8007,6 +13617,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.191822,
         "selectionMethod": "tracked",
         "source": null,
@@ -8343,6 +13959,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.112644,
         "selectionMethod": "tracked",
         "source": null,
@@ -8655,6 +14277,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.13152,
         "selectionMethod": "tracked",
         "source": null,
@@ -8991,6 +14619,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -9363,6 +14997,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -9759,6 +15399,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -10167,6 +15813,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -10587,6 +16239,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 1.478847,
         "selectionMethod": "tracked",
         "source": null,
@@ -11007,6 +16665,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 2.810392,
         "selectionMethod": "tracked",
         "source": null,
@@ -11283,6 +16947,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 1.071829,
         "selectionMethod": "tracked",
         "source": null,
@@ -11691,6 +17361,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 1.192669,
         "selectionMethod": "tracked",
         "source": null,
@@ -12027,6 +17703,12 @@
           }
         ],
         "rejectedCandidateCount": 1,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 1.431865,
         "selectionMethod": "tracked",
         "source": null,
@@ -12387,6 +18069,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 1.343273,
         "selectionMethod": "tracked",
         "source": null,
@@ -12747,6 +18435,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 1.924771,
         "selectionMethod": "tracked",
         "source": null,
@@ -13167,6 +18861,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -13527,6 +19227,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -13935,6 +19641,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -14355,6 +20067,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -14643,6 +20361,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -15003,6 +20727,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -15011,6 +20741,54 @@
     ],
     "frozenStaleCount": 0,
     "heldPoseCount": 0,
+    "rejectionCorrectness": {
+      "byStatus": {
+        "flipRejected": {
+          "overRejectionRate": null,
+          "overRejectionRateTruthPresent": null,
+          "rejected": 0,
+          "truthAbsent": 0,
+          "truthCheckable": 0,
+          "truthPresentCheckable": 0,
+          "verdictCounts": {
+            "badPoseRejected": 0,
+            "goodPoseRejected": 0,
+            "truthUnknown": 0
+          }
+        },
+        "qualityRejected": {
+          "overRejectionRate": null,
+          "overRejectionRateTruthPresent": null,
+          "rejected": 0,
+          "truthAbsent": 0,
+          "truthCheckable": 0,
+          "truthPresentCheckable": 0,
+          "verdictCounts": {
+            "badPoseRejected": 0,
+            "goodPoseRejected": 0,
+            "truthUnknown": 0
+          }
+        }
+      },
+      "overRejectionRate": null,
+      "overRejectionRateTruthPresent": null,
+      "rejected": 0,
+      "thresholds": {
+        "distortResidual": 0.5,
+        "flipResidual": 0.25,
+        "minJointAgreement": 0.5,
+        "pckTorsoFraction": 0.5,
+        "wrongSubjectCentroid": 1.0
+      },
+      "truthAbsent": 0,
+      "truthCheckable": 0,
+      "truthPresentCheckable": 0,
+      "verdictCounts": {
+        "badPoseRejected": 0,
+        "goodPoseRejected": 0,
+        "truthUnknown": 0
+      }
+    },
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
@@ -15045,7 +20823,7 @@
   "routeFolder": "lizard-therapy",
   "runTs": "20260724-164334",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 8,
+  "schemaVersion": 11,
   "setupHash": "6bcb13b3f5168d49ac03f63b4416a17118dbdd2e2b69ad85371d55b0d57d8afe",
   "truthHash": "bdf4b0da6ffab2fa2c425febef909a618024cfe61aaab42c8c7d1c255195c546",
   "truthSetupHashSource": "truth",

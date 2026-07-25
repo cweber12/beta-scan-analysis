@@ -550,6 +550,13 @@
     ]
   },
   "conformance": {
+    "cause": "sparse-match",
+    "causeEvidence": {
+      "acceptedAttempts": 0,
+      "acceptedShare": null,
+      "fitFrames": 0,
+      "presentAttempts": 0
+    },
     "conforms": false,
     "n": 0,
     "reasons": [
@@ -558,6 +565,8 @@
       "y-nonconforming"
     ],
     "thresholds": {
+      "minAcceptedShare": 0.5,
+      "minFitFrames": 20,
       "minPoints": 20,
       "r2Min": 0.9,
       "r2MinX": 0.75,
@@ -590,6 +599,37 @@
     "truthFramesTotal": 828,
     "truthFramesVerified": 0
   },
+  "cropQuality": {
+    "cropContainedTruth": {
+      "contained": 0,
+      "rate": null,
+      "scored": 0
+    },
+    "detectionRegionIou": {
+      "median": null,
+      "n": 0,
+      "p90": null
+    },
+    "frames": [],
+    "initialSearchRegionIou": {
+      "median": null,
+      "n": 0,
+      "p90": null
+    },
+    "matchedAttempts": 0,
+    "missCauseCounts": {
+      "adverse-conditions": 0,
+      "climber-absent": 0,
+      "crop-misplaced": 0,
+      "unexplained": 0
+    },
+    "missingAttempts": 0,
+    "thresholds": {
+      "cropContainmentMin": 0.5,
+      "reacquireSearchesFullFrame": true,
+      "truthBboxPad": 0.1
+    }
+  },
   "frameQuality": {
     "classCounts": {
       "distorted": 0,
@@ -620,6 +660,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 0.0
@@ -635,6 +681,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 1.0
@@ -650,6 +702,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 2.0
@@ -665,6 +723,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 3.0
@@ -680,6 +744,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 3.4
@@ -695,6 +765,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 3.5
@@ -710,6 +786,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 3.6
@@ -725,6 +807,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 3.7
@@ -740,6 +828,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 3.8
@@ -755,6 +849,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 3.9
@@ -770,6 +870,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 4.0
@@ -785,6 +891,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.0
@@ -800,6 +912,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.1
@@ -815,6 +933,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.2
@@ -830,6 +954,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.3
@@ -845,6 +975,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.4
@@ -860,6 +996,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.5
@@ -875,6 +1017,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.6
@@ -890,6 +1038,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.7
@@ -905,6 +1059,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.8
@@ -920,6 +1080,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 5.9
@@ -935,6 +1101,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 6.0
@@ -950,6 +1122,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 6.1
@@ -965,6 +1143,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 6.2
@@ -980,6 +1164,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 6.3
@@ -995,6 +1185,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 6.4
@@ -1010,6 +1206,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 6.5
@@ -1025,6 +1227,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 6.6
@@ -1040,6 +1248,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 6.7
@@ -1055,6 +1269,12 @@
         "failureClass": "hallucination-fp",
         "frozenStale": false,
         "heldPose": false,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "source": null,
         "t": 7.0
@@ -1062,6 +1282,54 @@
     ],
     "frozenStaleCount": 0,
     "heldPoseCount": 0,
+    "rejectionCorrectness": {
+      "byStatus": {
+        "flipRejected": {
+          "overRejectionRate": null,
+          "overRejectionRateTruthPresent": null,
+          "rejected": 0,
+          "truthAbsent": 0,
+          "truthCheckable": 0,
+          "truthPresentCheckable": 0,
+          "verdictCounts": {
+            "badPoseRejected": 0,
+            "goodPoseRejected": 0,
+            "truthUnknown": 0
+          }
+        },
+        "qualityRejected": {
+          "overRejectionRate": null,
+          "overRejectionRateTruthPresent": null,
+          "rejected": 0,
+          "truthAbsent": 0,
+          "truthCheckable": 0,
+          "truthPresentCheckable": 0,
+          "verdictCounts": {
+            "badPoseRejected": 0,
+            "goodPoseRejected": 0,
+            "truthUnknown": 0
+          }
+        }
+      },
+      "overRejectionRate": null,
+      "overRejectionRateTruthPresent": null,
+      "rejected": 0,
+      "thresholds": {
+        "distortResidual": 0.5,
+        "flipResidual": 0.25,
+        "minJointAgreement": 0.5,
+        "pckTorsoFraction": 0.5,
+        "wrongSubjectCentroid": 1.0
+      },
+      "truthAbsent": 0,
+      "truthCheckable": 0,
+      "truthPresentCheckable": 0,
+      "verdictCounts": {
+        "badPoseRejected": 0,
+        "goodPoseRejected": 0,
+        "truthUnknown": 0
+      }
+    },
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
@@ -1096,7 +1364,7 @@
   "routeFolder": "planet-x",
   "runTs": "20260721-192331",
   "scannerFrameIntervalSec": 0.10000000000000009,
-  "schemaVersion": 8,
+  "schemaVersion": 11,
   "setupHash": "9a13a735b5944b66cce4f4e51ec5a653c4c83f741e2120c0119c53aef0bae9dd",
   "truthHash": "dfc37e0b5f26549351f6b540331238476854070bf5f6ce9f16ae726342feafee",
   "truthSetupHashSource": "truth",

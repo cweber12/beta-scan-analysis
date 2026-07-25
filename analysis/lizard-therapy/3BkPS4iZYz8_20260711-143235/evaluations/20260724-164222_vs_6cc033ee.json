@@ -550,10 +550,19 @@
     ]
   },
   "conformance": {
+    "cause": null,
+    "causeEvidence": {
+      "acceptedAttempts": 41,
+      "acceptedShare": 0.97619,
+      "fitFrames": 41,
+      "presentAttempts": 42
+    },
     "conforms": true,
     "n": 454,
     "reasons": [],
     "thresholds": {
+      "minAcceptedShare": 0.5,
+      "minFitFrames": 20,
       "minPoints": 20,
       "r2Min": 0.9,
       "r2MinX": 0.75,
@@ -585,6 +594,984 @@
     "truthFramesPresent": 42,
     "truthFramesTotal": 46,
     "truthFramesVerified": 0
+  },
+  "cropQuality": {
+    "cropContainedTruth": {
+      "contained": 42,
+      "rate": 1.0,
+      "scored": 42
+    },
+    "detectionRegionIou": {
+      "median": 0.317035,
+      "n": 41,
+      "p90": 0.362942
+    },
+    "frames": [
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 0.0,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.339778,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.339778,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 1.0,
+        "truthBbox": {
+          "h": 0.314057,
+          "w": 0.322915,
+          "x": 0.518406,
+          "y": 0.611839
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.338257,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.338257,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 2.0,
+        "truthBbox": {
+          "h": 0.387262,
+          "w": 0.304423,
+          "x": 0.534631,
+          "y": 0.544944
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.34848,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.34848,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 3.0,
+        "truthBbox": {
+          "h": 0.387271,
+          "w": 0.300296,
+          "x": 0.519428,
+          "y": 0.539937
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.341418,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.341418,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 4.0,
+        "truthBbox": {
+          "h": 0.369278,
+          "w": 0.312892,
+          "x": 0.503411,
+          "y": 0.539303
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.351024,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.351024,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 5.0,
+        "truthBbox": {
+          "h": 0.371161,
+          "w": 0.323731,
+          "x": 0.491934,
+          "y": 0.537804
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.329058,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.329058,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 6.0,
+        "truthBbox": {
+          "h": 0.376208,
+          "w": 0.315194,
+          "x": 0.501571,
+          "y": 0.536099
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.336952,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.336952,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 7.0,
+        "truthBbox": {
+          "h": 0.371753,
+          "w": 0.321661,
+          "x": 0.487655,
+          "y": 0.54159
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.285805,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.285805,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 8.0,
+        "truthBbox": {
+          "h": 0.331934,
+          "w": 0.310161,
+          "x": 0.492957,
+          "y": 0.542378
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.350256,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.350256,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 9.0,
+        "truthBbox": {
+          "h": 0.178067,
+          "w": 0.330745,
+          "x": 0.520969,
+          "y": 0.540162
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 10.0,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.310487,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.310487,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 11.0,
+        "truthBbox": {
+          "h": 0.243913,
+          "w": 0.34634,
+          "x": 0.516104,
+          "y": 0.470394
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.291213,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.291213,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 12.0,
+        "truthBbox": {
+          "h": 0.248417,
+          "w": 0.370739,
+          "x": 0.491281,
+          "y": 0.469312
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.288283,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.288283,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 13.0,
+        "truthBbox": {
+          "h": 0.2463,
+          "w": 0.346603,
+          "x": 0.490114,
+          "y": 0.470833
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.387946,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.387946,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 14.0,
+        "truthBbox": {
+          "h": 0.249019,
+          "w": 0.368098,
+          "x": 0.469901,
+          "y": 0.469511
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.212309,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.212309,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 15.0,
+        "truthBbox": {
+          "h": 0.300321,
+          "w": 0.192563,
+          "x": 0.43927,
+          "y": 0.476369
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.215949,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.215949,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 16.0,
+        "truthBbox": {
+          "h": 0.230677,
+          "w": 0.217945,
+          "x": 0.461923,
+          "y": 0.478356
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.393402,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.393402,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 17.0,
+        "truthBbox": {
+          "h": 0.225286,
+          "w": 0.208285,
+          "x": 0.455662,
+          "y": 0.478596
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.267239,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.267239,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 18.0,
+        "truthBbox": {
+          "h": 0.187547,
+          "w": 0.234713,
+          "x": 0.446916,
+          "y": 0.477292
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.323845,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.323845,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 19.0,
+        "truthBbox": {
+          "h": 0.178568,
+          "w": 0.232751,
+          "x": 0.434984,
+          "y": 0.480099
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.375012,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.375012,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 20.0,
+        "truthBbox": {
+          "h": 0.182126,
+          "w": 0.239254,
+          "x": 0.421708,
+          "y": 0.478074
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 21.0,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.360528,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.360528,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 22.0,
+        "truthBbox": {
+          "h": 0.183557,
+          "w": 0.206087,
+          "x": 0.444804,
+          "y": 0.478709
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.307547,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.307547,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 23.0,
+        "truthBbox": {
+          "h": 0.171147,
+          "w": 0.309566,
+          "x": 0.344913,
+          "y": 0.470052
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.278292,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.278292,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 24.0,
+        "truthBbox": {
+          "h": 0.170645,
+          "w": 0.317226,
+          "x": 0.34165,
+          "y": 0.469594
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.298747,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.298747,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 25.0,
+        "truthBbox": {
+          "h": 0.303091,
+          "w": 0.300245,
+          "x": 0.343779,
+          "y": 0.34992
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.344926,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.344926,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 26.0,
+        "truthBbox": {
+          "h": 0.307824,
+          "w": 0.255109,
+          "x": 0.387389,
+          "y": 0.350834
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.314581,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.314581,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 27.0,
+        "truthBbox": {
+          "h": 0.31557,
+          "w": 0.249872,
+          "x": 0.3934,
+          "y": 0.349428
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.277069,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.277069,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 28.0,
+        "truthBbox": {
+          "h": 0.265571,
+          "w": 0.352048,
+          "x": 0.395073,
+          "y": 0.347087
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.295498,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.295498,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 29.0,
+        "truthBbox": {
+          "h": 0.277133,
+          "w": 0.389784,
+          "x": 0.378392,
+          "y": 0.343378
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.275093,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.275093,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 30.0,
+        "truthBbox": {
+          "h": 0.272353,
+          "w": 0.386982,
+          "x": 0.378683,
+          "y": 0.341808
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.317035,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.317035,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 31.0,
+        "truthBbox": {
+          "h": 0.356409,
+          "w": 0.35424,
+          "x": 0.407699,
+          "y": 0.29121
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.223065,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.223065,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 32.0,
+        "truthBbox": {
+          "h": 0.29983,
+          "w": 0.2646,
+          "x": 0.411724,
+          "y": 0.300884
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.292461,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.292461,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 33.0,
+        "truthBbox": {
+          "h": 0.291142,
+          "w": 0.301153,
+          "x": 0.395189,
+          "y": 0.288671
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.375683,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.375683,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 34.0,
+        "truthBbox": {
+          "h": 0.289355,
+          "w": 0.273975,
+          "x": 0.394208,
+          "y": 0.286743
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.342818,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.342818,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 35.0,
+        "truthBbox": {
+          "h": 0.308062,
+          "w": 0.302874,
+          "x": 0.39006,
+          "y": 0.262062
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.323919,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.323919,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 36.0,
+        "truthBbox": {
+          "h": 0.355581,
+          "w": 0.361074,
+          "x": 0.350361,
+          "y": 0.221046
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.334049,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.334049,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 37.0,
+        "truthBbox": {
+          "h": 0.348124,
+          "w": 0.369843,
+          "x": 0.344664,
+          "y": 0.2229
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.338977,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.338977,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 38.0,
+        "truthBbox": {
+          "h": 0.270081,
+          "w": 0.405278,
+          "x": 0.293969,
+          "y": 0.223182
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.248472,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.248472,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 39.0,
+        "truthBbox": {
+          "h": 0.280369,
+          "w": 0.29297,
+          "x": 0.29028,
+          "y": 0.211693
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": null,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": null,
+        "initialSearchRegionIou": null,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 40.0,
+        "truthBbox": null,
+        "truthPresent": false
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.362942,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.362942,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 41.0,
+        "truthBbox": {
+          "h": 0.244698,
+          "w": 0.238538,
+          "x": 0.268545,
+          "y": 0.182585
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.272194,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.272194,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 42.0,
+        "truthBbox": {
+          "h": 0.236579,
+          "w": 0.234265,
+          "x": 0.259225,
+          "y": 0.171302
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.273334,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.273334,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 43.0,
+        "truthBbox": {
+          "h": 0.292969,
+          "w": 0.313732,
+          "x": 0.300423,
+          "y": 0.060428
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": null,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.40799,
+        "missCause": "adverse-conditions",
+        "reacquireAttempted": true,
+        "searchFlagsFired": true,
+        "status": "missing",
+        "t": 44.0,
+        "truthBbox": {
+          "h": 0.250606,
+          "w": 0.271781,
+          "x": 0.354016,
+          "y": 0.048995
+        },
+        "truthPresent": true
+      },
+      {
+        "cropContainedTruth": true,
+        "detectionRegionIou": 0.13502,
+        "firedSearchFlags": [
+          "is_blurry"
+        ],
+        "initialCropContainment": 1.0,
+        "initialSearchRegionIou": 0.13502,
+        "missCause": null,
+        "reacquireAttempted": false,
+        "searchFlagsFired": true,
+        "status": "accepted",
+        "t": 45.0,
+        "truthBbox": {
+          "h": 0.155049,
+          "w": 0.17479,
+          "x": 0.420736,
+          "y": 0.029112
+        },
+        "truthPresent": true
+      }
+    ],
+    "initialSearchRegionIou": {
+      "median": 0.32044,
+      "n": 42,
+      "p90": 0.373805
+    },
+    "matchedAttempts": 46,
+    "missCauseCounts": {
+      "adverse-conditions": 1,
+      "climber-absent": 0,
+      "crop-misplaced": 0,
+      "unexplained": 0
+    },
+    "missingAttempts": 1,
+    "thresholds": {
+      "cropContainmentMin": 0.5,
+      "reacquireSearchesFullFrame": true,
+      "truthBboxPad": 0.1
+    }
   },
   "frameQuality": {
     "classCounts": {
@@ -1020,6 +2007,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tap",
         "source": null,
@@ -1440,6 +2433,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.035414,
         "selectionMethod": "tracked",
         "source": null,
@@ -1860,6 +2859,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.074788,
         "selectionMethod": "tracked",
         "source": null,
@@ -2280,6 +3285,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.088595,
         "selectionMethod": "tracked",
         "source": null,
@@ -2652,6 +3663,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.047893,
         "selectionMethod": "tracked",
         "source": null,
@@ -3036,6 +4053,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.04069,
         "selectionMethod": "tracked",
         "source": null,
@@ -3432,6 +4455,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.054469,
         "selectionMethod": "tracked",
         "source": null,
@@ -3804,6 +4833,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.060398,
         "selectionMethod": "tracked",
         "source": null,
@@ -4212,6 +5247,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.065586,
         "selectionMethod": "tracked",
         "source": null,
@@ -4620,6 +5661,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.115587,
         "selectionMethod": "tracked",
         "source": null,
@@ -5028,6 +6075,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -5388,6 +6441,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.082014,
         "selectionMethod": "tracked",
         "source": null,
@@ -5808,6 +6867,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.135241,
         "selectionMethod": "tracked",
         "source": null,
@@ -6228,6 +7293,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.130742,
         "selectionMethod": "tracked",
         "source": null,
@@ -6648,6 +7719,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.172358,
         "selectionMethod": "tracked",
         "source": null,
@@ -7020,6 +8097,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.085519,
         "selectionMethod": "tracked",
         "source": null,
@@ -7392,6 +8475,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.149153,
         "selectionMethod": "tracked",
         "source": null,
@@ -7788,6 +8877,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.150017,
         "selectionMethod": "tracked",
         "source": null,
@@ -8172,6 +9267,12 @@
           }
         ],
         "rejectedCandidateCount": 1,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.271351,
         "selectionMethod": "tracked",
         "source": null,
@@ -8544,6 +9645,12 @@
           }
         ],
         "rejectedCandidateCount": 1,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.256422,
         "selectionMethod": "tracked",
         "source": null,
@@ -8964,6 +10071,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.427516,
         "selectionMethod": "tracked",
         "source": null,
@@ -9288,6 +10401,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -9660,6 +10779,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.102253,
         "selectionMethod": "tracked",
         "source": null,
@@ -10056,6 +11181,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.14265,
         "selectionMethod": "tracked",
         "source": null,
@@ -10464,6 +11595,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.237783,
         "selectionMethod": "tracked",
         "source": null,
@@ -10860,6 +11997,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.232847,
         "selectionMethod": "tracked",
         "source": null,
@@ -11136,6 +12279,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.085858,
         "selectionMethod": "tracked",
         "source": null,
@@ -11448,6 +12597,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.073172,
         "selectionMethod": "tracked",
         "source": null,
@@ -11808,6 +12963,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.054726,
         "selectionMethod": "tracked",
         "source": null,
@@ -12168,6 +13329,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.077886,
         "selectionMethod": "tracked",
         "source": null,
@@ -12528,6 +13695,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.070645,
         "selectionMethod": "tracked",
         "source": null,
@@ -12948,6 +14121,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.069199,
         "selectionMethod": "tracked",
         "source": null,
@@ -13368,6 +14547,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.057721,
         "selectionMethod": "tracked",
         "source": null,
@@ -13788,6 +14973,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.047696,
         "selectionMethod": "tracked",
         "source": null,
@@ -14148,6 +15339,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.139152,
         "selectionMethod": "tracked",
         "source": null,
@@ -14508,6 +15705,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.081217,
         "selectionMethod": "tracked",
         "source": null,
@@ -14868,6 +16071,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.069352,
         "selectionMethod": "tracked",
         "source": null,
@@ -15228,6 +16437,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.050076,
         "selectionMethod": "tracked",
         "source": null,
@@ -15588,6 +16803,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.103328,
         "selectionMethod": "tracked",
         "source": null,
@@ -15948,6 +17169,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.108354,
         "selectionMethod": "tracked",
         "source": null,
@@ -16260,6 +17487,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -16620,6 +17853,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.168797,
         "selectionMethod": "tracked",
         "source": null,
@@ -16980,6 +18219,12 @@
           }
         ],
         "rejectedCandidateCount": 1,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -17340,6 +18585,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": 0.162373,
         "selectionMethod": "tracked",
         "source": null,
@@ -17640,6 +18891,12 @@
           }
         ],
         "rejectedCandidateCount": 0,
+        "rejectionCentroidDist": null,
+        "rejectionJointAgreement": null,
+        "rejectionRawClass": null,
+        "rejectionReason": null,
+        "rejectionResidual": null,
+        "rejectionVerdict": null,
         "residual": null,
         "selectionMethod": "tracked",
         "source": null,
@@ -17648,6 +18905,54 @@
     ],
     "frozenStaleCount": 0,
     "heldPoseCount": 0,
+    "rejectionCorrectness": {
+      "byStatus": {
+        "flipRejected": {
+          "overRejectionRate": null,
+          "overRejectionRateTruthPresent": null,
+          "rejected": 0,
+          "truthAbsent": 0,
+          "truthCheckable": 0,
+          "truthPresentCheckable": 0,
+          "verdictCounts": {
+            "badPoseRejected": 0,
+            "goodPoseRejected": 0,
+            "truthUnknown": 0
+          }
+        },
+        "qualityRejected": {
+          "overRejectionRate": null,
+          "overRejectionRateTruthPresent": null,
+          "rejected": 0,
+          "truthAbsent": 0,
+          "truthCheckable": 0,
+          "truthPresentCheckable": 0,
+          "verdictCounts": {
+            "badPoseRejected": 0,
+            "goodPoseRejected": 0,
+            "truthUnknown": 0
+          }
+        }
+      },
+      "overRejectionRate": null,
+      "overRejectionRateTruthPresent": null,
+      "rejected": 0,
+      "thresholds": {
+        "distortResidual": 0.5,
+        "flipResidual": 0.25,
+        "minJointAgreement": 0.5,
+        "pckTorsoFraction": 0.5,
+        "wrongSubjectCentroid": 1.0
+      },
+      "truthAbsent": 0,
+      "truthCheckable": 0,
+      "truthPresentCheckable": 0,
+      "verdictCounts": {
+        "badPoseRejected": 0,
+        "goodPoseRejected": 0,
+        "truthUnknown": 0
+      }
+    },
     "thresholds": {
       "distortResidual": 0.5,
       "flipResidual": 0.25,
@@ -17682,7 +18987,7 @@
   "routeFolder": "lizard-therapy",
   "runTs": "20260724-164222",
   "scannerFrameIntervalSec": 0.10000000000000053,
-  "schemaVersion": 8,
+  "schemaVersion": 11,
   "setupHash": "f2405526a92dd0779e9e9a07e7de5dafc1586bc211f7b8ec58dc9a60a0ae57db",
   "truthHash": "6cc033ee03629afe07fab16887d4641581f20c4666c571ffa751903809ba147c",
   "truthSetupHashSource": "truth",
