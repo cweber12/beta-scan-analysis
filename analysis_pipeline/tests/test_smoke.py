@@ -1602,6 +1602,168 @@ def test_frame_quality_aggregation_pools_all_records():
         assert set(wl["class"]) == {"hallucination-fp", "wrong-subject"}
 
 
+def test_attempt_funnel_pools_and_distributes_over_runs():
+    """Issue #87: the attempt funnel reports each status pooled over attempts *and*
+    distributed over runs, plus reacquire effectiveness and condition-flag rates by
+    status — all at the Run unit, with no pooled-attempt CIs.
+
+    The two runs are deliberately lopsided (a 4-attempt run that mostly works, and one
+    that mostly misses) so the pooled share and the run median disagree: that gap is the
+    thing the run-unit columns exist to show."""
+
+    from analysis_pipeline import cli
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    exact = _kp_list(_TRUTH_JOINTS)
+    crop = {"x": 0.2, "y": 0.1, "w": 0.6, "h": 0.9}
+    full_frame = {"x": 0, "y": 0, "w": 1, "h": 1}
+
+    def truth_doc(hash_: str) -> dict:
+        return {"version": 1, "jointSet": list(_TRUTH_JOINTS), "groundTruthHash": hash_,
+                "frames": [{"frameIndex": i, "timestamp": float(i), "state": "present",
+                            "review": "auto", "joints": present} for i in (1, 2, 3, 4)]}
+
+    def conditions(too_dark: bool) -> dict:
+        return {"mean": 40, "stdDev": 12, "sharpness": 60, "flags": {"tooDark": too_dark}}
+
+    dense = [{"timestamp": float(i), "keypoints": exact} for i in (1, 2, 3, 4)]
+
+    # Healthy run: 2 accepted, 1 missing, 1 flipRejected. Never reacquires, so it must
+    # contribute no reacquire-success value at all rather than a zero.
+    healthy = [
+        {"timestamp": 1.0, "status": "accepted", "initialSearchRegion": crop,
+         "detectionRegion": crop, "rawKeypoints": exact, "acceptedKeypoints": exact,
+         "candidateCount": 1, "searchConditions": conditions(False)},
+        {"timestamp": 2.0, "status": "accepted", "initialSearchRegion": crop,
+         "detectionRegion": crop, "rawKeypoints": exact, "acceptedKeypoints": exact,
+         "candidateCount": 1, "searchConditions": conditions(False)},
+        {"timestamp": 3.0, "status": "missing", "initialSearchRegion": crop,
+         "rawKeypoints": [], "acceptedKeypoints": [], "candidateCount": 0,
+         "searchConditions": conditions(True)},
+        {"timestamp": 4.0, "status": "flipRejected", "initialSearchRegion": crop,
+         "detectionRegion": crop, "rawKeypoints": exact, "acceptedKeypoints": [],
+         "candidateCount": 1, "rejectedCandidateCount": 1,
+         "searchConditions": conditions(False)},
+    ]
+    # Collapsing run: 3 missing (each with a failed full-frame reacquire) and one
+    # accepted that a reacquire recovered — 75% missing makes it a tail run.
+    collapsing = [
+        {"timestamp": float(i), "status": "missing", "initialSearchRegion": crop,
+         "detectionRegion": full_frame, "reacquireAttempted": True, "reacquired": False,
+         "rawKeypoints": [], "acceptedKeypoints": [], "candidateCount": 0,
+         "searchConditions": conditions(True)}
+        for i in (1, 2, 3)
+    ] + [
+        {"timestamp": 4.0, "status": "accepted", "initialSearchRegion": crop,
+         "detectionRegion": full_frame, "reacquireAttempted": True, "reacquired": True,
+         "rawKeypoints": exact, "acceptedKeypoints": exact, "candidateCount": 1,
+         "searchConditions": conditions(False)},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        out = Path(tmp) / "reports"
+
+        for name, attempts, hash_ in (("vidHealthy", healthy, "11111111aaaaaaaa"),
+                                      ("vidCollapse", collapsing, "22222222bbbbbbbb")):
+            vdir = root / "routeFUN" / name
+            _write_bundle_meta(vdir, setup_hash=f"sh_{name}")
+            (vdir / "ground-truth.json").write_text(json.dumps(truth_doc(hash_)),
+                                                    encoding="utf-8")
+            _write_pose_run(vdir, f"20260101-0000{name[3:5]}", f"sh_{name}", dense,
+                            detector_attempts=attempts)
+
+        # A legacy frames-only bundle: in the corpus, but it has no attempt stream to
+        # funnel, so it must not appear in any funnel table.
+        legacy = root / "routeFUN" / "vidLegacy"
+        _write_bundle_meta(legacy, setup_hash="sh_legacy")
+        (legacy / "ground-truth.json").write_text(
+            json.dumps(truth_doc("33333333cccccccc")), encoding="utf-8")
+        _write_pose_run(legacy, "20260101-0000LG", "sh_legacy", dense)
+
+        assert len(ev.evaluate(root).written) == 3
+        ctx = trends.build_trend_context(root)
+
+        # Attempt-backed runs only — the legacy run is in the corpus but not the funnel.
+        runs = ctx["attempt_funnel_runs"]
+        assert len(runs) == 2
+        assert set(runs["video_key"]) == {"vidHealthy", "vidCollapse"}
+        assert ctx["evidence_generation_funnel"]["label"] == "attempts"
+        assert ctx["evidence_generation_funnel"]["mixed"] is False
+
+        # Status mix: every status is a row even at zero, in funnel order.
+        status = ctx["attempt_funnel_status"]
+        assert list(status["status"]) == ["accepted", "missing", "flipRejected",
+                                          "qualityRejected", "unknown"]
+        by_status = status.set_index("status")
+        assert int(by_status.loc["accepted", "attempts"]) == 3
+        assert int(by_status.loc["missing", "attempts"]) == 4
+        assert int(by_status.loc["flipRejected", "attempts"]) == 1
+        assert by_status.loc["missing", "share"] == 0.5          # 4 of 8 attempts
+        assert by_status.loc["qualityRejected", "attempts"] == 0
+        assert by_status.loc["qualityRejected", "share"] == 0.0
+        assert by_status.loc["qualityRejected", "runs_with_any"] == 0
+
+        # ...and the run-unit distribution the pooled share hides: 25% vs 75% missing.
+        assert by_status.loc["missing", "run_share_median"] == 0.5
+        assert abs(by_status.loc["missing", "run_share_p90"] - 0.7) < 1e-9
+        assert by_status.loc["missing", "run_share_max"] == 0.75
+        assert int(by_status.loc["missing", "tail_runs"]) == 1   # only the collapsing run
+        assert int(by_status.loc["accepted", "tail_runs"]) == 0
+
+        # Reacquire: a run that never reacquired contributes no rate, not a zero.
+        stats = ctx["attempt_funnel_run_stats"].set_index("metric")
+        assert stats.loc["attempt_count", "median"] == 4.0
+        assert int(stats.loc["attempt_reacquire_success_rate", "n_runs"]) == 1
+        assert stats.loc["attempt_reacquire_success_rate", "median"] == 0.25
+        assert int(stats.loc["attempt_reacquire_attempt_rate", "n_runs"]) == 2
+
+        # Condition flags split by what happened next: tooDark fires on every miss and
+        # on nothing that was accepted.
+        flags = ctx["attempt_funnel_flags"].set_index(["flag", "status"])
+        assert flags.loc[("too_dark", "missing"), "rate"] == 1.0
+        assert int(flags.loc[("too_dark", "missing"), "attempts_scored"]) == 4
+        assert int(flags.loc[("too_dark", "missing"), "n_runs"]) == 2
+        assert flags.loc[("too_dark", "missing"), "run_rate_median"] == 1.0
+        assert flags.loc[("too_dark", "accepted"), "rate"] == 0.0
+        assert int(flags.loc[("too_dark", "accepted"), "attempts_scored"]) == 3
+        assert flags.loc[("too_dark", "accepted"), "run_rate_p90"] == 0.0
+        assert flags.loc[("too_dark", "flipRejected"), "rate"] == 0.0
+
+        totals = ctx["attempt_funnel"]
+        assert totals["runs"] == 2 and totals["attempts"] == 8
+        assert totals["reacquire_attempted"] == 4 and totals["reacquire_succeeded"] == 1
+        assert totals["reacquire_success_rate"] == 0.25
+        assert totals["tail_runs_missing"] == 1
+        assert totals["missing_share_run_median"] == 0.5
+
+        # A collapsing run fails the #15 gate — and must still be in the funnel, since a
+        # collapsed funnel is exactly what quarantines it.
+        assert ctx["quarantined_count"] >= 1
+        assert "vidCollapse" in set(runs["video_key"])
+
+        # The section renders the funnel, its evidence generation, and the CSVs land.
+        html_frag = report._attempt_funnel_html(ctx)
+        for text in ("Status mix", "Tail runs", "flipRejected", "50.0%",
+                     "Search-condition flags by status", "too_dark"):
+            assert text in html_frag, text
+        assert "evidence: attempts" in report._evidence_generation_html(
+            ctx["evidence_generation_funnel"])
+
+        outputs = cli.run(root, out, decode=False)
+        html_text = outputs["html"].read_text(encoding="utf-8")
+        assert "Detector Attempt funnel (run unit)" in html_text
+        for name in ("eval_attempt_funnel_status.csv", "eval_attempt_funnel_runs.csv",
+                     "eval_attempt_funnel_run_stats.csv", "eval_attempt_funnel_flags.csv"):
+            assert (out / name).exists(), name
+        status_csv = pd.read_csv(out / "eval_attempt_funnel_status.csv")
+        assert list(status_csv["status"])[:2] == ["accepted", "missing"]
+        assert {"share", "run_share_median", "run_share_p90", "tail_runs"}.issubset(
+            status_csv.columns)
+
+
 def test_evidence_generation_dedup_prefers_attempt_backed_record():
     """Issue #89: a video+truth pairing carrying both an attempt-backed record and the
     legacy-frames record it superseded is pooled **once**, from the attempt-backed side.
@@ -1965,6 +2127,7 @@ def test_analysis_report_includes_eval_trend_sections():
         for header in (
             "Low-confidence truth (visible-joint measurement)",
             "Per-frame detection quality (auto-flagged classes)",
+            "Detector Attempt funnel (run unit)",
             "Scanner version regression (appVersion run-over-run)",
             "Per-joint failure ranking (frame/joint unit)",
             "Within-video frame-level conditions vs error",
@@ -2393,6 +2556,7 @@ def _run_all():
            test_crop_quality_iou_and_miss_causes,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
+           test_attempt_funnel_pools_and_distributes_over_runs,
            test_evidence_generation_dedup_prefers_attempt_backed_record,
            test_evidence_generation_dedup_is_scoped_to_one_truth_revision,
            test_frame_quality_condition_bands_flagged_rate,

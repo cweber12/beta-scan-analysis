@@ -95,6 +95,21 @@ def _fmt(v: Any, nd: int = 2) -> str:
     return str(v)
 
 
+def _pct(v: Any, nd: int = 1) -> str:
+    """A 0..1 share as a percentage.
+
+    The attempt funnel spans 68% down to 0.1% in one table, and ``_fmt`` renders that
+    smallest share as ``0.00`` — a real bucket reading as an empty one."""
+
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return "–"
+    if math.isnan(f):
+        return "–"
+    return f"{f * 100:.{nd}f}%"
+
+
 # --- SVG chart builders ------------------------------------------------------
 def svg_heatmap(corr: pd.DataFrame, title: str) -> str:
     """corr: long df with predictor, outcome, mean_r (+ optional std_r)."""
@@ -782,6 +797,158 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
         + "<h3>Re-review worklist (worst class first)</h3>" + wl_tbl)
 
 
+# What each Detector Attempt status means, so the funnel reads as a funnel and not as a
+# list of scanner enum values (issue #87).
+_FUNNEL_STATUS_BLURB = {
+    "accepted": "MediaPipe returned a pose and the scanner kept it",
+    "missing": "MediaPipe returned nothing in the region(s) searched",
+    "flipRejected": "a pose was found and discarded by the flip gate",
+    "qualityRejected": "a pose was found and discarded by the quality gate",
+    "unknown": "the scanner emitted a status outside the known vocabulary",
+}
+
+# Worst-run funnel rows to show inline; the CSV carries every run.
+FUNNEL_WORKLIST_TOP_K = 20
+
+
+def _attempt_funnel_html(ctx: dict[str, Any]) -> str:
+    """The Detector Attempt funnel (issue #87): what the detector did, before truth.
+
+    Every pooled share is printed beside its run-unit distribution, because the Run is the
+    unit of inference: one 1500-attempt run that missed everything moves the pooled share
+    as much as a dozen ordinary runs, and only the median / p90 / tail columns say which
+    corpus you are looking at. No CIs here on purpose — attempts within a run are
+    correlated, so a pooled-attempt interval would claim precision this design cannot
+    support (#70)."""
+
+    funnel = ctx.get("attempt_funnel_runs")
+    if not isinstance(funnel, pd.DataFrame) or funnel.empty:
+        return ("<p class='muted'>No Detector Attempt funnel yet — needs pose runs "
+                "carrying <code>detectorAttempts[]</code> and matching evaluation "
+                "records.</p>")
+
+    totals = ctx.get("attempt_funnel") or {}
+    shares = totals.get("status_shares") or {}
+    tiles = _stat_tiles([
+        (str(totals.get("runs", 0)), "runs with attempt evidence"),
+        (str(totals.get("attempts", 0)), "Detector Attempts"),
+        (_pct(shares.get("accepted")), "accepted [pooled]"),
+        (_pct(shares.get("missing")), "missing [pooled]"),
+        (_pct(totals.get("missing_share_run_median")), "missing [run median]"),
+        (f"{totals.get('reacquire_succeeded', 0)}/{totals.get('reacquire_attempted', 0)}",
+         "reacquire successes"),
+        (_pct(totals.get("reacquire_success_rate")), "reacquire success [pooled]"),
+        (f"{totals.get('tail_runs_missing', 0)}/{totals.get('runs', 0)}",
+         "runs >50% missing"),
+    ])
+
+    status = ctx.get("attempt_funnel_status")
+    status_tbl = "<p class='muted'>(no status mix)</p>"
+    if isinstance(status, pd.DataFrame) and not status.empty:
+        rows = "".join(
+            "<tr>"
+            f"<td><code>{_esc(r['status'])}</code></td>"
+            f"<td>{_esc(_FUNNEL_STATUS_BLURB.get(str(r['status']), ''))}</td>"
+            f"<td>{int(r['attempts'])}</td>"
+            f"<td>{_pct(r['share'])}</td>"
+            f"<td>{int(r['runs_with_any'])}</td>"
+            f"<td>{_pct(r['run_share_median'])}</td>"
+            f"<td>{_pct(r['run_share_p90'])}</td>"
+            f"<td>{_pct(r['run_share_max'])}</td>"
+            f"<td>{int(r['tail_runs'])}</td>"
+            "</tr>"
+            for _, r in status.iterrows()
+        )
+        status_tbl = (
+            "<p class='sub'>Pooled share is over every attempt in the corpus; the run "
+            "columns are the distribution of that status's share <em>within</em> a run. "
+            "A gap between the pooled share and the run median means a few long runs "
+            "carry the pool. <strong>Tail runs</strong> are runs where the status took "
+            "more than half the attempts.</p>"
+            "<div class='tablewrap'><table><thead><tr><th>status</th><th>meaning</th>"
+            "<th>attempts</th><th>pooled share</th><th>runs with any</th>"
+            "<th>run median</th><th>run p90</th><th>run max</th>"
+            "<th>tail runs</th></tr></thead>"
+            f"<tbody>{rows}</tbody></table></div>")
+
+    run_stats = ctx.get("attempt_funnel_run_stats")
+    run_stats_tbl = ("<p class='muted'>No run-unit funnel distribution yet.</p>")
+    if isinstance(run_stats, pd.DataFrame) and not run_stats.empty:
+        rows = "".join(
+            "<tr>"
+            f"<td><code>{_esc(r['metric'])}</code></td>"
+            f"<td>{_esc(r['meaning'])}</td>"
+            f"<td>{int(r['n_runs'])}</td>"
+            f"<td>{_fmt(r['median'], 3)}</td>"
+            f"<td>{_fmt(r['p90'], 3)}</td>"
+            f"<td>{_fmt(r['min'], 3)}</td>"
+            f"<td>{_fmt(r['max'], 3)}</td>"
+            "</tr>"
+            for _, r in run_stats.iterrows()
+        )
+        run_stats_tbl = (
+            "<p class='sub'>Reacquire success is the share of <em>attempted</em> "
+            "reacquires that recovered the Climber — a run that never reacquired "
+            "contributes no value rather than a zero.</p>"
+            "<div class='tablewrap'><table><thead><tr><th>metric</th><th>meaning</th>"
+            "<th>runs</th><th>median</th><th>p90</th><th>min</th><th>max</th>"
+            "</tr></thead>"
+            f"<tbody>{rows}</tbody></table></div>")
+
+    flags = ctx.get("attempt_funnel_flags")
+    flag_tbl = ("<p class='muted'>No search-condition flags on this corpus's "
+                "attempts.</p>")
+    if isinstance(flags, pd.DataFrame) and not flags.empty:
+        rows = "".join(
+            "<tr>"
+            f"<td><code>{_esc(r['flag'])}</code></td>"
+            f"<td><code>{_esc(r['status'])}</code></td>"
+            f"<td>{int(r['flag_fired'])}/{int(r['attempts_scored'])}</td>"
+            f"<td>{_pct(r['rate'])}</td>"
+            f"<td>{int(r['n_runs'])}</td>"
+            f"<td>{_pct(r['run_rate_median'])}</td>"
+            f"<td>{_pct(r['run_rate_p90'])}</td>"
+            "</tr>"
+            for _, r in flags.iterrows()
+        )
+        flag_tbl = (
+            "<p class='sub'>How often the scanner's own condition flags fired on the "
+            "region it searched, split by what happened next. A flag that fires far more "
+            "on <code>missing</code> than on <code>accepted</code> is a condition the "
+            "detector loses the Climber in. The denominator counts only attempts whose "
+            "conditions actually carry that flag, so a scanner build that never emitted "
+            "it is not read as one that emitted it and found nothing. The run median is "
+            "usually zero — most runs never fire a given flag — so the p90 beside it is "
+            "what shows a flag a few runs fire on constantly.</p>"
+            "<div class='tablewrap'><table><thead><tr><th>flag</th><th>status</th>"
+            "<th>fired/scored</th><th>pooled rate</th><th>runs</th>"
+            "<th>run median</th><th>run p90</th></tr></thead>"
+            f"<tbody>{rows}</tbody></table></div>")
+
+    worst_cols = ["route_folder", "video_key", "run_ts", "conforming", "attempt_count",
+                  "attempt_status_accepted_rate", "attempt_status_missing_rate",
+                  "attempt_status_flip_rejected_rate",
+                  "attempt_status_quality_rejected_rate",
+                  "attempt_reacquire_attempt_rate", "attempt_reacquire_success_rate"]
+    worst = funnel
+    if "attempt_status_missing_rate" in funnel.columns:
+        worst = funnel.sort_values(
+            "attempt_status_missing_rate", ascending=False, na_position="last")
+    shown = worst[[c for c in worst_cols if c in worst.columns]].head(FUNNEL_WORKLIST_TOP_K)
+    worst_tbl = _df_to_table(shown)
+    if len(funnel) > len(shown):
+        worst_tbl += (f"<p class='muted'>Showing {len(shown)} of {len(funnel)} runs; the "
+                      "full funnel is in <code>eval_attempt_funnel_runs.csv</code>.</p>")
+
+    return (
+        tiles
+        + "<h3>Status mix (pooled attempts vs run-unit distribution)</h3>" + status_tbl
+        + "<h3>Reacquire effectiveness and per-run spread</h3>" + run_stats_tbl
+        + "<h3>Search-condition flags by status</h3>" + flag_tbl
+        + "<h3>Worst runs by missing share</h3>" + worst_tbl
+    )
+
+
 def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
     runs = ctx.get("detection_error_attempt_runs")
     if not isinstance(runs, pd.DataFrame) or runs.empty:
@@ -1229,6 +1396,19 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "Classes are provisional (thresholds not yet fit against verified labels).</p>",
         frames_evidence,
         _frame_quality_html(ctx),
+
+        "<h2>Detector Attempt funnel (run unit)</h2>",
+        "<p class='sub'>What the detector <em>did</em>, before Ground Truth is "
+        "consulted: how the Detector Attempt stream splits across accepted / missing / "
+        "flip-rejected / quality-rejected, how often full-frame reacquire ran and "
+        "worked, and which search-condition flags fired under each status. The Run is "
+        "the unit of inference, so every pooled share is printed beside its run-unit "
+        "median, p90 and tail count — and there are deliberately no confidence "
+        "intervals over pooled attempts, which are correlated within a run (#70). Runs "
+        "with no Ground Truth have no evaluation record and so are not in this funnel; "
+        "they are accounted for in the truthless-bundle shame list below.</p>",
+        _evidence_generation_html(ctx.get("evidence_generation_funnel")),
+        _attempt_funnel_html(ctx),
 
         "<h2>Detection Errors × Detector Attempts</h2>",
         "<p class='sub'>Detection Error rates are summarised per Run, then grouped "

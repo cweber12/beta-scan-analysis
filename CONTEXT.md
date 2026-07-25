@@ -51,6 +51,16 @@ not a spec — it carries no implementation detail.
   candidate-selection metadata, and scanner-computed pixel conditions for the
   searched region. Detector Attempts are evidence, not recommendations; the
   harness joins them to Ground Truth to derive Detection Errors.
+- **Attempt funnel** — how a Run's Detector Attempts split across `accepted` /
+  `missing` / `flipRejected` / `qualityRejected` (plus `unknown` for a status
+  outside the vocabulary), read as a funnel: what the detector kept, then the
+  three ways it didn't. Scanner behavior only — no Ground Truth is consulted, so
+  it is a description of what the detector *did*, never of whether it was right.
+  Every pooled share is reported beside its run-unit distribution (median, p90,
+  and **tail runs** — runs where one status took more than half the attempts),
+  because the Run is the unit of inference and one very long collapsed Run moves
+  a pooled share as much as a dozen ordinary ones. No confidence intervals:
+  attempts within a Run are correlated.
 - **Rejection Verdict** — the harness's judgement of one *rejected* Detector
   Attempt: was the scanner's flip/quality gate right to discard that raw pose?
   Only the harness can answer it, because only the harness holds Ground Truth.

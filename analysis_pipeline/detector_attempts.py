@@ -12,6 +12,22 @@ DETECTOR_ATTEMPT_STATUSES = frozenset({
     "qualityRejected",
 })
 
+# The same statuses in *funnel* order — what the detector kept, then the three ways it
+# didn't — with ``unknown`` last for a status the scanner emitted outside the vocabulary.
+# Report tables read down this order, so the reader walks the funnel rather than the
+# alphabet. ``unknown`` is a real bucket, not an error: it must stay visible so an
+# unrecognised status is never quietly folded into a known one.
+DETECTOR_ATTEMPT_STATUS_UNKNOWN = "unknown"
+DETECTOR_ATTEMPT_STATUS_ORDER = (
+    "accepted",
+    "missing",
+    "flipRejected",
+    "qualityRejected",
+    DETECTOR_ATTEMPT_STATUS_UNKNOWN,
+)
+assert DETECTOR_ATTEMPT_STATUSES == frozenset(DETECTOR_ATTEMPT_STATUS_ORDER) - {
+    DETECTOR_ATTEMPT_STATUS_UNKNOWN}
+
 DETECTOR_ATTEMPT_EVIDENCE_ATTEMPTS = "attempts"
 DETECTOR_ATTEMPT_EVIDENCE_UNKNOWN = "unknown"
 

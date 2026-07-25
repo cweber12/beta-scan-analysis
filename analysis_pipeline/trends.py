@@ -29,6 +29,9 @@ import pandas as pd
 from .detector_attempts import parse_detector_attempts
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 from .detector_attempts import (
+    DETECTOR_ATTEMPT_STATUS_ORDER,
+    DETECTOR_ATTEMPT_STATUS_UNKNOWN,
+    DETECTOR_ATTEMPT_STATUSES,
     _slug,
     condition_flags as _condition_flags,
     region_metric as _region_metric,
@@ -202,9 +205,35 @@ def _evidence_generation_summary(recs: list[EvalRecord], pool: str) -> dict[str,
     }
 
 
-def _load_pose_runs(
-    video_dir: Path,
-) -> dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]]:
+# One bundle's pose runs: ``run_ts -> (appVersion, pose frames, detector attempts|None)``.
+PoseRun = tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]
+# ...and the corpus-wide cache of them, keyed ``(route_folder, video_key)``. Four
+# derivations below need the same pose files; one cache threaded through them all is what
+# keeps a trend build from re-reading every detection file once per derivation.
+PoseRunCache = dict[tuple[str, str], dict[str, PoseRun]]
+
+# A record whose run has no pose file at all: no appVersion, no frames, and — the part
+# that matters — *unknown* rather than empty detector attempts.
+_NO_POSE_RUN: PoseRun = ("", [], None)
+
+
+def _pose_run(
+    analysis_root: Path,
+    rec: EvalRecord,
+    cache: PoseRunCache,
+) -> PoseRun | None:
+    """One record's pose run, loading (and caching) its bundle on first use.
+
+    ``None`` means the bundle has no pose file for that ``run_ts`` — distinct from a run
+    whose pose file holds zero frames, which callers must be able to tell apart."""
+
+    vid = (rec.route_folder, rec.video_key)
+    if vid not in cache:
+        cache[vid] = _load_pose_runs(analysis_root / rec.route_folder / rec.video_key)
+    return cache[vid].get(rec.run_ts)
+
+
+def _load_pose_runs(video_dir: Path) -> dict[str, PoseRun]:
     """Map ``run_ts -> (scanner appVersion, pose frames)`` for one bundle.
 
     The appVersion (a scanner commit hash) lives only in the pose envelope's
@@ -212,7 +241,7 @@ def _load_pose_runs(
     resolves it from the detection files at trend time.
     """
 
-    out: dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]] = {}
+    out: dict[str, PoseRun] = {}
     detections_dir = video_dir / "detections"
     if not detections_dir.is_dir():
         return out
@@ -261,10 +290,7 @@ def _frame_bbox_metrics(joints: dict[str, tuple[float, float]]) -> tuple[float, 
 def _build_frame_joint_rows(
     analysis_root: Path,
     recs: list[EvalRecord],
-    pose_cache: dict[
-        tuple[str, str],
-        dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
-    ],
+    pose_cache: PoseRunCache,
 ) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for rec in recs:
@@ -278,10 +304,10 @@ def _build_frame_joint_rows(
             # Keep trend analysis anchored to the same truth revision as the record.
             continue
 
-        pose_runs = pose_cache.get((rec.route_folder, rec.video_key), {})
-        app_version, pose_frames, _ = pose_runs.get(rec.run_ts, ("", None, None))
-        if pose_frames is None:
-            continue
+        pose_run = _pose_run(analysis_root, rec, pose_cache)
+        if pose_run is None:
+            continue  # no pose file for this run_ts — nothing to score against truth
+        app_version, pose_frames, _ = pose_run
 
         metadata, setup = _bundle_meta(video_dir)
         source_type = str(metadata.get("source_type") or "unknown")
@@ -844,7 +870,8 @@ def _video_stats_conditions(video_dir: Path) -> dict[str, float]:
     return out
 
 
-def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataFrame:
+def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord],
+                        pose_cache: PoseRunCache | None = None) -> pd.DataFrame:
     """Pool every record's ``frameQuality`` frames into one long table (issue #44).
 
     Pooled across **all** records — including #15-quarantined and #44-loose ones —
@@ -855,10 +882,7 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
 
     rows: list[dict[str, Any]] = []
     vs_cache: dict[tuple[str, str], dict[str, float]] = {}
-    pose_cache: dict[
-        tuple[str, str],
-        dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
-    ] = {}
+    pose_cache = {} if pose_cache is None else pose_cache
     for rec in recs:
         fq = rec.data.get("frameQuality")
         if not isinstance(fq, dict):
@@ -867,11 +891,8 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
         if vid not in vs_cache:
             vs_cache[vid] = _video_stats_conditions(
                 analysis_root / rec.route_folder / rec.video_key)
-        if vid not in pose_cache:
-            pose_cache[vid] = _load_pose_runs(
-                analysis_root / rec.route_folder / rec.video_key)
         conds = vs_cache[vid]
-        _, _, attempts = pose_cache[vid].get(rec.run_ts, ("", [], None))
+        _, _, attempts = _pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN
         attempt_index = _attempts_by_timestamp(attempts)
         attempt_evidence = "unknown" if attempts is None else "attempts"
         loose = bool(rec.data.get("loosePaired"))
@@ -1186,6 +1207,7 @@ def _rejection_run_columns(fq: dict[str, Any]) -> dict[str, Any]:
 def _detection_error_attempt_run_rows(
     analysis_root: Path,
     recs: list[EvalRecord],
+    pose_cache: PoseRunCache | None = None,
 ) -> pd.DataFrame:
     """One row per evaluation record, joining Detection Errors to attempt summaries.
 
@@ -1196,10 +1218,7 @@ def _detection_error_attempt_run_rows(
     """
 
     rows: list[dict[str, Any]] = []
-    pose_cache: dict[
-        tuple[str, str],
-        dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
-    ] = {}
+    pose_cache = {} if pose_cache is None else pose_cache
     for rec in recs:
         fq = rec.data.get("frameQuality")
         if not isinstance(fq, dict):
@@ -1210,11 +1229,7 @@ def _detection_error_attempt_run_rows(
             1 for e in frames
             if str((e or {}).get("class") or "ok") in _FQ_FLAGGED
         )
-        vid = (rec.route_folder, rec.video_key)
-        if vid not in pose_cache:
-            pose_cache[vid] = _load_pose_runs(
-                analysis_root / rec.route_folder / rec.video_key)
-        _, _, attempts = pose_cache[vid].get(rec.run_ts, ("", [], None))
+        _, _, attempts = _pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN
         rows.append({
             "route_folder": rec.route_folder,
             "video_key": rec.video_key,
@@ -1276,6 +1291,224 @@ def _detection_error_attempt_bands(run_df: pd.DataFrame, bins: int = 3) -> pd.Da
                 "band_max": float(bg[predictor].max()),
             })
     return pd.DataFrame(rows)
+
+
+# --------------------------------------------------------------------------- #
+# Detector Attempt funnel (issue #87)
+#
+# What the detector *did*, before Ground Truth is consulted: how the attempt stream
+# splits across accepted / missing / flipRejected / qualityRejected, how often reacquire
+# ran and worked, and which search conditions were flagged under each status.
+#
+# The Run is the unit of inference (CONTEXT.md), so every pooled share here is reported
+# beside its run-unit distribution — median, p90, and the count of runs the status
+# dominates. A corpus where one very long run misses everything and a corpus where every
+# run misses a quarter of its frames produce the same pooled missing share; only the
+# run-unit columns tell them apart. Deliberately no pooled-frame CIs: attempts within a
+# run are correlated, so a CI over pooled attempts would claim precision the design
+# cannot support (#70).
+# --------------------------------------------------------------------------- #
+
+# A run is a *tail* run for a status when that status takes more than this share of its
+# attempts. 0.5 is the corpus baseline's "runs > 50% missing" line — a run that misses
+# most of what it looked at is a different failure from one that misses some of it.
+ATTEMPT_FUNNEL_TAIL_SHARE = 0.5
+
+# Run-unit distributions worth reporting outside the status mix (the per-status shares
+# already carry their own median/p90 in the status table).
+_FUNNEL_RUN_METRICS = [
+    ("attempt_count", "attempts per run"),
+    ("attempt_reacquire_attempt_rate", "reacquire attempted / attempts"),
+    ("attempt_reacquire_success_rate", "reacquire succeeded / reacquires attempted"),
+    ("attempt_full_frame_reacquire_success_rate",
+     "full-frame reacquire succeeded / attempts"),
+]
+
+
+def _p90(values: pd.Series) -> float | None:
+    return float(np.quantile(values.to_numpy(dtype=float), 0.9)) if len(values) else None
+
+
+def _status_columns(status: str) -> tuple[str, str]:
+    slug = _slug(status)
+    return f"attempt_status_{slug}_count", f"attempt_status_{slug}_rate"
+
+
+def _attempt_funnel_runs(run_df: pd.DataFrame) -> pd.DataFrame:
+    """Per-run funnel rows — the attempt-backed subset of the Detection Error run table.
+
+    Derived from that table rather than re-walking the attempt streams, so the funnel and
+    the Detection Error section can never disagree about a run's status mix: there is one
+    ``_detector_attempt_summary`` per run and both read it. Legacy runs are dropped by the
+    same rule that makes them legacy — no attempt stream, so no funnel to report."""
+
+    if run_df.empty or "attempt_evidence" not in run_df.columns:
+        return pd.DataFrame()
+    sub = run_df[run_df["attempt_evidence"].astype("string") == EVIDENCE_ATTEMPTS]
+    if sub.empty:
+        return pd.DataFrame()
+    cols = ["route_folder", "video_key", "run_ts", "conforming", "loose", "attempt_count"]
+    for status in DETECTOR_ATTEMPT_STATUS_ORDER:
+        cols.extend(_status_columns(status))
+    cols += [
+        "attempt_reacquire_attempted_count", "attempt_reacquire_succeeded_count",
+        "attempt_reacquire_failed_count", "attempt_reacquire_attempt_rate",
+        "attempt_reacquire_success_rate",
+        "attempt_full_frame_reacquire_success_count",
+        "attempt_full_frame_reacquire_success_rate",
+    ]
+    cols += sorted(c for c in sub.columns if c.startswith("attempt_search_flag_"))
+    return sub[[c for c in cols if c in sub.columns]].reset_index(drop=True)
+
+
+def _attempt_funnel_status_table(funnel_df: pd.DataFrame) -> pd.DataFrame:
+    """The status mix, pooled over attempts *and* distributed over runs.
+
+    Every status is a row even at zero: "nothing was quality-rejected this batch" is a
+    result, and leaving the row out would leave it to be inferred from an absence."""
+
+    if funnel_df.empty:
+        return pd.DataFrame()
+    counts_total = pd.to_numeric(funnel_df["attempt_count"], errors="coerce").fillna(0)
+    total = int(counts_total.sum())
+    rows: list[dict[str, Any]] = []
+    for status in DETECTOR_ATTEMPT_STATUS_ORDER:
+        count_col, rate_col = _status_columns(status)
+        if count_col not in funnel_df.columns:
+            continue
+        counts = pd.to_numeric(funnel_df[count_col], errors="coerce").fillna(0)
+        shares = pd.to_numeric(funnel_df.get(rate_col), errors="coerce").dropna()
+        n = int(counts.sum())
+        rows.append({
+            "status": status,
+            "attempts": n,
+            "share": (n / total) if total else None,
+            "runs_with_any": int((counts > 0).sum()),
+            "run_share_median": float(shares.median()) if len(shares) else None,
+            "run_share_p90": _p90(shares),
+            "run_share_max": float(shares.max()) if len(shares) else None,
+            "tail_runs": int((shares > ATTEMPT_FUNNEL_TAIL_SHARE).sum()),
+        })
+    return pd.DataFrame(rows)
+
+
+def _attempt_funnel_run_stats(funnel_df: pd.DataFrame) -> pd.DataFrame:
+    """Run-unit distribution of the funnel measures that are not per-status shares."""
+
+    if funnel_df.empty:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for metric, label in _FUNNEL_RUN_METRICS:
+        if metric not in funnel_df.columns:
+            continue
+        vals = pd.to_numeric(funnel_df[metric], errors="coerce").dropna()
+        if vals.empty:
+            continue  # e.g. no run ever attempted a reacquire — an unmeasured metric
+        rows.append({
+            "metric": metric,
+            "meaning": label,
+            "n_runs": int(len(vals)),
+            "median": float(vals.median()),
+            "p90": _p90(vals),
+            "min": float(vals.min()),
+            "max": float(vals.max()),
+        })
+    return pd.DataFrame(rows)
+
+
+def _attempt_funnel_flag_rows(
+    analysis_root: Path,
+    recs: list[EvalRecord],
+    pose_cache: PoseRunCache | None = None,
+) -> pd.DataFrame:
+    """Condition-flag rate per attempt status — the one funnel table the per-run summary
+    cannot supply, because it needs each attempt's flags *and* its status together.
+
+    The denominator is attempts of that status **whose conditions carry the flag**: a
+    scanner build that never emitted ``underexposed`` must not read as one that emitted it
+    and found nothing. Pooled rates come with the per-run distribution beside them, since
+    flags cluster hard within a run (one dark video floods the pool). The p90 is there
+    because the median is usually zero — most runs never fire a given flag, so the median
+    alone would report "no signal" for a flag a handful of runs fire on constantly."""
+
+    pose_cache = {} if pose_cache is None else pose_cache
+    pooled: dict[tuple[str, str], list[int]] = {}          # (flag, status) -> [scored, fired]
+    per_run: dict[tuple[str, str], list[float]] = {}       # (flag, status) -> run rates
+    for rec in recs:
+        if record_evidence_generation(rec.data) != EVIDENCE_ATTEMPTS:
+            continue
+        _, _, attempts = _pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN
+        run_tally: dict[tuple[str, str], list[int]] = {}
+        for attempt in attempts or []:
+            raw_status = attempt.get("status")
+            status = (raw_status if raw_status in DETECTOR_ATTEMPT_STATUSES
+                      else DETECTOR_ATTEMPT_STATUS_UNKNOWN)
+            for flag, fired in _condition_flags(attempt.get("searchConditions")).items():
+                for tally in (pooled, run_tally):
+                    slot = tally.setdefault((flag, status), [0, 0])
+                    slot[0] += 1
+                    slot[1] += int(bool(fired))
+        for key, (scored, fired) in run_tally.items():
+            if scored:
+                per_run.setdefault(key, []).append(fired / scored)
+
+    order = {status: i for i, status in enumerate(DETECTOR_ATTEMPT_STATUS_ORDER)}
+    rows: list[dict[str, Any]] = []
+    for (flag, status), (scored, fired) in pooled.items():
+        run_rates = per_run.get((flag, status), [])
+        rows.append({
+            "flag": flag,
+            "status": status,
+            "attempts_scored": scored,
+            "flag_fired": fired,
+            "rate": (fired / scored) if scored else None,
+            "n_runs": len(run_rates),
+            "run_rate_median": (float(np.median(run_rates)) if run_rates else None),
+            "run_rate_p90": (float(np.quantile(run_rates, 0.9)) if run_rates else None),
+        })
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+    df["_order"] = df["status"].map(lambda s: order.get(s, len(order)))
+    return df.sort_values(["flag", "_order"]).drop(columns="_order").reset_index(drop=True)
+
+
+def _attempt_funnel_totals(funnel_df: pd.DataFrame,
+                           status_df: pd.DataFrame) -> dict[str, Any]:
+    """Corpus-wide funnel headline, summed off the per-run rows so the tiles and the CSV
+    can never disagree."""
+
+    if funnel_df.empty:
+        return {"runs": 0, "attempts": 0, "status_shares": {},
+                "reacquire_attempted": 0, "reacquire_succeeded": 0,
+                "reacquire_success_rate": None, "reacquire_success_rate_run_median": None,
+                "missing_share_run_median": None, "tail_runs_missing": 0}
+
+    def total(name: str) -> int:
+        return int(pd.to_numeric(funnel_df.get(name), errors="coerce").fillna(0).sum())
+
+    by_status = status_df.set_index("status") if not status_df.empty else pd.DataFrame()
+    attempted = total("attempt_reacquire_attempted_count")
+    succeeded = total("attempt_reacquire_succeeded_count")
+    run_success = pd.to_numeric(
+        funnel_df.get("attempt_reacquire_success_rate"), errors="coerce").dropna()
+    return {
+        "runs": int(len(funnel_df)),
+        "attempts": total("attempt_count"),
+        "status_shares": ({s: by_status.loc[s, "share"] for s in by_status.index}
+                          if not by_status.empty else {}),
+        "reacquire_attempted": attempted,
+        "reacquire_succeeded": succeeded,
+        "reacquire_success_rate": (succeeded / attempted) if attempted else None,
+        "reacquire_success_rate_run_median": (
+            float(run_success.median()) if len(run_success) else None),
+        "missing_share_run_median": (
+            by_status.loc["missing", "run_share_median"]
+            if "missing" in getattr(by_status, "index", []) else None),
+        "tail_runs_missing": (
+            int(by_status.loc["missing", "tail_runs"])
+            if "missing" in getattr(by_status, "index", []) else 0),
+    }
 
 
 def _rejection_totals(run_df: pd.DataFrame) -> dict[str, Any]:
@@ -1444,14 +1677,12 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     evidence_trusted = _evidence_generation_summary(recs, "trusted pooled metrics")
     evidence_frames = _evidence_generation_summary(
         all_recs, "per-frame / attempt pools (all records)")
-    pose_cache: dict[
-        tuple[str, str],
-        dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
-    ] = {}
-    for rec in recs:
-        vid = (rec.route_folder, rec.video_key)
-        if vid not in pose_cache:
-            pose_cache[vid] = _load_pose_runs(analysis_root / rec.route_folder / rec.video_key)
+    # One pose-file read per bundle for the whole trend build: the frame/joint rows, the
+    # per-frame quality pool, the Detection Error run table and the attempt funnel all
+    # draw from this cache.
+    pose_cache: PoseRunCache = {}
+    for rec in all_recs:
+        _pose_run(analysis_root, rec, pose_cache)
     app_versions = {
         (route, key, run_ts): av
         for (route, key), runs in pose_cache.items()
@@ -1477,14 +1708,28 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     # Per-frame detection quality (issue #44): pooled across ALL records — quarantined
     # and loose included — because those bundles hold the frames most worth fixing. This
     # is an independent pool from the trusted metrics above (conforming-only).
-    fq_df = _frame_quality_rows(analysis_root, all_recs)
+    fq_df = _frame_quality_rows(analysis_root, all_recs, pose_cache)
     fq_classes = _frame_quality_classes(fq_df)
     fq_distractors = _frame_quality_distractors(fq_df)
     fq_worklist = _frame_quality_worklist(fq_df)
     fq_condition_bands = _frame_quality_condition_bands(fq_df)
-    fq_attempt_runs = _detection_error_attempt_run_rows(analysis_root, all_recs)
+    fq_attempt_runs = _detection_error_attempt_run_rows(analysis_root, all_recs, pose_cache)
     fq_attempt_bands = _detection_error_attempt_bands(fq_attempt_runs)
     rejection_totals = _rejection_totals(fq_attempt_runs)
+
+    # Detector Attempt funnel (issue #87): scanner behavior before truth is consulted,
+    # over the attempt-backed records only — a legacy run has no attempt stream to funnel.
+    # Quarantined and loose records stay in: a run that fails the #15 gate is often
+    # exactly the run whose funnel collapsed, and dropping it would hide the failure the
+    # section exists to show.
+    funnel_recs = [r for r in all_recs
+                   if record_evidence_generation(r.data) == EVIDENCE_ATTEMPTS]
+    funnel_runs = _attempt_funnel_runs(fq_attempt_runs)
+    funnel_status = _attempt_funnel_status_table(funnel_runs)
+    funnel_run_stats = _attempt_funnel_run_stats(funnel_runs)
+    funnel_flags = _attempt_funnel_flag_rows(analysis_root, funnel_recs, pose_cache)
+    funnel_totals = _attempt_funnel_totals(funnel_runs, funnel_status)
+    evidence_funnel = _evidence_generation_summary(funnel_recs, "attempt funnel")
 
     # Crop placement + miss causes (issue #86), pooled over the same all-records set.
     crop_df = _crop_quality_rows(all_recs)
@@ -1534,6 +1779,12 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "detection_error_attempt_runs": fq_attempt_runs,
         "detection_error_attempt_bands": fq_attempt_bands,
         "rejection_correctness": rejection_totals,
+        "attempt_funnel_runs": funnel_runs,
+        "attempt_funnel_status": funnel_status,
+        "attempt_funnel_run_stats": funnel_run_stats,
+        "attempt_funnel_flags": funnel_flags,
+        "attempt_funnel": funnel_totals,
+        "evidence_generation_funnel": evidence_funnel,
         "crop_quality_attempts": crop_df,
         "crop_quality_miss_causes": miss_causes,
         "crop_quality": crop_totals,
@@ -1575,6 +1826,10 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_frame_quality_condition_bands.csv": ctx.get("frame_quality_condition_bands"),
         "eval_detection_error_attempt_runs.csv": ctx.get("detection_error_attempt_runs"),
         "eval_detection_error_attempt_bands.csv": ctx.get("detection_error_attempt_bands"),
+        "eval_attempt_funnel_status.csv": ctx.get("attempt_funnel_status"),
+        "eval_attempt_funnel_runs.csv": ctx.get("attempt_funnel_runs"),
+        "eval_attempt_funnel_run_stats.csv": ctx.get("attempt_funnel_run_stats"),
+        "eval_attempt_funnel_flags.csv": ctx.get("attempt_funnel_flags"),
         "eval_crop_quality_attempts.csv": ctx.get("crop_quality_attempts"),
         "eval_crop_quality_miss_causes.csv": ctx.get("crop_quality_miss_causes"),
     }
