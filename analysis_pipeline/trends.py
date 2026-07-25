@@ -28,9 +28,15 @@ import pandas as pd
 
 from .detector_attempts import parse_detector_attempts
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
-from .runs import _condition_flags, _detector_attempt_summary, _region_metric
+from .detector_attempts import (
+    _slug,
+    condition_flags as _condition_flags,
+    region_metric as _region_metric,
+)
+from .runs import _detector_attempt_summary
 from .evaluate import (
     COCO_CORE_JOINTS,
+    MISS_CAUSES,
     _dist,
     _iter_pose_runs,
     _nearest_within,
@@ -952,6 +958,109 @@ _ATTEMPT_ERROR_PREDICTORS = [
 ]
 
 
+def _crop_quality_rows(recs: list[EvalRecord]) -> pd.DataFrame:
+    """Pool every record's ``cropQuality`` attempts into one long table (issue #86).
+
+    Pooled across **all** records — quarantined and loose included — for the same reason
+    the per-frame quality pool is: the runs whose crops wander are exactly the ones worth
+    inspecting. Records predating schema v10 carry no ``cropQuality`` and contribute
+    nothing."""
+
+    rows: list[dict[str, Any]] = []
+    for rec in recs:
+        cq = rec.data.get("cropQuality")
+        if not isinstance(cq, dict):
+            continue
+        loose = bool(rec.data.get("loosePaired"))
+        conforming = record_conforms(rec.data)
+        for e in cq.get("frames") or []:
+            bbox = e.get("truthBbox") or {}
+            rows.append({
+                "route_folder": rec.route_folder,
+                "video_key": rec.video_key,
+                "run_ts": rec.run_ts,
+                "t": e.get("t"),
+                "status": e.get("status"),
+                "truth_present": e.get("truthPresent"),
+                "miss_cause": e.get("missCause"),
+                "initial_search_region_iou": e.get("initialSearchRegionIou"),
+                "detection_region_iou": e.get("detectionRegionIou"),
+                "initial_crop_containment": e.get("initialCropContainment"),
+                "crop_contained_truth": e.get("cropContainedTruth"),
+                "search_flags_fired": e.get("searchFlagsFired"),
+                "fired_search_flags": ", ".join(e.get("firedSearchFlags") or []),
+                "reacquire_attempted": e.get("reacquireAttempted"),
+                "truth_bbox_area": (
+                    bbox.get("w") * bbox.get("h")
+                    if isinstance(bbox.get("w"), (int, float))
+                    and isinstance(bbox.get("h"), (int, float)) else None),
+                "loose": loose,
+                "conforming": conforming,
+            })
+    return pd.DataFrame(rows)
+
+
+def _miss_cause_table(crop_df: pd.DataFrame) -> pd.DataFrame:
+    """Miss-cause frequency over the pooled attempts, with the crop-placement evidence
+    beside each cause.
+
+    ``crop_missed_truth`` is carried per cause on purpose: on a corpus where full-frame
+    reacquire always runs, no miss is *caused* by the crop, yet the crop can still have
+    excluded the Climber on most of them. Showing both stops the reader inferring either
+    fact from the other."""
+
+    if crop_df.empty or "miss_cause" not in crop_df.columns:
+        return pd.DataFrame()
+    sub = crop_df[crop_df["miss_cause"].notna()]
+    if sub.empty:
+        return pd.DataFrame()
+    total = len(sub)
+    rows: list[dict[str, Any]] = []
+    for cause, g in sub.groupby("miss_cause"):
+        contained = g["crop_contained_truth"]
+        scored = int(contained.notna().sum())
+        rows.append({
+            "miss_cause": str(cause),
+            "n": int(len(g)),
+            "share": len(g) / total,
+            "crop_missed_truth": int((contained == False).sum()),  # noqa: E712
+            "crop_containment_scored": scored,
+            "median_initial_crop_containment": (
+                float(g["initial_crop_containment"].median())
+                if g["initial_crop_containment"].notna().any() else None),
+            "flags_fired": int((g["search_flags_fired"] == True).sum()),  # noqa: E712
+        })
+    return pd.DataFrame(rows).sort_values(
+        ["n", "miss_cause"], ascending=[False, True]).reset_index(drop=True)
+
+
+def _crop_run_columns(cq: Any) -> dict[str, Any]:
+    """Per-run crop-quality columns read off a record's ``cropQuality`` (issue #86).
+
+    Pre-v10 and legacy frames-only records carry no block, so counts are zero and every
+    rate/median is ``None`` — an unmeasured Run must not read as a Run with perfect
+    crops."""
+
+    cq = cq if isinstance(cq, dict) else {}
+    causes = cq.get("missCauseCounts") if isinstance(cq.get("missCauseCounts"), dict) else {}
+    contained = cq.get("cropContainedTruth") if isinstance(
+        cq.get("cropContainedTruth"), dict) else {}
+    initial = cq.get("initialSearchRegionIou") if isinstance(
+        cq.get("initialSearchRegionIou"), dict) else {}
+    missing = int(cq.get("missingAttempts") or 0)
+    out: dict[str, Any] = {
+        "crop_matched_attempts": int(cq.get("matchedAttempts") or 0),
+        "missing_attempts": missing,
+        "crop_contained_truth_rate": contained.get("rate"),
+        "initial_search_region_iou_median": initial.get("median"),
+    }
+    for cause in MISS_CAUSES:
+        count = int(causes.get(cause) or 0)
+        out[f"miss_{_slug(cause)}_count"] = count
+        out[f"miss_{_slug(cause)}_share"] = (count / missing) if missing else None
+    return out
+
+
 def _rejection_run_columns(fq: dict[str, Any]) -> dict[str, Any]:
     """Per-run rejection-correctness columns read off a record's ``frameQuality``
     (issue #85). Pre-v9 and legacy frames-only records carry no
@@ -1031,6 +1140,7 @@ def _detection_error_attempt_run_rows(
             "flagged_rate": flagged / detected if detected else None,
             "frozen_stale_frames": int(fq.get("frozenStaleCount") or 0),
             **_rejection_run_columns(fq),
+            **_crop_run_columns(rec.data.get("cropQuality")),
             **_detector_attempt_summary(attempts),
         })
     df = pd.DataFrame(rows)
@@ -1119,6 +1229,42 @@ def _rejection_totals(run_df: pd.DataFrame) -> dict[str, Any]:
             (good / present_checkable) if present_checkable else None),
         "over_rejection_rate_run_mean": float(rates.mean()) if runs_with else None,
         "runs_with_checkable_rejections": runs_with,
+    }
+
+
+def _crop_totals(crop_df: pd.DataFrame) -> dict[str, Any]:
+    """Corpus-wide crop-placement headline (issue #86).
+
+    ``crop_missed_truth_rate`` is over truth-present attempts with a scorable crop, and is
+    reported independently of the miss-cause mix: it is the crop-placement defect, not a
+    causal claim about misses."""
+
+    if crop_df.empty:
+        return {"matched_attempts": 0, "missing_attempts": 0,
+                "crop_containment_scored": 0, "crop_missed_truth": 0,
+                "crop_missed_truth_rate": None,
+                "median_initial_crop_containment": None,
+                "median_initial_search_region_iou": None,
+                "miss_cause_counts": {c: 0 for c in MISS_CAUSES}}
+
+    contained = crop_df["crop_contained_truth"]
+    scored = int(contained.notna().sum())
+    missed = int((contained == False).sum())  # noqa: E712
+    causes = crop_df["miss_cause"].dropna()
+    return {
+        "matched_attempts": int(len(crop_df)),
+        "missing_attempts": int(len(causes)),
+        "crop_containment_scored": scored,
+        "crop_missed_truth": missed,
+        "crop_missed_truth_rate": (missed / scored) if scored else None,
+        "median_initial_crop_containment": (
+            float(crop_df["initial_crop_containment"].median())
+            if crop_df["initial_crop_containment"].notna().any() else None),
+        "median_initial_search_region_iou": (
+            float(crop_df["initial_search_region_iou"].median())
+            if crop_df["initial_search_region_iou"].notna().any() else None),
+        "miss_cause_counts": {
+            c: int((causes == c).sum()) for c in MISS_CAUSES},
     }
 
 
@@ -1215,6 +1361,11 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     fq_attempt_bands = _detection_error_attempt_bands(fq_attempt_runs)
     rejection_totals = _rejection_totals(fq_attempt_runs)
 
+    # Crop placement + miss causes (issue #86), pooled over the same all-records set.
+    crop_df = _crop_quality_rows(all_recs)
+    miss_causes = _miss_cause_table(crop_df)
+    crop_totals = _crop_totals(crop_df)
+
     verified_total = 0
     verified_records = 0
     for rec in recs:
@@ -1250,6 +1401,9 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "detection_error_attempt_runs": fq_attempt_runs,
         "detection_error_attempt_bands": fq_attempt_bands,
         "rejection_correctness": rejection_totals,
+        "crop_quality_attempts": crop_df,
+        "crop_quality_miss_causes": miss_causes,
+        "crop_quality": crop_totals,
         "frame_quality_detected": int(len(fq_df)),
         "frame_quality_flagged": int(fq_df["flagged"].sum()) if not fq_df.empty else 0,
         "frame_quality_held": int(fq_df["held_pose"].sum()) if not fq_df.empty else 0,
@@ -1282,6 +1436,8 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_frame_quality_condition_bands.csv": ctx.get("frame_quality_condition_bands"),
         "eval_detection_error_attempt_runs.csv": ctx.get("detection_error_attempt_runs"),
         "eval_detection_error_attempt_bands.csv": ctx.get("detection_error_attempt_bands"),
+        "eval_crop_quality_attempts.csv": ctx.get("crop_quality_attempts"),
+        "eval_crop_quality_miss_causes.csv": ctx.get("crop_quality_miss_causes"),
     }
     for name, table in tables.items():
         if isinstance(table, pd.DataFrame) and not table.empty:

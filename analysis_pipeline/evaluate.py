@@ -56,7 +56,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .detector_attempts import DETECTOR_ATTEMPT_STATUSES, parse_detector_attempts
+from .detector_attempts import (
+    DETECTOR_ATTEMPT_STATUSES,
+    condition_flags,
+    parse_detector_attempts,
+    rect_containment,
+    rect_iou,
+    region_rect,
+)
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 
 # Evaluation record schema version. Bump on any record-shape change.
@@ -79,7 +86,11 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 #    the pooled verdict counts + over-rejection rate. Additive and fail-open — a
 #    legacy (frames-only) record simply reports zero rejected attempts and a ``None``
 #    rate, and pre-v9 readers ignore the new keys.
-SCHEMA_VERSION = 9
+# v10 adds the per-record ``cropQuality`` block (issue #86): per matched Detector Attempt,
+#    the IoU of its search regions against a truth bbox, and for each missing attempt a
+#    cause class. Additive and fail-open — a legacy frames-only record carries an empty
+#    block, and pre-v10 readers ignore it.
+SCHEMA_VERSION = 10
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -249,6 +260,36 @@ REJECTION_REASON_TRUTH_ABSENT = "truth-absent"
 REJECTION_REASON_UNGEOMETRIC = "truth-ungeometric"
 REJECTION_REASON_AGREES = "raw-pose-agrees-truth"
 REJECTION_REASON_DIVERGES = "raw-pose-diverges-truth"
+
+# Crop quality and miss causes (issue #86). The scanner's Adaptive Crop decides *where*
+# MediaPipe looks; the harness owns the truth bbox it should have looked at, so crop
+# placement is only measurable backend-side. Truth bbox = the extent of the truth core
+# joints, padded because 13 joints do not span a Climber's silhouette (no crown of the
+# head, no hands beyond the wrists, no feet beyond the ankles). The pad is a fraction of
+# the extent's *larger* side so a Climber flat against the wall — near-zero horizontal
+# extent — still gets a usable box on both axes.
+#
+# THRESHOLDS ARE PROVISIONAL, in the ``FQ_*`` / ``CONFORMANCE_*`` tradition: hand-set
+# engineering estimates echoed into every record's ``cropQuality.thresholds`` so a record
+# captures the gate it was scored under. Re-fit before treating the classes as truth.
+TRUTH_BBOX_PAD = 0.10          # pad each side by this fraction of the extent's larger side
+CROP_CONTAINMENT_MIN = 0.5     # the searched region must hold this share of the truth bbox
+
+# Whether a full-frame reacquire ran is decisive for miss causation, so it gets a named
+# constant rather than being buried in a condition. CONTEXT.md contracts ``reacquire`` as
+# a **full-frame** search, and a missing attempt reports no ``detectionRegion`` to confirm
+# it from, so ``reacquireAttempted`` is what we trust. Flip this to False only if the
+# scanner ever gains a non-full-frame reacquire, at which point the region must be scored
+# instead of assumed.
+REACQUIRE_SEARCHES_FULL_FRAME = True
+
+# Miss causes. Ordered most-decisive first; ``_miss_cause`` returns the first that fits.
+MISS_CLIMBER_ABSENT = "climber-absent"      # truth says no Climber — a correct miss
+MISS_CROP_MISPLACED = "crop-misplaced"      # the only searched region excluded the Climber
+MISS_ADVERSE_CONDITIONS = "adverse-conditions"  # everything searched, condition flags fired
+MISS_UNEXPLAINED = "unexplained"            # everything searched, conditions clean, still lost
+MISS_CAUSES = [MISS_CLIMBER_ABSENT, MISS_CROP_MISPLACED, MISS_ADVERSE_CONDITIONS,
+               MISS_UNEXPLAINED]
 
 
 @dataclass
@@ -1145,6 +1186,153 @@ def _rejection_correctness(pairs: list[_FramePair]) -> dict[str, Any]:
     }
 
 
+def truth_bbox(joints: dict[str, tuple[float, float]]
+               ) -> tuple[float, float, float, float] | None:
+    """The padded extent of one truth frame's core joints as ``(x0, y0, x1, y1)``.
+
+    ``None`` when the frame has no joints. Not clamped to the frame: a Climber part-way
+    out of shot has a box that overhangs, and clamping would silently make a crop that
+    missed them look like it covered them."""
+
+    if not joints:
+        return None
+    xs = [p[0] for p in joints.values()]
+    ys = [p[1] for p in joints.values()]
+    x0, x1 = min(xs), max(xs)
+    y0, y1 = min(ys), max(ys)
+    pad = max(x1 - x0, y1 - y0) * TRUTH_BBOX_PAD
+    return (x0 - pad, y0 - pad, x1 + pad, y1 + pad)
+
+
+def _bbox_block(bbox: tuple[float, float, float, float] | None) -> dict[str, Any] | None:
+    """A truth bbox in the same ``{x, y, w, h}`` shape the scanner uses for regions, so
+    a reader can compare the two without knowing which corner convention each used."""
+
+    if bbox is None:
+        return None
+    x0, y0, x1, y1 = bbox
+    return {"x": _round6(x0), "y": _round6(y0),
+            "w": _round6(x1 - x0), "h": _round6(y1 - y0)}
+
+
+def _miss_cause(p: _FramePair, bbox: tuple[float, float, float, float] | None,
+                containment: float | None, flags_fired: bool,
+                reacquire_attempted: bool) -> str:
+    """Why one missing Detector Attempt found no Climber (issue #86).
+
+    The ordering encodes what the evidence can actually support. ``crop-misplaced`` is a
+    claim about *causation*, so it requires that the misplaced crop was the only place the
+    scanner looked: when a full-frame reacquire also ran and still failed, the Climber was
+    searched for everywhere, and the crop cannot be what lost them — however badly placed
+    it was. Crop placement is still measured on every miss (``initialCropContainment``);
+    it is just not allowed to masquerade as the cause.
+    """
+
+    if not p.truth.present:
+        return MISS_CLIMBER_ABSENT
+    searched_everywhere = reacquire_attempted and REACQUIRE_SEARCHES_FULL_FRAME
+    if (not searched_everywhere and bbox is not None and containment is not None
+            and containment < CROP_CONTAINMENT_MIN):
+        return MISS_CROP_MISPLACED
+    if flags_fired:
+        return MISS_ADVERSE_CONDITIONS
+    return MISS_UNEXPLAINED
+
+
+def _crop_quality(pairs: list[_FramePair]) -> dict[str, Any]:
+    """Crop placement and miss causes for one Run (issue #86).
+
+    One entry per matched Detector Attempt — every status, unlike ``frameQuality``, which
+    only records frames where a pose was emitted. A miss is exactly the case this block
+    exists to explain, so it cannot borrow that population.
+
+    Per attempt: the truth bbox, the IoU of ``initialSearchRegion`` and ``detectionRegion``
+    against it, and the share of the bbox each region contained. IoU answers "did the crop
+    frame the Climber well", containment answers "did it cover them at all" — a large but
+    correctly-placed crop scores poorly on the first and perfectly on the second, and
+    conflating them would read crop *size* as crop *error*. Missing attempts additionally
+    carry a cause class.
+
+    Legacy frames-only Runs have no attempts, so the block is present but empty — an
+    unmeasured Run must not read as a Run with zero misplaced crops."""
+
+    entries: list[dict[str, Any]] = []
+    cause_counts = {c: 0 for c in MISS_CAUSES}
+    initial_ious: list[float] = []
+    detection_ious: list[float] = []
+    contained = 0
+    containment_scored = 0
+
+    for p in sorted((p for p in pairs if p.matched and p.detector_attempt is not None),
+                    key=lambda p: p.truth.timestamp):
+        attempt = p.detector_attempt or {}
+        status = attempt.get("status")
+        bbox = truth_bbox(p.truth.joints) if p.truth.present else None
+        initial = region_rect(attempt.get("initialSearchRegion"))
+        detection = region_rect(attempt.get("detectionRegion"))
+        initial_iou = rect_iou(bbox, initial)
+        detection_iou = rect_iou(bbox, detection)
+        containment = rect_containment(bbox, initial)
+        flags = condition_flags(attempt.get("searchConditions"))
+        flags_fired = any(flags.values())
+        reacquire_attempted = bool(attempt.get("reacquireAttempted"))
+
+        if initial_iou is not None:
+            initial_ious.append(initial_iou)
+        if detection_iou is not None:
+            detection_ious.append(detection_iou)
+        if containment is not None:
+            containment_scored += 1
+            contained += containment >= CROP_CONTAINMENT_MIN
+
+        cause = None
+        if status == "missing":
+            cause = _miss_cause(p, bbox, containment, flags_fired, reacquire_attempted)
+            cause_counts[cause] += 1
+
+        entries.append({
+            "t": _round6(p.truth.timestamp),
+            "status": status,
+            "truthPresent": p.truth.present,
+            "truthBbox": _bbox_block(bbox),
+            "initialSearchRegionIou": _round6(initial_iou),
+            "detectionRegionIou": _round6(detection_iou),
+            "initialCropContainment": _round6(containment),
+            "cropContainedTruth": (None if containment is None
+                                   else containment >= CROP_CONTAINMENT_MIN),
+            "searchFlagsFired": flags_fired,
+            "firedSearchFlags": sorted(n for n, v in flags.items() if v),
+            "reacquireAttempted": reacquire_attempted,
+            "missCause": cause,
+        })
+
+    def stats(values: list[float]) -> dict[str, Any]:
+        ordered = sorted(values)
+        return {"n": len(ordered),
+                "median": _round6(_percentile(ordered, 0.5)),
+                "p90": _round6(_percentile(ordered, 0.9))}
+
+    missing = sum(cause_counts.values())
+    return {
+        "thresholds": {
+            "truthBboxPad": TRUTH_BBOX_PAD,
+            "cropContainmentMin": CROP_CONTAINMENT_MIN,
+            "reacquireSearchesFullFrame": REACQUIRE_SEARCHES_FULL_FRAME,
+        },
+        "matchedAttempts": len(entries),
+        "missingAttempts": missing,
+        "missCauseCounts": cause_counts,
+        "initialSearchRegionIou": stats(initial_ious),
+        "detectionRegionIou": stats(detection_ious),
+        "cropContainedTruth": {
+            "contained": contained,
+            "scored": containment_scored,
+            "rate": _round6(contained / containment_scored) if containment_scored else None,
+        },
+        "frames": entries,
+    }
+
+
 def _status_driven_class(status: str | None, geometric_class: str) -> str:
     if status == "flipRejected":
         return FQ_FLIPPED
@@ -1352,6 +1540,10 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
         "conformance": _conformance(agreement_pairs),
         # Per-frame detection-quality classes (issue #44), over the same pairs.
         "frameQuality": _frame_quality(agreement_pairs, truth, setup_hash),
+        # Crop placement + miss causation (issue #86). Its own block, not part of
+        # frameQuality, because it scores *every* matched attempt — including the misses
+        # frameQuality deliberately omits.
+        "cropQuality": _crop_quality(agreement_pairs),
         "agreement": _score_tier(agreement_pairs),
         "accuracy": _score_tier(accuracy_pairs),
     }

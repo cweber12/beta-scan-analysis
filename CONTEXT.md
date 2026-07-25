@@ -58,6 +58,27 @@ not a spec — it carries no implementation detail.
   over-rejected), `badPoseRejected` (the pose diverged from truth, or landed on a
   Climber-absent frame where no pose belongs), or `truthUnknown` (no raw pose, or
   no usable truth geometry to check against).
+- **Truth bbox** — the padded extent of a truth frame's core joints, computed
+  backend-side. The padding exists because 13 joints do not span a Climber's
+  silhouette (no crown of the head, no hands past the wrists, no feet past the
+  ankles). It is what the scanner's Adaptive Crop *should* have covered, so it is
+  the reference for every crop-quality measure.
+- **Crop containment** vs **crop IoU** — two different questions about one
+  Adaptive Crop, deliberately not merged. Containment is the share of the Truth
+  bbox inside the searched region ("did we look where the Climber was"); IoU also
+  penalises a region far larger than the Climber ("did we look *tightly*"). A
+  correctly-placed but oversized crop scores perfectly on the first and poorly on
+  the second, so reporting only IoU would read crop *size* as crop *error*.
+- **Miss Cause** — why one missing Detector Attempt found no Climber:
+  `climber-absent` (truth says nobody is there — a correct miss),
+  `crop-misplaced` (the crop excluded the Climber *and* was the only place
+  searched), `adverse-conditions` (everything was searched and condition flags
+  fired), `unexplained` (everything searched, conditions clean, still lost).
+  `crop-misplaced` is a causal claim, so it requires that no full-frame reacquire
+  ran: when the scanner also searched the whole frame and still failed, the crop
+  cannot be what lost the Climber, however badly placed it was. Crop placement is
+  measured on every miss regardless — the two facts are reported side by side and
+  neither may be inferred from the other.
 - **Over-rejection rate** — the share of *truth-checkable* rejections whose
   verdict is `goodPoseRejected`. Reported per Run so scanner flip-gate changes are
   measurable batch-over-batch, and under two denominators: over all checkable

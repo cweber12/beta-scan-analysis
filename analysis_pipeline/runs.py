@@ -6,7 +6,15 @@ from typing import Any
 
 import pandas as pd
 
-from .detector_attempts import DETECTOR_ATTEMPT_STATUSES
+from .detector_attempts import (
+    ATTEMPT_STAT_KEYS as _ATTEMPT_STAT_KEYS,
+    DETECTOR_ATTEMPT_STATUSES,
+    condition_flags as _condition_flags,
+    is_full_frame as _is_full_frame,
+    region_metric as _region_metric,
+    _num,
+    _slug,
+)
 from .discovery import RunRecord
 
 # Hand labels carried in setup.json -> analysisInputs. Prefixed ``label_``.
@@ -65,11 +73,6 @@ _REGION_STAT_PATHS: dict[str, tuple[str, ...]] = {
     "shadowDriftRange": ("shadow", "drift", "range"),
 }
 
-_ATTEMPT_STAT_KEYS = {
-    "mean": "luma_mean",
-    "stdDev": "luma_stdDev",
-    "sharpness": "sharpness",
-}
 _REGION_GEOM_KEYS = ("area", "cx", "cy", "edge_distance")
 
 
@@ -95,75 +98,8 @@ def _reference_stats(ref: dict[str, Any], prefix: str) -> dict[str, Any]:
     return out
 
 
-def _slug(name: str) -> str:
-    out = []
-    prev_underscore = False
-    for ch in name:
-        if ch.isalnum():
-            if ch.isupper() and out and not prev_underscore:
-                out.append("_")
-            out.append(ch.lower())
-            prev_underscore = False
-        elif not prev_underscore:
-            out.append("_")
-            prev_underscore = True
-    return "".join(out).strip("_")
-
-
-def _num(value: Any) -> float | None:
-    return float(value) if isinstance(value, (int, float)) else None
-
-
 def _mean(values: list[float]) -> float | None:
     return sum(values) / len(values) if values else None
-
-
-def _region_metric(region: Any, metric: str) -> float | None:
-    if not isinstance(region, dict):
-        return None
-    x = _num(region.get("x"))
-    y = _num(region.get("y"))
-    w = _num(region.get("w"))
-    h = _num(region.get("h"))
-    if metric == "area" and w is not None and h is not None:
-        return max(0.0, w * h)
-    if metric == "cx" and x is not None and w is not None:
-        return x + w / 2
-    if metric == "cy" and y is not None and h is not None:
-        return y + h / 2
-    if metric == "edge_distance" and all(v is not None for v in (x, y, w, h)):
-        assert x is not None and y is not None and w is not None and h is not None
-        return max(0.0, min(x, y, 1.0 - (x + w), 1.0 - (y + h)))
-    return None
-
-
-def _is_full_frame(region: Any) -> bool:
-    if not isinstance(region, dict):
-        return False
-    x = _num(region.get("x"))
-    y = _num(region.get("y"))
-    w = _num(region.get("w"))
-    h = _num(region.get("h"))
-    return (
-        x is not None and y is not None and w is not None and h is not None
-        and x <= 0.001 and y <= 0.001 and w >= 0.999 and h >= 0.999
-    )
-
-
-def _condition_flags(conditions: Any) -> dict[str, bool]:
-    if not isinstance(conditions, dict):
-        return {}
-    out: dict[str, bool] = {}
-    flags = conditions.get("flags")
-    if isinstance(flags, dict):
-        for key, value in flags.items():
-            out[_slug(str(key))] = bool(value)
-    for key, value in conditions.items():
-        if key in _ATTEMPT_STAT_KEYS or key == "flags":
-            continue
-        if isinstance(value, bool):
-            out[_slug(str(key))] = value
-    return out
 
 
 def _detector_attempt_summary(attempts: list[dict[str, Any]] | None) -> dict[str, Any]:
