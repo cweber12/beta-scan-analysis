@@ -386,7 +386,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 8
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 9
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -997,6 +997,184 @@ def test_evaluate_prefers_detector_attempts_over_dense_frames():
         assert worklist.loc[3.0]["reacquire_failed"] == True  # noqa: E712
         assert worklist.loc[4.0]["reacquire_succeeded"] == True  # noqa: E712
         assert worklist.loc[4.0]["detection_region_area"] == 1.0
+
+
+def test_rejection_correctness_verdicts_and_pooled_rate():
+    """Issue #85: every flip/quality-rejected Detector Attempt's discarded raw pose is
+    scored against truth, per-frame verdicts land in the record, and the pooled
+    over-rejection rate reaches ``build_trend_context`` per Run.
+
+    One bundle crafts all three verdicts (plus both truthUnknown mechanisms) so the
+    pooled rate and the per-gate split are each pinned; a second, legacy frames-only
+    bundle proves an unmeasured Run reports ``None`` rather than a zero rate."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report
+    from analysis_pipeline import trends
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    # t3's truth drops right_hip, so no torso can be formed -> the rejection is not
+    # truth-checkable however good the raw pose looks.
+    no_torso = {n: {"x": x, "y": y, "occluded": False}
+                for n, (x, y) in _TRUTH_JOINTS.items() if n != "right_hip"}
+    doc = {
+        "version": 1,
+        "jointSet": list(_TRUTH_JOINTS),
+        "groundTruthHash": "rejection85rejection",
+        "setupHash": "sh_rej",
+        "frames": [
+            {"frameIndex": 1, "timestamp": 1.0, "state": "present",
+             "review": "auto", "joints": present},
+            {"frameIndex": 2, "timestamp": 2.0, "state": "present",
+             "review": "auto", "joints": present},
+            {"frameIndex": 3, "timestamp": 3.0, "state": "present",
+             "review": "auto", "joints": no_torso},
+            {"frameIndex": 4, "timestamp": 4.0, "state": "present",
+             "review": "auto", "joints": present},
+            {"frameIndex": 5, "timestamp": 5.0, "state": "absent",
+             "review": "auto", "joints": {}},
+        ],
+    }
+
+    exact = _kp_list(_TRUTH_JOINTS)
+    cy = sum(y for _, y in _TRUTH_JOINTS.values()) / len(_TRUTH_JOINTS)
+    flipped = _kp_list({n: (x, 2 * cy - y) for n, (x, y) in _TRUTH_JOINTS.items()})
+    attempts = [
+        # t1 — the flip gate discarded a raw pose that sat right on truth: over-rejection.
+        {"timestamp": 1.0, "status": "flipRejected", "rawKeypoints": exact,
+         "acceptedKeypoints": [], "rejectedCandidateCount": 1},
+        # t2 — genuinely upside-down raw pose: the gate was right.
+        {"timestamp": 2.0, "status": "flipRejected", "rawKeypoints": flipped,
+         "acceptedKeypoints": [], "rejectedCandidateCount": 1},
+        # t3 — truth has no torso, so the geometry is unnormalizable: truthUnknown.
+        {"timestamp": 3.0, "status": "qualityRejected", "rawKeypoints": exact,
+         "acceptedKeypoints": [], "rejectedCandidateCount": 1},
+        # t4 — a rejection with nothing to inspect: truthUnknown, and no frameQuality
+        # entry at all, so the pooled counts must come from the pairs, not the entries.
+        {"timestamp": 4.0, "status": "flipRejected", "rawKeypoints": [],
+         "acceptedKeypoints": []},
+        # t5 — a pose where truth says no Climber: correctly rejected.
+        {"timestamp": 5.0, "status": "qualityRejected", "rawKeypoints": exact,
+         "acceptedKeypoints": [], "rejectedCandidateCount": 1},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeREJ" / "vidREJ"
+        _write_bundle_meta(vdir, setup_hash="sh_rej")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000085", "sh_rej", [],
+                        detector_attempts=attempts)
+        # A legacy frames-only bundle alongside it: no attempts, so no rejections.
+        legacy = root / "routeREJL" / "vidREJL"
+        _write_bundle_meta(legacy, setup_hash="sh_legacy")
+        (legacy / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+        _write_pose_run(legacy, "20260101-000086", "sh_legacy", _scanner_frames_for_pck())
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 2
+        by_run = {p.run_ts: json.loads(p.record_path.read_text(encoding="utf-8"))
+                  for p in summary.written}
+        rec = by_run["20260101-000085"]
+        assert rec["schemaVersion"] == 9
+
+        rc = rec["frameQuality"]["rejectionCorrectness"]
+        assert rc["rejected"] == 5
+        assert rc["verdictCounts"] == {"goodPoseRejected": 1, "badPoseRejected": 2,
+                                       "truthUnknown": 2}
+        assert rc["truthCheckable"] == 3
+        assert rc["overRejectionRate"] == round(1 / 3, 6)
+        # t5's rejection is correct by construction (no Climber there), so the
+        # Climber-present denominator drops it: 1 good of 2 rather than 1 of 3.
+        assert rc["truthAbsent"] == 1
+        assert rc["truthPresentCheckable"] == 2
+        assert rc["overRejectionRateTruthPresent"] == 0.5
+        # Each gate is measured on its own — the corpus baseline is a flip-gate rate.
+        assert rc["byStatus"]["flipRejected"]["rejected"] == 3
+        assert rc["byStatus"]["flipRejected"]["overRejectionRate"] == 0.5
+        assert rc["byStatus"]["flipRejected"]["overRejectionRateTruthPresent"] == 0.5
+        assert rc["byStatus"]["qualityRejected"]["rejected"] == 2
+        assert rc["byStatus"]["qualityRejected"]["overRejectionRate"] == 0.0
+        # The quality gate's only checkable rejection was the Climber-absent one, so
+        # there is no Climber-present evidence about that gate at all.
+        assert rc["byStatus"]["qualityRejected"]["overRejectionRateTruthPresent"] is None
+        assert rc["thresholds"]["minJointAgreement"] == ev.REJECTION_MIN_JOINT_AGREEMENT
+        assert rc["thresholds"]["pckTorsoFraction"] == ev.PCK_TORSO_FRACTION
+
+        by_t = {e["t"]: e for e in rec["frameQuality"]["frames"]}
+        assert set(by_t) == {1.0, 2.0, 3.0, 5.0}  # t4 had no raw pose to classify
+        assert by_t[1.0]["rejectionVerdict"] == "goodPoseRejected"
+        assert by_t[1.0]["rejectionReason"] == "raw-pose-agrees-truth"
+        assert by_t[1.0]["rejectionCentroidDist"] == 0.0
+        assert by_t[1.0]["rejectionJointAgreement"] == 1.0
+        assert by_t[1.0]["rejectionRawClass"] == "ok"
+        assert by_t[2.0]["rejectionVerdict"] == "badPoseRejected"
+        assert by_t[2.0]["rejectionRawClass"] == "flipped-rotated"
+        assert by_t[3.0]["rejectionVerdict"] == "truthUnknown"
+        assert by_t[3.0]["rejectionReason"] == "truth-ungeometric"
+        assert by_t[3.0]["rejectionJointAgreement"] is None
+        assert by_t[5.0]["rejectionVerdict"] == "badPoseRejected"
+        assert by_t[5.0]["rejectionReason"] == "truth-absent"
+
+        # Legacy record: same schema, no rejections, and an explicitly *unmeasured* rate.
+        legacy_rec = by_run["20260101-000086"]
+        legacy_rc = legacy_rec["frameQuality"]["rejectionCorrectness"]
+        assert legacy_rc["rejected"] == 0
+        assert legacy_rc["overRejectionRate"] is None
+        assert legacy_rec["frameQuality"]["detectorEvidence"] == "legacy-frames"
+        assert all(e["rejectionVerdict"] is None
+                   for e in legacy_rec["frameQuality"]["frames"])
+
+        # ...and the trend seam. Every attempt was rejected, so no accepted pose feeds
+        # the #15 fit and the attempt record is quarantined — the per-frame pools
+        # deliberately span all records, quarantined included, so it still lands here.
+        ctx = trends.build_trend_context(root)
+        runs = ctx["detection_error_attempt_runs"].set_index("run_ts")
+        row = runs.loc["20260101-000085"]
+        assert row["rejected_attempts"] == 5
+        assert row["good_pose_rejected"] == 1
+        assert row["bad_pose_rejected"] == 2
+        assert row["rejection_truth_unknown"] == 2
+        assert row["rejection_truth_checkable"] == 3
+        assert row["rejection_truth_absent"] == 1
+        assert row["over_rejection_rate"] == round(1 / 3, 6)
+        assert row["over_rejection_rate_truth_present"] == 0.5
+        assert row["flip_over_rejection_rate"] == 0.5
+        legacy_row = runs.loc["20260101-000086"]
+        assert legacy_row["rejected_attempts"] == 0
+        assert pd.isna(legacy_row["over_rejection_rate"])
+
+        totals = ctx["rejection_correctness"]
+        assert totals["rejected_attempts"] == 5
+        assert totals["good_pose_rejected"] == 1
+        assert totals["truth_checkable"] == 3
+        assert totals["truth_absent"] == 1
+        assert totals["truth_present_checkable"] == 2
+        assert totals["over_rejection_rate"] == 1 / 3
+        assert totals["over_rejection_rate_truth_present"] == 0.5
+        # The legacy run has no rate at all, so it neither dilutes nor pads the mean.
+        assert totals["runs_with_checkable_rejections"] == 1
+        assert totals["over_rejection_rate_run_mean"] == round(1 / 3, 6)
+
+        worklist = ctx["frame_quality_worklist"].set_index("t")
+        assert worklist.loc[1.0]["rejection_verdict"] == "goodPoseRejected"
+        assert worklist.loc[1.0]["rejection_joint_agreement"] == 1.0
+
+        # The CSV export carries the per-run rate for lighter agents / notebooks...
+        csvs = trends.write_trend_tables(Path(tmp) / "reports", ctx)
+        run_csv = pd.read_csv(csvs["eval_detection_error_attempt_runs.csv"])
+        assert "over_rejection_rate" in run_csv.columns
+        assert "flip_over_rejection_rate" in run_csv.columns
+        assert run_csv.set_index("run_ts").loc[
+            "20260101-000085", "over_rejection_rate"] == round(1 / 3, 6)
+
+        # ...and the report section states it.
+        html = report._detection_error_attempt_html(ctx)
+        assert "over-rejection rate (pooled)" in html
+        assert "over-rejection rate (Climber present)" in html
+        assert "truth-checkable rejections" in html
+        assert "0.33" in html
 
 
 def test_crop_export_selection_and_writes():
@@ -1758,6 +1936,7 @@ def _run_all():
            test_frozen_stale_requires_sustained_run,
            test_frame_quality_splits_held_pose_from_raw_frozen_stale,
            test_evaluate_prefers_detector_attempts_over_dense_frames,
+           test_rejection_correctness_verdicts_and_pooled_rate,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
            test_frame_quality_condition_bands_flagged_rate,
