@@ -297,6 +297,61 @@ def _tier_badge(tier: str) -> str:
     return f"<span class='flag tier'>{_esc(label)}</span>"
 
 
+# What each evidence generation means to a reader of a pooled number (issue #89).
+_EVIDENCE_GENERATION_BLURB = {
+    "attempts": "scored from the canonical <code>detectorAttempts[]</code> stream",
+    "legacy-frames": "scored from dense playback <code>frames[]</code> (pre-attempt export)",
+    "unknown": "written before the evidence marker existed (pre-schema-v7)",
+}
+
+
+def _evidence_generation_html(summary: dict[str, Any] | None) -> str:
+    """State which evidence generation a pooled section aggregates (issue #89).
+
+    Printed on every pooled section rather than once at the top: a number read out of the
+    middle of the report must carry its own provenance. A pool spanning generations says
+    MIXED and enumerates the split, so blending is never something the reader has to
+    notice on their own."""
+
+    if not isinstance(summary, dict) or not summary.get("n_records"):
+        return ("<p class='muted'>evidence generation: no records in this pool.</p>")
+    counts = summary.get("counts") or {}
+    present = summary.get("generations") or []
+    mixed = bool(summary.get("mixed"))
+    badge = ("<span class='flag tier'>evidence: MIXED</span>" if mixed
+             else f"<span class='flag tier'>evidence: {_esc(present[0])}</span>")
+    detail = ", ".join(
+        f"{counts.get(g, 0)} × <code>{_esc(g)}</code> ({_EVIDENCE_GENERATION_BLURB.get(g, '')})"
+        for g in present
+    )
+    note = (" — this section pools more than one generation; compare across batches "
+            "with that in mind." if mixed else "")
+    return (f"<p class='sub'>{badge} {summary.get('n_records', 0)} record(s): "
+            f"{detail}.{note}</p>")
+
+
+def _superseded_table(rows: list[dict[str, Any]]) -> str:
+    """Records dropped from pooling because the same video+truth pairing also has an
+    attempt-backed record (issue #89). Still on disk and readable — only the aggregation
+    passed them over."""
+
+    if not rows:
+        return ("<p class='muted'>No superseded records — no video+truth pairing carries "
+                "two evidence generations.</p>")
+    head = ("<tr><th>route</th><th>video</th><th>run</th><th>truth</th>"
+            "<th>generation</th><th>superseded by</th></tr>")
+    body = "".join(
+        f"<tr><td>{_esc(r.get('route_folder'))}</td>"
+        f"<td>{_esc(r.get('video_key'))}</td>"
+        f"<td>{_esc(r.get('run_ts'))}</td>"
+        f"<td><code>{_esc(str(r.get('truth_hash') or '')[:8])}</code></td>"
+        f"<td><code>{_esc(r.get('evidence_generation'))}</code></td>"
+        f"<td>{_esc(r.get('superseded_by'))}</td></tr>"
+        for r in rows
+    )
+    return f"<div class='tablewrap'><table><thead>{head}</thead><tbody>{body}</tbody></table></div>"
+
+
 def _joint_ranking_table(df: pd.DataFrame) -> str:
     if not isinstance(df, pd.DataFrame) or df.empty:
         return "<p class='muted'>No evaluation-backed per-joint ranking available yet.</p>"
@@ -1134,16 +1189,24 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         _frame_timeline_html(ctx),
     ]
 
+    trusted_evidence = _evidence_generation_html(ctx.get("evidence_generation_trusted"))
+    frames_evidence = _evidence_generation_html(ctx.get("evidence_generation_frames"))
+
     parts += [
         "<h2>Evaluation trend accounting</h2>",
         "<p class='sub'>Two-tier accounting from committed evaluation records. "
-        "Every value is explicitly tagged as agreement or accuracy.</p>",
+        "Every value is explicitly tagged as agreement or accuracy. Records superseded "
+        "by a newer evidence generation for the same video+truth pairing are dropped "
+        "before any of this (#89) and listed in the shame lists below.</p>",
+        trusted_evidence,
         _stat_tiles([
             (str(ctx.get("eval_count", 0)), "trusted records [pooled]"),
             (str(ctx.get("quarantined_count", 0)), "quarantined records [#15 gate]"),
             (str(ctx.get("truth_repair_count", 0)),
              "of those suspected mis-tracks [#88 truth-repair]"),
             (str(ctx.get("loose_count", 0)), "loose pairings [#44 fallback]"),
+            (str(ctx.get("superseded_count", 0)),
+             "superseded records [#89 evidence dedup]"),
             (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
             (str(ctx.get("verified_records", 0)), "records with verified truth"),
         ]),
@@ -1164,6 +1227,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "<em>all</em> records — quarantined and loose-paired included, since those hold "
         "the frames most worth fixing — an independent pool from the trusted metrics. "
         "Classes are provisional (thresholds not yet fit against verified labels).</p>",
+        frames_evidence,
         _frame_quality_html(ctx),
 
         "<h2>Detection Errors × Detector Attempts</h2>",
@@ -1176,6 +1240,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "Rejections on Climber-absent frames are correct by construction, so the "
         "second rate drops them and judges the gates on frames where a pose was "
         "actually there to keep.</p>",
+        frames_evidence,
         _detection_error_attempt_html(ctx),
 
         "<h2>Scanner version regression (appVersion run-over-run)</h2>",
@@ -1185,7 +1250,10 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "both versions evaluated <em>under the same truth revision</em> — a truth "
         "change never masquerades as a scanner change. Deltas are coloured only "
         "when the bootstrap 95% CI excludes zero (green = improved, red = "
-        "regressed); ΔPCK &gt; 0 and Δmedian &lt; 0 are improvements.</p>",
+        "regressed); ΔPCK &gt; 0 and Δmedian &lt; 0 are improvements. Superseded legacy "
+        "records are already gone (#89), so a change of evidence generation can no "
+        "longer masquerade as a scanner change either.</p>",
+        trusted_evidence,
         _version_overview_table(ctx.get("version_overview", pd.DataFrame())),
         _version_delta_table(ctx.get("version_deltas", pd.DataFrame())),
         "<h3>Version-tracking flags</h3>",
@@ -1195,18 +1263,31 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "<h2>Per-joint failure ranking (frame/joint unit)</h2>",
         "<p class='sub'>Joint ranking uses frame/joint evidence with bootstrap "
         "95% CIs (no per-video correlation coefficients).</p>",
+        trusted_evidence,
         _joint_ranking_table(ctx.get("joint_rank", pd.DataFrame())),
 
         "<h2>Within-video frame-level conditions vs error</h2>",
         "<p class='sub'>Frame/joint rows are grouped into quantile bands by "
         "condition; table reports failure rates and bootstrap CIs by tier.</p>",
+        trusted_evidence,
         _condition_table(ctx.get("condition_bands", pd.DataFrame())),
 
         "<h2>Cross-video descriptive splits</h2>",
         f"<p class='sub'>{_esc(ctx.get('confound_caveat', ''))}</p>",
+        trusted_evidence,
         _cross_video_split_table(ctx.get("cross_video_splits", pd.DataFrame())),
 
         "<h2>Shame lists</h2>",
+        "<h3>Superseded records (#89 evidence-generation dedup)</h3>",
+        "<p class='sub'>Records whose video+truth pairing also carries an attempt-backed "
+        "record. The attempt-backed one is the evidence every pooled metric above drew "
+        "from; these are passed over so the pairing is counted once and two generations "
+        "of evidence never blend. Nothing is deleted — the records stay on disk and "
+        "readable, and a pairing with no attempt-backed record keeps every record it "
+        f"has. {ctx.get('superseded_count', 0)} of "
+        f"{ctx.get('eval_count_on_disk', 0)} record(s) on disk, exported as "
+        "<code>eval_superseded_records.csv</code>.</p>",
+        _superseded_table(ctx.get("superseded_records", [])),
         "<h3>Loose-paired bundles (#44 best-overlap fallback)</h3>",
         "<p class='sub'>Bundles with no setupHash-matched run overlapping truth enough, "
         "paired instead against the run with the most timestamp overlap. Held out of "

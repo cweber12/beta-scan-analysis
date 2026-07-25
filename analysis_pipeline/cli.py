@@ -88,6 +88,9 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True,
     print(f"wrote {outputs['run_csv']} and {outputs['frame_csv']}")
     if trend_ctx.get("eval_count", 0):
         print(f"loaded {trend_ctx['eval_count']} evaluation record(s)")
+        if trend_ctx.get("superseded_count", 0):
+            print(f"superseded by newer evidence: {trend_ctx['superseded_count']} "
+                  "record(s) held out of pooling (#89)")
         print(f"verified truth frames: {trend_ctx.get('verified_frames_total', 0)}")
     return outputs
 

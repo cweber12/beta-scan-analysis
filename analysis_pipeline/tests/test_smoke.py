@@ -1602,6 +1602,164 @@ def test_frame_quality_aggregation_pools_all_records():
         assert set(wl["class"]) == {"hallucination-fp", "wrong-subject"}
 
 
+def test_evidence_generation_dedup_prefers_attempt_backed_record():
+    """Issue #89: a video+truth pairing carrying both an attempt-backed record and the
+    legacy-frames record it superseded is pooled **once**, from the attempt-backed side.
+
+    The legacy record stays on disk and readable; only the aggregation passes it over,
+    and the report accounts for it by name. A pairing with no attempt-backed record is
+    untouched — a legacy-only corpus aggregates exactly as before."""
+
+    from analysis_pipeline import cli
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    exact = _kp_list(_TRUTH_JOINTS)
+    truth_doc = {
+        "version": 1, "jointSet": list(_TRUTH_JOINTS),
+        "groundTruthHash": "dddddddd44444444",
+        "frames": [{"frameIndex": i, "timestamp": float(i), "state": "present",
+                    "review": "auto", "joints": present} for i in (1, 2, 3)],
+    }
+    dense = [{"timestamp": float(i), "keypoints": exact} for i in (1, 2, 3)]
+    crop = {"x": 0.2, "y": 0.1, "w": 0.6, "h": 0.9}
+    attempts = [
+        {"timestamp": float(i), "status": "accepted", "initialSearchRegion": crop,
+         "detectionRegion": crop, "rawKeypoints": exact, "acceptedKeypoints": exact,
+         "candidateCount": 1, "selectionMethod": "tracked"}
+        for i in (1, 2, 3)
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        out = Path(tmp) / "reports"
+
+        # The double batch: one video scanned twice against the same truth — a morning
+        # legacy-frames run and an afternoon attempt-backed one.
+        both = root / "routeGEN" / "vidBoth"
+        _write_bundle_meta(both, setup_hash="sh_both")
+        (both / "ground-truth.json").write_text(json.dumps(truth_doc), encoding="utf-8")
+        _write_pose_run(both, "20260724-090000", "sh_both", dense, app_version="aaa1111")
+        _write_pose_run(both, "20260724-150000", "sh_both", dense, app_version="aaa1111",
+                        detector_attempts=attempts)
+
+        # A legacy-only video: two runs, neither attempt-backed, nothing to supersede.
+        legacy = root / "routeGEN" / "vidLegacy"
+        _write_bundle_meta(legacy, setup_hash="sh_legacy")
+        (legacy / "ground-truth.json").write_text(
+            json.dumps({**truth_doc, "groundTruthHash": "eeeeeeee55555555"}),
+            encoding="utf-8")
+        _write_pose_run(legacy, "20260724-090001", "sh_legacy", dense, app_version="aaa1111")
+        _write_pose_run(legacy, "20260724-150001", "sh_legacy", dense, app_version="aaa1111")
+
+        summary = ev.evaluate(root)
+        assert len(summary.written) == 4  # every run is still evaluated and committed
+
+        ctx = trends.build_trend_context(root)
+        assert ctx["eval_count_on_disk"] == 4
+        assert ctx["eval_count_total"] == 3       # the superseded legacy run is dropped
+        assert ctx["eval_count"] == 3             # ...and all three conform
+
+        # Named, not merely absent: which record, and what superseded it.
+        assert ctx["superseded_count"] == 1
+        sup = ctx["superseded_records"][0]
+        assert (sup["route_folder"], sup["video_key"]) == ("routeGEN", "vidBoth")
+        assert sup["run_ts"] == "20260724-090000"
+        assert sup["evidence_generation"] == "legacy-frames"
+        assert sup["superseded_by"] == "20260724-150000"
+        assert sup["truth_hash"] == "dddddddd44444444"
+
+        # ...and the record it names is untouched on disk.
+        assert (both / "evaluations" / "20260724-090000_vs_dddddddd.json").exists()
+
+        # The pairing is counted once, from the attempt-backed side; the legacy-only
+        # video keeps both of its runs.
+        runs = ctx["detection_error_attempt_runs"].set_index("run_ts")
+        assert set(runs.index) == {"20260724-150000", "20260724-090001", "20260724-150001"}
+        assert runs.loc["20260724-150000", "attempt_evidence"] == "attempts"
+        assert (runs.loc[["20260724-090001", "20260724-150001"],
+                         "attempt_evidence"] == "unknown").all()
+
+        # Version tracking sees three records, not four — a change of evidence
+        # generation can no longer masquerade as a scanner change.
+        assert list(ctx["version_overview"]["n_records"]) == [3]
+
+        frame_rows = ctx["frame_joint_df"]
+        assert set(frame_rows[frame_rows["video_key"] == "vidBoth"]["run_ts"]) == {
+            "20260724-150000"}
+
+        # Every pooled section can state what it is made of, and a mixed pool says so.
+        pooled = ctx["evidence_generation_trusted"]
+        assert pooled["counts"] == {"attempts": 1, "legacy-frames": 2, "unknown": 0}
+        assert pooled["mixed"] is True
+        assert pooled["n_records"] == 3
+        badge = report._evidence_generation_html(pooled)
+        assert "evidence: MIXED" in badge
+        assert "legacy-frames" in badge and "attempts" in badge
+
+        # A single-generation pool names its generation instead.
+        single = trends._evidence_generation_summary(
+            [r for r in ctx["eval_records"] if r.video_key == "vidBoth"], "test")
+        assert single["mixed"] is False and single["label"] == "attempts"
+        assert "evidence: attempts" in report._evidence_generation_html(single)
+
+        # The report accounts for the superseded record, and the CSV exports it.
+        outputs = cli.run(root, out, decode=False)
+        html_text = outputs["html"].read_text(encoding="utf-8")
+        assert "Superseded records (#89 evidence-generation dedup)" in html_text
+        assert "20260724-090000" in html_text
+        sup_csv = pd.read_csv(out / "eval_superseded_records.csv")
+        assert list(sup_csv["run_ts"]) == ["20260724-090000"]
+        assert list(sup_csv["superseded_by"]) == ["20260724-150000"]
+
+
+def test_evidence_generation_dedup_is_scoped_to_one_truth_revision():
+    """Issue #89: the pairing key includes the truth revision. An attempt-backed record
+    scored against a *different* truth supersedes nothing — the two records were never
+    measuring the same thing, and #10's mixed-truth guard already refuses to compare
+    them."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    exact = _kp_list(_TRUTH_JOINTS)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeGEN2" / "vidRevised"
+        _write_bundle_meta(vdir, setup_hash="sh_rev")
+        (vdir / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS),
+            "groundTruthHash": "ffffffff66666666",
+            "frames": [{"frameIndex": i, "timestamp": float(i), "state": "present",
+                        "review": "auto", "joints": present} for i in (1, 2, 3)]}),
+            encoding="utf-8")
+        _write_pose_run(
+            vdir, "20260724-150000", "sh_rev",
+            [{"timestamp": float(i), "keypoints": exact} for i in (1, 2, 3)],
+            detector_attempts=[
+                {"timestamp": float(i), "status": "accepted", "rawKeypoints": exact,
+                 "acceptedKeypoints": exact, "candidateCount": 1}
+                for i in (1, 2, 3)])
+        assert len(ev.evaluate(root).written) == 1
+
+        # A legacy record for the same video, scored against the truth revision this
+        # bundle has since replaced.
+        (vdir / "evaluations" / "20260101-000001_vs_99990000.json").write_text(
+            json.dumps({"schemaVersion": 7, "routeFolder": "routeGEN2",
+                        "videoKey": "vidRevised", "runTs": "20260101-000001",
+                        "truthHash": "9999000099990000",
+                        "frameQuality": {"detectorEvidence": "legacy-frames",
+                                         "frames": []}}),
+            encoding="utf-8")
+
+        ctx = trends.build_trend_context(root)
+        assert ctx["superseded_count"] == 0
+        assert ctx["eval_count_total"] == 2
+
+
 def test_frame_quality_condition_bands_flagged_rate():
     """Issue #44 deliverable 3: the flagged-frame rate is banded against a Video Stats
     condition via the same qcut + bootstrap machinery as the geometric trends."""
@@ -1812,6 +1970,7 @@ def test_analysis_report_includes_eval_trend_sections():
             "Within-video frame-level conditions vs error",
             "Cross-video descriptive splits",
             "Shame lists",
+            "Superseded records (#89 evidence-generation dedup)",
             "Loose-paired bundles (#44 best-overlap fallback)",
         ):
             assert header in html_text, f"missing report section: {header}"
@@ -2234,6 +2393,8 @@ def _run_all():
            test_crop_quality_iou_and_miss_causes,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
+           test_evidence_generation_dedup_prefers_attempt_backed_record,
+           test_evidence_generation_dedup_is_scoped_to_one_truth_revision,
            test_frame_quality_condition_bands_flagged_rate,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,

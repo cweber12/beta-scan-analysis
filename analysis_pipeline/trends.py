@@ -36,6 +36,8 @@ from .detector_attempts import (
 from .runs import _detector_attempt_summary
 from .evaluate import (
     COCO_CORE_JOINTS,
+    EVIDENCE_ATTEMPTS,
+    EVIDENCE_GENERATIONS,
     MISS_CAUSES,
     NONCONFORMANCE_CAUSES,
     NONCONFORMANCE_SUSPECTED_MISTRACK,
@@ -46,6 +48,7 @@ from .evaluate import (
     _scanner_frame_interval,
     load_truth,
     record_conforms,
+    record_evidence_generation,
     record_nonconformance_cause,
     record_trusted,
     torso_length,
@@ -117,6 +120,86 @@ def _iter_eval_records(analysis_root: Path) -> list[EvalRecord]:
             if cur is None or path.stat().st_mtime > cur.path.stat().st_mtime:
                 latest_by_run[dedup] = rec
     return sorted(latest_by_run.values(), key=lambda r: (r.route_folder, r.video_key, r.run_ts))
+
+
+def _dedup_evidence_generations(
+    recs: list[EvalRecord],
+) -> tuple[list[EvalRecord], list[dict[str, Any]]]:
+    """Keep one **evidence generation** per video+truth pairing (issue #89).
+
+    A video re-scanned after the scanner started exporting ``detectorAttempts[]`` carries
+    two records for the same ``(route, video, truthHash)`` pairing: the attempt-backed one
+    and the legacy-frames one it superseded. Pooling both counts that pairing twice, and
+    blends two generations of evidence into one number — the legacy record's frame-derived
+    quality answers a question the attempt stream answers directly, and its appVersion
+    differs, so a generation change would read as a scanner change.
+
+    So: when a pairing has any attempt-backed record, only its attempt-backed records
+    pool. Everything else in that pairing is *superseded* — returned as rows for the
+    report's accounting, never deleted. Records stay on disk and readable exactly as
+    written; only the aggregation drops them.
+
+    A pairing with no attempt-backed record is untouched, so a legacy-only corpus
+    aggregates exactly as it did before this gate existed. Truth revision is part of the
+    pairing key on purpose: an attempt-backed run under a *different* truth supersedes
+    nothing, because the two records were never measuring the same thing.
+    """
+
+    by_pairing: dict[tuple[str, str, str], list[EvalRecord]] = {}
+    for rec in recs:
+        by_pairing.setdefault((rec.route_folder, rec.video_key, rec.truth_hash), []).append(rec)
+
+    kept: list[EvalRecord] = []
+    superseded: list[dict[str, Any]] = []
+    for group in by_pairing.values():
+        attempt_backed = [
+            r for r in group
+            if record_evidence_generation(r.data) == EVIDENCE_ATTEMPTS
+        ]
+        if not attempt_backed:
+            kept.extend(group)
+            continue
+        kept.extend(attempt_backed)
+        superseded_by = ", ".join(sorted(r.run_ts for r in attempt_backed))
+        for rec in group:
+            if record_evidence_generation(rec.data) == EVIDENCE_ATTEMPTS:
+                continue
+            superseded.append({
+                "route_folder": rec.route_folder,
+                "video_key": rec.video_key,
+                "run_ts": rec.run_ts,
+                "truth_hash": rec.truth_hash,
+                "evidence_generation": record_evidence_generation(rec.data),
+                "superseded_by": superseded_by,
+            })
+
+    return (
+        sorted(kept, key=lambda r: (r.route_folder, r.video_key, r.run_ts)),
+        sorted(superseded, key=lambda r: (r["route_folder"], r["video_key"], r["run_ts"])),
+    )
+
+
+def _evidence_generation_summary(recs: list[EvalRecord], pool: str) -> dict[str, Any]:
+    """What evidence generation(s) one pooled set of records is made of (issue #89).
+
+    Every pooled section reports this, so a mixed pool is never something a reader has to
+    infer. Dedup removes the *superseded* mixture (same pairing, two generations); a pool
+    can still legitimately span generations across different videos — a corpus mid-
+    migration — and that is exactly the case worth naming rather than silently averaging.
+    """
+
+    counts = {g: 0 for g in EVIDENCE_GENERATIONS}
+    for rec in recs:
+        counts[record_evidence_generation(rec.data)] += 1
+    present = [g for g in EVIDENCE_GENERATIONS if counts[g]]
+    return {
+        "pool": pool,
+        "n_records": len(recs),
+        "counts": counts,
+        "generations": present,
+        "mixed": len(present) > 1,
+        "label": " + ".join(present) if present else "none",
+    }
 
 
 def _load_pose_runs(
@@ -1343,7 +1426,11 @@ def _loose_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
 
 
 def build_trend_context(analysis_root: Path) -> dict[str, Any]:
-    all_recs = _iter_eval_records(analysis_root)
+    # Issue #89: dedup evidence generations *before* anything pools or is accounted for.
+    # A superseded legacy record is not a quarantined record and not a loose pairing — it
+    # is the same pairing measured twice — so it must not appear in either shame list.
+    on_disk = _iter_eval_records(analysis_root)
+    all_recs, superseded = _dedup_evidence_generations(on_disk)
     # Issue #15 gate: quarantine non-conforming bundles (truth mis-tracking) from
     # every *pooled* derivation below. Issue #44: best-overlap loose pairings are
     # likewise held out of the trusted pool (their setupHash never matched the truth).
@@ -1354,6 +1441,9 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     truth_repair = _truth_repair_worklist(quarantined)
     loose_records = _loose_rows(all_recs)
     recs = [r for r in all_recs if record_trusted(r.data)]
+    evidence_trusted = _evidence_generation_summary(recs, "trusted pooled metrics")
+    evidence_frames = _evidence_generation_summary(
+        all_recs, "per-frame / attempt pools (all records)")
     pose_cache: dict[
         tuple[str, str],
         dict[str, tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]],
@@ -1414,6 +1504,11 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "eval_records": recs,
         "eval_count": len(recs),
         "eval_count_total": len(all_recs),
+        "eval_count_on_disk": len(on_disk),
+        "superseded_records": superseded,
+        "superseded_count": len(superseded),
+        "evidence_generation_trusted": evidence_trusted,
+        "evidence_generation_frames": evidence_frames,
         "quarantined_bundles": quarantined,
         "quarantined_count": len(quarantined),
         "quarantine_cause_counts": quarantine_causes,
@@ -1462,6 +1557,8 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
     quarantined_df = pd.DataFrame(quarantined) if quarantined else pd.DataFrame()
     truth_repair = ctx.get("truth_repair_worklist") or []
     truth_repair_df = pd.DataFrame(truth_repair) if truth_repair else pd.DataFrame()
+    superseded = ctx.get("superseded_records") or []
+    superseded_df = pd.DataFrame(superseded) if superseded else pd.DataFrame()
     tables = {
         "eval_joint_ranking.csv": ctx.get("joint_rank"),
         "eval_condition_bands.csv": ctx.get("condition_bands"),
@@ -1471,6 +1568,7 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_low_confidence_worklist.csv": ctx.get("low_conf_worklist"),
         "eval_quarantined_bundles.csv": quarantined_df,
         "eval_truth_repair_worklist.csv": truth_repair_df,
+        "eval_superseded_records.csv": superseded_df,
         "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
         "eval_frame_quality_distractors.csv": ctx.get("frame_quality_distractors"),
         "eval_frame_quality_worklist.csv": ctx.get("frame_quality_worklist"),

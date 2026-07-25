@@ -262,6 +262,16 @@ FQ_FLIPPED = "flipped-rotated"
 FQ_DISTORTED = "distorted"
 FQ_CLASSES = [FQ_OK, FQ_WRONG_SUBJECT, FQ_HALLUCINATION, FQ_FLIPPED, FQ_DISTORTED]
 
+# Evidence generation (issue #73, named in #89): which detector evidence a record was
+# scored from. ``attempts`` is the canonical ``detectorAttempts[]`` stream; ``legacy-frames``
+# is the dense playback ``frames[]`` fallback for runs exported before the scanner emitted
+# attempts. A record written before v7 carries no marker and reads as ``unknown`` — it
+# predates the distinction, so it is not attempt-backed and must not be claimed as such.
+EVIDENCE_ATTEMPTS = "attempts"
+EVIDENCE_LEGACY_FRAMES = "legacy-frames"
+EVIDENCE_UNKNOWN = "unknown"
+EVIDENCE_GENERATIONS = [EVIDENCE_ATTEMPTS, EVIDENCE_LEGACY_FRAMES, EVIDENCE_UNKNOWN]
+
 # Rejection correctness (issue #85). The scanner's flip / quality gates discard raw
 # MediaPipe poses it judged wrong; the harness is the only side that can check that
 # judgement, because only it holds Ground Truth. Each rejected Detector Attempt's
@@ -1522,7 +1532,7 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         }
         if isinstance(attempt, dict):
             entry.update({
-                "detectorEvidence": "attempts",
+                "detectorEvidence": EVIDENCE_ATTEMPTS,
                 "detectorAttemptStatus": attempt_status,
                 "detectorStatusKnown": bool(attempt.get("statusKnown")),
                 "rawKeypoints": _attempt_keypoint_payload(attempt, "rawKeypoints"),
@@ -1532,7 +1542,7 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
                 "selectionMethod": attempt.get("selectionMethod"),
             })
         else:
-            entry["detectorEvidence"] = "legacy-frames"
+            entry["detectorEvidence"] = EVIDENCE_LEGACY_FRAMES
         entries.append(entry)
 
     return {
@@ -1544,8 +1554,8 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "frozenMinRun": FQ_FROZEN_MIN_RUN,
         },
         "detectorEvidence": (
-            "attempts" if any(p.detector_attempt is not None for p in pairs)
-            else "legacy-frames"
+            EVIDENCE_ATTEMPTS if any(p.detector_attempt is not None for p in pairs)
+            else EVIDENCE_LEGACY_FRAMES
         ),
         "detectorAttemptStatusCounts": _attempt_status_counts(pairs),
         # Was the scanner right to discard what it discarded (issue #85)? Scored over all
@@ -1586,6 +1596,25 @@ def record_nonconformance_cause(record: dict[str, Any]) -> str | None:
     conf = record.get("conformance")
     cause = conf.get("cause") if isinstance(conf, dict) else None
     return cause if cause in NONCONFORMANCE_CAUSES else NONCONFORMANCE_SUSPECTED_MISTRACK
+
+
+def record_evidence_generation(record: dict[str, Any]) -> str:
+    """Which detector evidence an on-disk record was scored from (issue #89).
+
+    Read off the record's own ``frameQuality.detectorEvidence`` marker rather than
+    re-opening the run's pose file: the generation is a property of what was *scored*,
+    and pooled readers must be able to establish it without the detections on hand.
+
+    Fail-closed on the attempt claim: anything unmarked — a pre-v7 record, or one with no
+    ``frameQuality`` block at all — reads as ``unknown`` rather than being assumed legacy
+    or assumed attempt-backed. Downstream that is enough, because only
+    ``attempts`` supersedes."""
+
+    fq = record.get("frameQuality")
+    marker = fq.get("detectorEvidence") if isinstance(fq, dict) else None
+    if marker in (EVIDENCE_ATTEMPTS, EVIDENCE_LEGACY_FRAMES):
+        return str(marker)
+    return EVIDENCE_UNKNOWN
 
 
 def record_trusted(record: dict[str, Any]) -> bool:
