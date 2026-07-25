@@ -73,7 +73,13 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 #    near-identical run, while ``frozenStale`` additionally requires the pose to be
 #    direct detector output — legacy ``source == "raw"`` frames, or attempt-backed
 #    evidence (detector attempts are raw MediaPipe output by construction).
-SCHEMA_VERSION = 8
+# v9 scores **rejection correctness** (issue #85): every flip/quality-rejected Detector
+#    Attempt's raw pose is compared against the paired truth frame, each frameQuality
+#    entry gains ``rejection*`` fields, and ``frameQuality.rejectionCorrectness`` carries
+#    the pooled verdict counts + over-rejection rate. Additive and fail-open — a
+#    legacy (frames-only) record simply reports zero rejected attempts and a ``None``
+#    rate, and pre-v9 readers ignore the new keys.
+SCHEMA_VERSION = 9
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -208,6 +214,41 @@ FQ_HALLUCINATION = "hallucination-fp"
 FQ_FLIPPED = "flipped-rotated"
 FQ_DISTORTED = "distorted"
 FQ_CLASSES = [FQ_OK, FQ_WRONG_SUBJECT, FQ_HALLUCINATION, FQ_FLIPPED, FQ_DISTORTED]
+
+# Rejection correctness (issue #85). The scanner's flip / quality gates discard raw
+# MediaPipe poses it judged wrong; the harness is the only side that can check that
+# judgement, because only it holds Ground Truth. Each rejected Detector Attempt's
+# ``rawKeypoints`` are scored against the paired truth frame and the rejection gets one
+# verdict:
+#
+# - ``goodPoseRejected`` — the discarded raw pose actually agreed with truth, so the
+#   gate over-rejected. This is the defect the metric exists to measure: the 2026-07-24
+#   corpus rejected ~71% of truth-checkable flip rejections on plausibly-good poses.
+# - ``badPoseRejected`` — the raw pose diverged from truth (or landed on a Climber-absent
+#   frame, where any pose is wrong), so the gate was right to discard it.
+# - ``truthUnknown`` — not checkable: the attempt carried no raw pose, or the truth frame
+#   has no usable geometry (undefined torso, or no core joint shared with the raw pose).
+#
+# The geometry threshold is *not* new — a rejected pose counts as good exactly when
+# ``_classify_detection`` (the issue #44 ``FQ_*`` constants) would have called it ``ok``,
+# i.e. the scanner would have been right to keep it. The one added gate is the PCK-style
+# joint-agreement floor below, which reuses ``PCK_TORSO_FRACTION`` for the per-joint
+# radius and only fixes *how many* joints must agree — a majority — so that the loose
+# 1.0-torso wrong-subject band can't pass a pose whose joints scatter individually.
+REJECTION_STATUSES = frozenset({"flipRejected", "qualityRejected"})
+REJECTION_MIN_JOINT_AGREEMENT = 0.5
+
+REJECTION_GOOD = "goodPoseRejected"
+REJECTION_BAD = "badPoseRejected"
+REJECTION_UNKNOWN = "truthUnknown"
+REJECTION_VERDICTS = [REJECTION_GOOD, REJECTION_BAD, REJECTION_UNKNOWN]
+
+# Why a rejection landed on its verdict — auditability, not a separate taxonomy.
+REJECTION_REASON_NO_RAW = "no-raw-pose"
+REJECTION_REASON_TRUTH_ABSENT = "truth-absent"
+REJECTION_REASON_UNGEOMETRIC = "truth-ungeometric"
+REJECTION_REASON_AGREES = "raw-pose-agrees-truth"
+REJECTION_REASON_DIVERGES = "raw-pose-diverges-truth"
 
 
 @dataclass
@@ -960,6 +1001,150 @@ def _quality_candidate(p: _FramePair) -> dict[str, tuple[float, float]]:
     return {}
 
 
+def _joint_agreement(truth: dict[str, tuple[float, float]],
+                     scanner: dict[str, tuple[float, float]],
+                     torso: float | None) -> float | None:
+    """PCK-style share of truth core joints whose scanner counterpart lands within
+    ``PCK_TORSO_FRACTION`` truth-torso lengths. A thinned joint counts as a miss, exactly
+    as in ``_score_tier``. ``None`` when the frame is unnormalizable or truth is empty."""
+
+    if torso is None or not truth:
+        return None
+    hits = 0
+    for name, truth_pt in truth.items():
+        pred = scanner.get(name)
+        if pred is not None and _dist(pred, truth_pt) / torso <= PCK_TORSO_FRACTION:
+            hits += 1
+    return hits / len(truth)
+
+
+def _rejection_scoring(p: _FramePair) -> dict[str, Any] | None:
+    """Score one flip/quality-rejected Detector Attempt against truth (issue #85).
+
+    Returns ``None`` when the frame is not a rejection at all — an accepted, missing,
+    unknown-status, unmatched or legacy-frames frame has nothing to second-guess. For a
+    rejection, returns the verdict plus the geometry it was decided on, so a record
+    carries the evidence and not just the label.
+
+    A rejection is ``goodPoseRejected`` only when the discarded raw pose both classifies
+    as ``ok`` under the issue #44 geometry *and* clears the joint-agreement floor; a
+    Climber-absent frame is ``badPoseRejected`` (there is no correct pose to keep there).
+    """
+
+    attempt = p.detector_attempt
+    status = attempt.get("status") if isinstance(attempt, dict) else None
+    if not p.matched or status not in REJECTION_STATUSES:
+        return None
+
+    def out(verdict: str, reason: str, *, centroid: float | None = None,
+            residual: float | None = None, agreement: float | None = None,
+            raw_class: str | None = None) -> dict[str, Any]:
+        return {
+            "verdict": verdict,
+            "reason": reason,
+            "centroidDist": _round6(centroid),
+            "residual": _round6(residual),
+            "jointAgreement": _round6(agreement),
+            "rawClass": raw_class,
+        }
+
+    raw = _attempt_raw_joints(attempt)
+    if not raw:
+        # A rejection with no raw pose is self-contradictory evidence, not a judgement
+        # we can check — count it, never guess it.
+        return out(REJECTION_UNKNOWN, REJECTION_REASON_NO_RAW)
+
+    tf = p.truth
+    if not tf.present:
+        return out(REJECTION_BAD, REJECTION_REASON_TRUTH_ABSENT,
+                   raw_class=FQ_HALLUCINATION)
+
+    torso = torso_length(tf.joints)
+    if torso is None or not any(j in raw for j in tf.joints):
+        return out(REJECTION_UNKNOWN, REJECTION_REASON_UNGEOMETRIC)
+
+    raw_class, centroid, residual = _classify_detection(tf.joints, raw, torso)
+    agreement = _joint_agreement(tf.joints, raw, torso)
+    good = (raw_class == FQ_OK and agreement is not None
+            and agreement >= REJECTION_MIN_JOINT_AGREEMENT)
+    return out(
+        REJECTION_GOOD if good else REJECTION_BAD,
+        REJECTION_REASON_AGREES if good else REJECTION_REASON_DIVERGES,
+        centroid=centroid, residual=residual, agreement=agreement,
+        raw_class=raw_class)
+
+
+def _empty_verdict_counts() -> dict[str, int]:
+    # ``truthAbsent`` is a *subset* of ``badPoseRejected``, tracked alongside the verdicts
+    # so the truth-present-only rate below can be derived without a second pass.
+    return {**{v: 0 for v in REJECTION_VERDICTS}, "truthAbsent": 0}
+
+
+def _rejection_rate_block(counts: dict[str, int]) -> dict[str, Any]:
+    """Verdict counts → the pooled shape shared by the record's total and per-status
+    blocks.
+
+    Two rates, because the denominator is a genuine judgement call:
+
+    - ``overRejectionRate`` is over every *truth-checkable* rejection (good + bad).
+      ``truthUnknown`` rejections have no verdict to average, so folding them into the
+      denominator would dilute the rate with unmeasured frames.
+    - ``overRejectionRateTruthPresent`` additionally drops the Climber-absent rejections.
+      Those are correct by construction (no pose belongs on an absent frame), so they
+      pull the pooled rate down without saying anything about the *gate's* geometry
+      judgement. This is the number comparable to the ad-hoc 2026-07-24 corpus baseline
+      (~71% of truth-checkable flip rejections), which treated Climber-absent rejections
+      as unknown rather than as correct.
+    """
+
+    good, bad, absent = (counts[REJECTION_GOOD], counts[REJECTION_BAD],
+                         counts["truthAbsent"])
+    checkable = good + bad
+    present_checkable = checkable - absent
+    return {
+        "rejected": good + bad + counts[REJECTION_UNKNOWN],
+        "verdictCounts": {v: counts[v] for v in REJECTION_VERDICTS},
+        "truthAbsent": absent,
+        "truthCheckable": checkable,
+        "truthPresentCheckable": present_checkable,
+        "overRejectionRate": _round6(good / checkable) if checkable else None,
+        "overRejectionRateTruthPresent": (
+            _round6(good / present_checkable) if present_checkable else None),
+    }
+
+
+def _rejection_correctness(pairs: list[_FramePair]) -> dict[str, Any]:
+    """Pooled rejection correctness for one Run (issue #85).
+
+    Counts every rejected Detector Attempt in the Run, pooled and split by rejection
+    status, so the flip gate and the quality gate are measurable independently (the
+    corpus baseline is a *flip*-rejection rate). Legacy frames-only Runs carry no
+    rejections and report zeros with a ``None`` rate — fail-open, not absent."""
+
+    totals = _empty_verdict_counts()
+    by_status = {s: _empty_verdict_counts() for s in sorted(REJECTION_STATUSES)}
+    for p in pairs:
+        scored = _rejection_scoring(p)
+        if scored is None:
+            continue
+        status = (p.detector_attempt or {}).get("status")
+        for counts in (totals, by_status[status]):
+            counts[scored["verdict"]] += 1
+            counts["truthAbsent"] += scored["reason"] == REJECTION_REASON_TRUTH_ABSENT
+
+    return {
+        **_rejection_rate_block(totals),
+        "byStatus": {s: _rejection_rate_block(c) for s, c in by_status.items()},
+        "thresholds": {
+            "minJointAgreement": REJECTION_MIN_JOINT_AGREEMENT,
+            "pckTorsoFraction": PCK_TORSO_FRACTION,
+            "wrongSubjectCentroid": FQ_WRONG_SUBJECT_CENTROID,
+            "distortResidual": FQ_DISTORT_RESIDUAL,
+            "flipResidual": FQ_FLIP_RESIDUAL,
+        },
+    }
+
+
 def _status_driven_class(status: str | None, geometric_class: str) -> str:
     if status == "flipRejected":
         return FQ_FLIPPED
@@ -981,6 +1166,10 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
     detection are not detection-quality events — they are coverage/presence gaps
     counted elsewhere — so they carry no entry here. ``crop`` is a placeholder the crop
     exporter (deliverable 2) fills in for flagged frames.
+
+    Flip/quality-rejected attempt frames additionally carry a rejection verdict (issue
+    #85) scoring the discarded raw pose against truth, pooled into
+    ``rejectionCorrectness``.
 
     Iterated in timestamp order so ``frozenStale`` compares against the true temporal
     predecessor regardless of truth-file frame order. Scored over the same non-excluded
@@ -1022,6 +1211,10 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         counts[effective_cls] += 1
         held_count += held
         frozen_count += frozen
+        # Rejection correctness (issue #85) — populated only on flip/quality-rejected
+        # attempts; every other entry carries the keys as None so readers can select the
+        # column without branching on evidence generation.
+        rejection = _rejection_scoring(p) or {}
         entry = {
             "t": _round6(tf.timestamp),
             "class": effective_cls,
@@ -1034,6 +1227,12 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "frozenStale": frozen,
             "centroidDist": _round6(centroid_dist),
             "residual": _round6(residual),
+            "rejectionVerdict": rejection.get("verdict"),
+            "rejectionReason": rejection.get("reason"),
+            "rejectionCentroidDist": rejection.get("centroidDist"),
+            "rejectionResidual": rejection.get("residual"),
+            "rejectionJointAgreement": rejection.get("jointAgreement"),
+            "rejectionRawClass": rejection.get("rawClass"),
             "crop": None,
         }
         if isinstance(attempt, dict):
@@ -1064,6 +1263,10 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             else "legacy-frames"
         ),
         "detectorAttemptStatusCounts": _attempt_status_counts(pairs),
+        # Was the scanner right to discard what it discarded (issue #85)? Scored over all
+        # pairs, not just the entries above: a rejection with no raw pose yields no
+        # frameQuality entry but is still a rejection that must be counted.
+        "rejectionCorrectness": _rejection_correctness(pairs),
         "classCounts": counts,
         "heldPoseCount": held_count,
         "frozenStaleCount": frozen_count,

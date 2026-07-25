@@ -51,6 +51,19 @@ not a spec — it carries no implementation detail.
   candidate-selection metadata, and scanner-computed pixel conditions for the
   searched region. Detector Attempts are evidence, not recommendations; the
   harness joins them to Ground Truth to derive Detection Errors.
+- **Rejection Verdict** — the harness's judgement of one *rejected* Detector
+  Attempt: was the scanner's flip/quality gate right to discard that raw pose?
+  Only the harness can answer it, because only the harness holds Ground Truth.
+  One of `goodPoseRejected` (the discarded pose agreed with truth — the gate
+  over-rejected), `badPoseRejected` (the pose diverged from truth, or landed on a
+  Climber-absent frame where no pose belongs), or `truthUnknown` (no raw pose, or
+  no usable truth geometry to check against).
+- **Over-rejection rate** — the share of *truth-checkable* rejections whose
+  verdict is `goodPoseRejected`. Reported per Run so scanner flip-gate changes are
+  measurable batch-over-batch, and under two denominators: over all checkable
+  rejections, and over Climber-present ones only. Climber-absent rejections are
+  correct by construction, so including them measures how much of the scanner's
+  rejecting is aimed at empty frames rather than how well the gate judges a pose.
 
 ## The condition → detection vocabulary
 

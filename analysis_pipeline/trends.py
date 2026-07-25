@@ -808,6 +808,13 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord]) -> pd.DataF
                 "frozen_stale": int(bool(e.get("frozenStale"))),
                 "centroid_dist": e.get("centroidDist"),
                 "residual": e.get("residual"),
+                # Rejection correctness (issue #85), read from the record rather than
+                # re-derived. None on non-rejection frames and pre-v9 records.
+                "rejection_verdict": e.get("rejectionVerdict"),
+                "rejection_reason": e.get("rejectionReason"),
+                "rejection_centroid_dist": e.get("rejectionCentroidDist"),
+                "rejection_joint_agreement": e.get("rejectionJointAgreement"),
+                "rejection_raw_class": e.get("rejectionRawClass"),
                 "crop": e.get("crop"),
                 "loose": loose,
                 "conforming": conforming,
@@ -871,6 +878,7 @@ def _frame_quality_worklist(fq_df: pd.DataFrame) -> pd.DataFrame:
         ["_sev", "centroid_dist"], ascending=[True, False], na_position="last")
     cols = ["route_folder", "video_key", "run_ts", "t", "class", "source",
             "held_pose", "frozen_stale", "centroid_dist", "residual",
+            "rejection_verdict", "rejection_centroid_dist", "rejection_joint_agreement",
             "detector_attempt_evidence", "detector_attempt_status",
             "reacquire_attempted", "reacquire_succeeded", "reacquire_failed",
             "search_luma_mean", "search_luma_stdDev", "search_sharpness",
@@ -944,6 +952,42 @@ _ATTEMPT_ERROR_PREDICTORS = [
 ]
 
 
+def _rejection_run_columns(fq: dict[str, Any]) -> dict[str, Any]:
+    """Per-run rejection-correctness columns read off a record's ``frameQuality``
+    (issue #85). Pre-v9 and legacy frames-only records carry no
+    ``rejectionCorrectness`` block, so every count is zero and the rates are ``None`` —
+    an unmeasured run must not read as a zero over-rejection rate.
+
+    ``over_rejection_rate`` is the pooled rate across both rejection gates;
+    ``flip_over_rejection_rate`` isolates the flip gate, which is the one the corpus
+    baseline and the scanner-side flip-gate work are about. The ``*_truth_present``
+    variants drop Climber-absent rejections from the denominator — see
+    ``evaluate._rejection_rate_block`` for why both denominators are reported."""
+
+    rc = fq.get("rejectionCorrectness")
+    rc = rc if isinstance(rc, dict) else {}
+    counts = rc.get("verdictCounts") if isinstance(rc.get("verdictCounts"), dict) else {}
+    flip = rc.get("byStatus", {}).get("flipRejected") if isinstance(
+        rc.get("byStatus"), dict) else None
+    flip = flip if isinstance(flip, dict) else {}
+    return {
+        "rejected_attempts": int(rc.get("rejected") or 0),
+        "good_pose_rejected": int(counts.get("goodPoseRejected") or 0),
+        "bad_pose_rejected": int(counts.get("badPoseRejected") or 0),
+        "rejection_truth_absent": int(rc.get("truthAbsent") or 0),
+        "rejection_truth_unknown": int(counts.get("truthUnknown") or 0),
+        "rejection_truth_checkable": int(rc.get("truthCheckable") or 0),
+        "rejection_truth_present_checkable": int(rc.get("truthPresentCheckable") or 0),
+        "over_rejection_rate": rc.get("overRejectionRate"),
+        "over_rejection_rate_truth_present": rc.get("overRejectionRateTruthPresent"),
+        "flip_rejected_attempts": int(flip.get("rejected") or 0),
+        "flip_rejection_truth_checkable": int(flip.get("truthCheckable") or 0),
+        "flip_over_rejection_rate": flip.get("overRejectionRate"),
+        "flip_over_rejection_rate_truth_present": flip.get(
+            "overRejectionRateTruthPresent"),
+    }
+
+
 def _detection_error_attempt_run_rows(
     analysis_root: Path,
     recs: list[EvalRecord],
@@ -952,6 +996,8 @@ def _detection_error_attempt_run_rows(
 
     The outcome is the record's frameQuality flagged rate; predictors are aggregated
     over that Run's Detector Attempts. This preserves the Run as the independent unit.
+    Rejection correctness (issue #85) rides along as per-run columns so flip-gate
+    changes are comparable batch-over-batch at the Run unit.
     """
 
     rows: list[dict[str, Any]] = []
@@ -984,6 +1030,7 @@ def _detection_error_attempt_run_rows(
             "flagged_frames": flagged,
             "flagged_rate": flagged / detected if detected else None,
             "frozen_stale_frames": int(fq.get("frozenStaleCount") or 0),
+            **_rejection_run_columns(fq),
             **_detector_attempt_summary(attempts),
         })
     df = pd.DataFrame(rows)
@@ -1033,6 +1080,46 @@ def _detection_error_attempt_bands(run_df: pd.DataFrame, bins: int = 3) -> pd.Da
                 "band_max": float(bg[predictor].max()),
             })
     return pd.DataFrame(rows)
+
+
+def _rejection_totals(run_df: pd.DataFrame) -> dict[str, Any]:
+    """Corpus-wide rejection-correctness headline (issue #85), summed over the per-run
+    rows so the counts and the CSV can never disagree.
+
+    Counts pool, but the *rate* is reported three ways on purpose. Two are denominator
+    choices carried up from the record (``over_rejection_rate`` over every truth-checkable
+    rejection, ``..._truth_present`` dropping the Climber-absent ones — see
+    ``evaluate._rejection_rate_block``). The third, ``over_rejection_rate_run_mean``,
+    averages the per-run rates: the Run is the unit of inference, so a corpus where one
+    long run dominates the pooled frames is visibly different from one where every run
+    over-rejects."""
+
+    def col(name: str) -> pd.Series:
+        return pd.to_numeric(run_df.get(name, pd.Series(dtype=float)), errors="coerce")
+
+    def total(name: str) -> int:
+        return 0 if run_df.empty else int(col(name).fillna(0).sum())
+
+    rates = pd.Series(dtype=float) if run_df.empty else col("over_rejection_rate").dropna()
+    runs_with = int(len(rates))
+    good, bad, absent = (total("good_pose_rejected"), total("bad_pose_rejected"),
+                         total("rejection_truth_absent"))
+    checkable = good + bad
+    present_checkable = checkable - absent
+    return {
+        "rejected_attempts": total("rejected_attempts"),
+        "good_pose_rejected": good,
+        "bad_pose_rejected": bad,
+        "truth_absent": absent,
+        "truth_unknown": total("rejection_truth_unknown"),
+        "truth_checkable": checkable,
+        "truth_present_checkable": present_checkable,
+        "over_rejection_rate": (good / checkable) if checkable else None,
+        "over_rejection_rate_truth_present": (
+            (good / present_checkable) if present_checkable else None),
+        "over_rejection_rate_run_mean": float(rates.mean()) if runs_with else None,
+        "runs_with_checkable_rejections": runs_with,
+    }
 
 
 def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
@@ -1126,6 +1213,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     fq_condition_bands = _frame_quality_condition_bands(fq_df)
     fq_attempt_runs = _detection_error_attempt_run_rows(analysis_root, all_recs)
     fq_attempt_bands = _detection_error_attempt_bands(fq_attempt_runs)
+    rejection_totals = _rejection_totals(fq_attempt_runs)
 
     verified_total = 0
     verified_records = 0
@@ -1161,6 +1249,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "frame_quality_condition_bands": fq_condition_bands,
         "detection_error_attempt_runs": fq_attempt_runs,
         "detection_error_attempt_bands": fq_attempt_bands,
+        "rejection_correctness": rejection_totals,
         "frame_quality_detected": int(len(fq_df)),
         "frame_quality_flagged": int(fq_df["flagged"].sum()) if not fq_df.empty else 0,
         "frame_quality_held": int(fq_df["held_pose"].sum()) if not fq_df.empty else 0,

@@ -702,12 +702,20 @@ def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
     reacq_attempted = sum_col("attempt_reacquire_attempted_count")
     reacq_succeeded = sum_col("attempt_reacquire_succeeded_count")
     reacq_failed = sum_col("attempt_reacquire_failed_count")
+    # Rejection correctness (issue #85): the over-rejection rate is over truth-checkable
+    # rejections only, so the checkable/total counts sit beside it.
+    rej = ctx.get("rejection_correctness") or {}
     tiles = _stat_tiles([
         (str(len(runs)), "evaluation runs"),
         (str(attempts), "with attempts"),
         (str(unknown), "unknown attempt evidence"),
         (f"{reacq_succeeded}/{reacq_attempted}", "reacquire successes"),
         (str(reacq_failed), "reacquire failures"),
+        (_fmt(rej.get("over_rejection_rate")), "over-rejection rate (pooled)"),
+        (_fmt(rej.get("over_rejection_rate_truth_present")),
+         "over-rejection rate (Climber present)"),
+        (f"{int(rej.get('truth_checkable') or 0)}/{int(rej.get('rejected_attempts') or 0)}",
+         "truth-checkable rejections"),
     ])
 
     bands = ctx.get("detection_error_attempt_bands")
@@ -740,6 +748,8 @@ def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
 
     display_cols = [
         "route_folder", "video_key", "run_ts", "flagged_rate",
+        "over_rejection_rate", "over_rejection_rate_truth_present",
+        "flip_over_rejection_rate", "rejection_truth_checkable", "rejected_attempts",
         "attempt_evidence", "attempt_count", "attempt_reacquire_attempt_rate",
         "attempt_reacquire_success_rate", "attempt_search_luma_mean_mean",
         "attempt_search_luma_stdDev_mean", "attempt_search_sharpness_mean",
@@ -1072,7 +1082,13 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "<h2>Detection Errors × Detector Attempts</h2>",
         "<p class='sub'>Detection Error rates are summarised per Run, then grouped "
         "against Detector Attempt search crops, reacquire outcomes, and search-region "
-        "pixel conditions. Legacy runs stay explicit as unknown attempt evidence.</p>",
+        "pixel conditions. Legacy runs stay explicit as unknown attempt evidence. "
+        "<strong>Over-rejection rate</strong> is the share of truth-checkable "
+        "flip/quality rejections whose discarded raw pose actually agreed with Ground "
+        "Truth &mdash; the scanner's rejection gates second-guessed against truth. "
+        "Rejections on Climber-absent frames are correct by construction, so the "
+        "second rate drops them and judges the gates on frames where a pose was "
+        "actually there to keep.</p>",
         _detection_error_attempt_html(ctx),
 
         "<h2>Scanner version regression (appVersion run-over-run)</h2>",
