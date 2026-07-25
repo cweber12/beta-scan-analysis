@@ -36,6 +36,13 @@ Prints: corpus health, attempt funnel, conditions by status, crop areas,
 flip-rejection correctness, and a per-run table. Optionally filter the raw-stream
 sections to one batch: `--runs-prefix 20260724-16`.
 
+The standing report now carries the funnel too (#87) — "Detector Attempt funnel
+(run unit)" in `report.html`, with `eval_attempt_funnel_{status,runs,run_stats,flags}.csv`
+beside it. Prefer those when a report run already exists: they carry the run-unit
+median / p90 / tail counts, which the pooled percentages alone will mislead you on
+(pooled missing is 25% while the median run misses 9% — a handful of collapsed runs
+carry the pool).
+
 ## Reading the evidence (schema v8)
 
 Per run×truth pairing: `analysis/<route>/<video>/evaluations/<run_ts>_vs_<truthhash>.json`.
