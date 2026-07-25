@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .detector_attempts import detector_attempt_evidence, parse_detector_attempts
+
 
 @dataclass
 class RunRecord:
@@ -34,6 +36,8 @@ class RunRecord:
     setup: dict[str, Any]
     pose: dict[str, Any]  # the inner ``data`` blob of the pose envelope
     orb: dict[str, Any]  # the inner ``data`` blob of the orb envelope
+    detector_attempts: list[dict[str, Any]] | None = None
+    detector_attempt_evidence: str = "unknown"
     # per-bundle video-stats.json (issue #23); {} when the artifact is absent
     video_stats: dict[str, Any] = field(default_factory=dict)
     # dedup identity
@@ -131,6 +135,7 @@ def discover_runs(analysis_root: Path) -> list[RunRecord]:
 
             diagnostics = pose.get("diagnostics", {})
             config = diagnostics.get("config", {})
+            detector_attempts = parse_detector_attempts(pose)
 
             records.append(
                 RunRecord(
@@ -144,6 +149,8 @@ def discover_runs(analysis_root: Path) -> list[RunRecord]:
                     setup=setup,
                     pose=pose,
                     orb=orb,
+                    detector_attempts=detector_attempts,
+                    detector_attempt_evidence=detector_attempt_evidence(detector_attempts),
                     video_stats=video_stats,
                     video_hash=diagnostics.get("videoHash", ""),
                     setup_hash=pose.get("setupHash", setup.get("setupHash", "")),

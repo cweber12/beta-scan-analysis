@@ -686,6 +686,75 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
         + "<h3>Re-review worklist (worst class first)</h3>" + wl_tbl)
 
 
+def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
+    runs = ctx.get("detection_error_attempt_runs")
+    if not isinstance(runs, pd.DataFrame) or runs.empty:
+        return ("<p class='muted'>No run-level detector-attempt summary yet — needs "
+                "schema-v6 evaluation records and matching pose runs.</p>")
+
+    evidence = runs.get("attempt_evidence")
+    unknown = int((evidence.astype("string") == "unknown").sum()) if evidence is not None else 0
+    attempts = int((evidence.astype("string") == "attempts").sum()) if evidence is not None else 0
+
+    def sum_col(name: str) -> int:
+        return int(pd.to_numeric(runs.get(name, pd.Series(dtype=float)), errors="coerce").fillna(0).sum())
+
+    reacq_attempted = sum_col("attempt_reacquire_attempted_count")
+    reacq_succeeded = sum_col("attempt_reacquire_succeeded_count")
+    reacq_failed = sum_col("attempt_reacquire_failed_count")
+    tiles = _stat_tiles([
+        (str(len(runs)), "evaluation runs"),
+        (str(attempts), "with attempts"),
+        (str(unknown), "unknown attempt evidence"),
+        (f"{reacq_succeeded}/{reacq_attempted}", "reacquire successes"),
+        (str(reacq_failed), "reacquire failures"),
+    ])
+
+    bands = ctx.get("detection_error_attempt_bands")
+    band_tbl = ("<p class='muted'>No attempt-condition bands yet — needs at least "
+                "three runs with varying attempt predictors.</p>")
+    if isinstance(bands, pd.DataFrame) and not bands.empty:
+        spread = (bands.groupby("predictor")["flagged_rate_mean"]
+                  .agg(lambda s: float(s.max() - s.min())).sort_values(ascending=False))
+        rows = []
+        for _, r in bands.sort_values(["predictor", "band"]).iterrows():
+            rng = f"[{_fmt(r['band_min'])}, {_fmt(r['band_max'])}]"
+            rows.append(
+                "<tr>"
+                f"<td>{_esc(r['predictor'])}</td>"
+                f"<td>band {int(r['band'])}</td>"
+                f"<td>{int(r['n_runs'])}</td>"
+                f"<td>{_esc(rng)}</td>"
+                f"<td>{_fmt(r['flagged_rate_mean'])}</td>"
+                f"<td>[{_fmt(r['ci_low'])}, {_fmt(r['ci_high'])}]</td>"
+                "</tr>"
+            )
+        worst = ", ".join(f"{c} (Δ{_fmt(spread[c])})" for c in list(spread.index)[:3]) or "none"
+        band_tbl = (
+            f"<p class='sub'>Run-level predictors ranked by Detection Error spread: "
+            f"{_esc(worst)}.</p>"
+            "<div class='tablewrap'><table><thead><tr><th>attempt predictor</th>"
+            "<th>band</th><th>runs</th><th>band range</th>"
+            "<th>Detection Error rate</th><th>bootstrap 95% CI</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>")
+
+    display_cols = [
+        "route_folder", "video_key", "run_ts", "flagged_rate",
+        "attempt_evidence", "attempt_count", "attempt_reacquire_attempt_rate",
+        "attempt_reacquire_success_rate", "attempt_search_luma_mean_mean",
+        "attempt_search_luma_stdDev_mean", "attempt_search_sharpness_mean",
+        "attempt_initial_search_region_area_mean", "attempt_detection_region_area_mean",
+        "attempt_full_frame_reacquire_success_rate",
+    ]
+    top = runs.sort_values("flagged_rate", ascending=False, na_position="last")
+    top = top[[c for c in display_cols if c in top.columns]].head(20)
+    return (
+        tiles
+        + "<h3>Run-level attempt conditions vs Detection Errors</h3>" + band_tbl
+        + "<h3>Worst runs with attempt evidence</h3>" + _df_to_table(top)
+    )
+
+
 def _stat_tiles(tiles: list[tuple[str, str]]) -> str:
     return "<div class='card'>" + "".join(
         f"<span class='stat'><b>{_esc(v)}</b>{_esc(lbl)}</span>" for v, lbl in tiles
@@ -999,6 +1068,12 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "the frames most worth fixing — an independent pool from the trusted metrics. "
         "Classes are provisional (thresholds not yet fit against verified labels).</p>",
         _frame_quality_html(ctx),
+
+        "<h2>Detection Errors × Detector Attempts</h2>",
+        "<p class='sub'>Detection Error rates are summarised per Run, then grouped "
+        "against Detector Attempt search crops, reacquire outcomes, and search-region "
+        "pixel conditions. Legacy runs stay explicit as unknown attempt evidence.</p>",
+        _detection_error_attempt_html(ctx),
 
         "<h2>Scanner version regression (appVersion run-over-run)</h2>",
         "<p class='sub'>Evaluation records grouped by the scanner commit "

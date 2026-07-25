@@ -56,9 +56,11 @@ def _numeric_predictor_cols(run_df: pd.DataFrame) -> list[str]:
     extra = {"motionMagnitude", "climberCoverage_avg", "climberCoverage_min", "wall_crop_area"}
     out = []
     for c in run_df.columns:
-        if not (c.startswith("ref_") or c in extra):
+        if not (c.startswith("ref_") or c.startswith("attempt_") or c in extra):
             continue
         if "_flag_" in c:
+            continue
+        if c == "attempt_evidence":
             continue
         if pd.api.types.is_numeric_dtype(run_df[c]):
             out.append(c)
