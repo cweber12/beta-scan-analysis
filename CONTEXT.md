@@ -96,6 +96,19 @@ not a spec — it carries no implementation detail.
   record. Only `suspected-mistrack` reaches the **truth-repair worklist**,
   because re-seeding Ground Truth for a run whose detector found almost nothing
   repairs nothing.
+- **Evidence generation** — which detector evidence an evaluation record was
+  scored from: `attempts` (the canonical **Detector Attempt** stream) or
+  `legacy-frames` (the dense playback `frames[]` fallback used before the scanner
+  exported attempts). Records written before the marker existed read as
+  `unknown` — not attempt-backed, and never claimed as such. When one
+  **video + truth revision** pairing carries both generations, only the
+  attempt-backed record pools: the pairing is counted once and the two
+  generations never blend (the legacy record's appVersion differs, so a
+  generation change would otherwise read as a scanner change). **Superseded**
+  records are held out of aggregation only — they stay on disk, readable, and are
+  listed by name in the report. Every pooled report section states the
+  generation(s) it aggregates, because a pool can still legitimately span
+  generations across *different* videos.
 
 ## The condition → detection vocabulary
 

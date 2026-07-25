@@ -78,8 +78,12 @@ Per run×truth pairing: `analysis/<route>/<video>/evaluations/<run_ts>_vs_<truth
 4. **Watch for bimodality.** Corpus medians hide catastrophic runs. Always report
    "runs > 50% missing" style tail counts alongside medians.
 5. **Legacy runs stay comparable, not equivalent.** Same-day legacy batches
-   (e.g. 20260724 morning) duplicate videos under different evidence; exclude
-   them when computing attempt-era rates.
+   (e.g. 20260724 morning) duplicate videos under different evidence. The
+   pipeline now drops them for you (#89): when a video+truth pairing carries both
+   generations, only the attempt-backed record pools, and the dropped ones are
+   listed in `eval_superseded_records.csv` plus the report's shame lists. Working
+   off records directly? Apply the same rule yourself — and check the pooled
+   section's stated evidence generation before comparing across batches.
 
 ## Baseline reference (2026-07-24 batch, 68 runs / 14 routes)
 
