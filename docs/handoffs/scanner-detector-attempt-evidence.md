@@ -128,6 +128,34 @@ Keep this compact:
 
 Do not post every MediaPipe candidate pose in this iteration.
 
+## Iteration 2 additions (2026-07-25)
+
+The first attempt-backed corpus (2026-07-24, 68 runs) validated the v1 stream and
+exposed five evidence gaps. All additions below are **additive and optional** —
+readers fail open, and a v1 payload stays valid. Rationale and the behavior
+changes they support:
+[scanner-detection-improvements.md](scanner-detection-improvements.md).
+
+- **`searchConditions.wall`** — currently always `null`; populate it with the
+  same stats vocabulary as `climber`/`overall`. Needed to separate
+  climber-region darkness from whole-scene darkness.
+- **`bestUnselectedCandidateScore`** — the top confidence among MediaPipe
+  candidates that were *not* selected/accepted on this attempt (`null` when
+  there were none). Distinguishes a hard miss (nothing seen) from a near miss
+  (candidate just under threshold) and lets the harness evaluate acceptance
+  thresholds without shipping full candidate poses.
+- **`reacquireSteps[]`** — when the expanding-ladder reacquire ships, export the
+  ordered regions tried: `[{ "region": {x,y,w,h}, "found": bool }, ...]`. The
+  single `reacquireAttempted`/`reacquired` bits stay for compatibility.
+- **`synthesizedJoints[]`** — on accepted attempts whose source is
+  `limbExpanded`, the joint names that were synthesized rather than detected,
+  so backend PCK can score detected and expanded joints separately.
+- **`inferenceMs`** — wall-clock per-attempt MediaPipe latency, so stride-1 dev
+  Analyze cost is measurable before any always-on cadence change.
+
+Do not add `selectionDistance` or full candidate poses; both remain explicitly
+deferred.
+
 ## Backend compatibility
 
 The harness will prefer `data.detectorAttempts[]` when present. Older runs that

@@ -277,6 +277,12 @@ Rules:
 - Full-frame regions are explicit normalized rectangles:
   `{ "x": 0, "y": 0, "w": 1, "h": 1 }`. `null` means unknown or not applicable.
 - Missing `detectorAttempts[]` means unknown detector evidence, never raw success.
+- Iteration 2 adds optional attempt fields (wall-region conditions, best
+  unselected candidate score, reacquire ladder steps, synthesized-joint marks,
+  per-attempt latency) — see the addendum in
+  [scanner-detector-attempt-evidence.md](scanner-detector-attempt-evidence.md)
+  and the behavior changes they support in
+  [scanner-detection-improvements.md](scanner-detection-improvements.md).
 - Legacy dense frames keep their per-frame **`source`** provenance
   (`"raw" | "interpolated" | "filled" | "flipDiscarded" | "limbExpanded"`). The
   harness's schema-v8 `frameQuality` treats sustained near-identical keypoints as
