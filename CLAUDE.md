@@ -49,8 +49,12 @@ concern, put it on a fresh branch instead.
 
 ## Branch, PR & sync flow
 
-The agent pushes and opens PRs; **only the human merges**. Follow this lifecycle so
-branches and `main` never drift:
+The agent pushes and opens PRs, then presents them to the human for review.
+**Merge only after the human has reviewed and explicitly confirmed in-session** —
+never merge on your own initiative, and never treat an earlier confirmation as
+covering a later PR. Once the human confirms, the agent runs the merge
+(`gh pr merge <n> --merge`) and immediately follows with the cleanup in rule 4.
+Follow this lifecycle so branches and `main` never drift:
 
 1. **Start clean.** Before new work: check `git status -sb`. If already on a
    non-`main` branch, confirm whether that branch has an open/merged PR and
@@ -67,8 +71,8 @@ branches and `main` never drift:
 4. **After a merge, sync and clean** by running `python scripts/git_cleanup.py`
    (or the `/cleanup` command): it fast-forwards `main`, deletes every PR-merged
    branch local **and** remote, and prunes. Idempotent and safe — it never touches
-   `main` or an unmerged branch (`--dry-run` to preview). Do this every time a PR
-   merges, so branches never accumulate.
+   `main` or an unmerged branch (`--dry-run` to preview). The agent runs this
+   itself immediately after every confirmed merge, so branches never accumulate.
    After the cleanup, close the related GitHub issue and any dependent PRD / slice
    issues that are now complete, and delete any now-unused local worktrees before
    moving on.
