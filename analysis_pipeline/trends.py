@@ -28,7 +28,11 @@ import pandas as pd
 
 from .detector_attempts import parse_detector_attempts
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
-from .runs import _condition_flags, _detector_attempt_summary, _region_metric
+from .detector_attempts import (
+    condition_flags as _condition_flags,
+    region_metric as _region_metric,
+)
+from .runs import _detector_attempt_summary
 from .evaluate import (
     COCO_CORE_JOINTS,
     _dist,
