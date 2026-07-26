@@ -118,7 +118,11 @@ Per run×truth pairing: `analysis/<route>/<video>/evaluations/<run_ts>_vs_<truth
    scanner change; pooled rates alone don't.
 3. **Beware pseudo-replication.** Frames within a run are correlated; never quote
    pooled per-frame CIs as if frames were independent. Compare per-run
-   distributions (median/p90 across runs) instead.
+   distributions (median/p90 across runs) instead. The condition-band tables
+   (`eval_condition_bands.csv`, `eval_frame_quality_condition_bands.csv`) already
+   do this for you (#70): their CI is a cluster bootstrap over runs and they carry
+   `n_runs` + `run_rate_median` / `run_rate_p90`. Judge a band by `n_runs`, not by
+   its frame count — a band with 100k frames from 5 runs is 5 observations.
 4. **Watch for bimodality.** Corpus medians hide catastrophic runs. Always report
    "runs > 50% missing" style tail counts alongside medians.
 5. **Legacy runs stay comparable, not equivalent.** Same-day legacy batches
