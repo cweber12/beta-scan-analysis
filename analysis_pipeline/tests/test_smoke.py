@@ -2570,6 +2570,48 @@ def test_rate_mismatch_is_its_own_nonconformance_cause():
         absence_html = report._absence_reason_html(ctx)
         assert "not-sampled" in absence_html
         assert "scaffold artifact" in absence_html
+        assert "regenerate those scaffolds" in absence_html
+
+
+def test_rate_mismatch_is_reported_even_when_the_bundle_conforms():
+    """Issue #101: ``rate-mismatch`` is a non-conformance *cause*, so it only speaks
+    when a record also fails the gate — and a Bundle can under-sample its truth grid
+    tenfold while fitting cleanly on the frames it did sample. On the real corpus that
+    is 17 records. The defect must stay visible anyway, because the fix is the same."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    # Truth on a 0.1 s grid, scaffold at 1 Hz — but enough posed frames that the fit is
+    # clean and the truth-sufficiency floor is cleared, so the gate passes.
+    truth, scanner = [], []
+    for i in range(1, 251):
+        t = round(i * 0.1, 1)
+        posed_here = abs(t - round(t)) < 1e-9
+        truth.append(_truth_frame(i, t, posed_here))
+        scanner.append({"timestamp": t, "keypoints": _kp_list(_TRUTH_JOINTS)})
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _absence_bundle(root, setup={"setupHash": "sh_ratepass"}, truth_frames=truth,
+                        scanner=scanner, samples=[float(i) for i in range(1, 26)],
+                        posed=[float(i) for i in range(1, 26)], seed_found=True,
+                        name="vidRATEPASS")
+        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+
+        # It conforms — so the quarantine cause is silent by construction...
+        assert rec["conformance"]["conforms"] is True
+        assert rec["conformance"]["cause"] is None
+        assert rec["conformance"]["causeEvidence"]["samplingRatio"] == 10.0
+
+        ctx = trends.build_trend_context(root)
+        assert ctx["quarantine_cause_counts"][ev.NONCONFORMANCE_RATE_MISMATCH] == 0
+        # ...and the record is surfaced regardless, named with its ratio.
+        assert ctx["rate_mismatch_count"] == 1
+        row = ctx["rate_mismatch_records"][0]
+        assert row["video_key"] == "vidRATEPASS"
+        assert (row["sampling_ratio"], row["conforms"]) == (10.0, True)
+        assert "still <em>pass</em>" in report._absence_reason_html(ctx)
 
 
 def _run_keyed(n: int, runs: int) -> dict[str, list]:

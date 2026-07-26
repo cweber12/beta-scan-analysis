@@ -15,6 +15,8 @@ from typing import Any
 
 import pandas as pd
 
+from .evaluate import RATE_MISMATCH_MIN_RATIO
+
 try:  # optional: only used to embed downscaled final-frame thumbnails
     import cv2  # type: ignore
 except Exception:  # pragma: no cover
@@ -798,8 +800,28 @@ def _absence_reason_html(ctx: dict[str, Any]) -> str:
         lead = (f"<p class='sub'><strong>{_pct(float(confirmed.iloc[0]))}</strong> of "
                 "pooled truth-absent frames are confirmed absences; the rest are held "
                 "out of the presence 2×2 and the hallucination split.</p>")
+
+    # The underlying data defect, reported whether or not it tripped the gate. A Bundle
+    # can under-sample its truth grid tenfold and still fit cleanly on the frames it did
+    # sample, so `rate-mismatch` (a non-conformance *cause*) stays silent on it — while
+    # it fabricates absences by the thousand. The fix is the same either way.
+    n_mismatch = int(ctx.get("rate_mismatch_count") or 0)
+    tail = ""
+    if n_mismatch:
+        rows = ctx.get("rate_mismatch_records") or []
+        conforming = sum(1 for r in rows if r.get("conforms"))
+        tail = (f"<p class='sub'><strong>{n_mismatch}</strong> record"
+                f"{'' if n_mismatch == 1 else 's'} sampled the ViTPose scaffold on a "
+                "grid at least "
+                f"{_fmt(RATE_MISMATCH_MIN_RATIO)}× coarser than the truth grid — the "
+                "source of the <code>not-sampled</code> frames above. "
+                f"{conforming} of them still <em>pass</em> the conformance gate, so the "
+                "<code>rate-mismatch</code> quarantine cause never fires on them: "
+                "regenerate those scaffolds at the truth's sampling rate. Full list in "
+                "<code>eval_rate_mismatch_records.csv</code>.</p>")
+
     return (lead + "<div class='tablewrap'><table><thead>" + head
-            + f"</thead><tbody>{body}</tbody></table></div>")
+            + f"</thead><tbody>{body}</tbody></table></div>" + tail)
 
 
 def _frame_quality_html(ctx: dict[str, Any]) -> str:
