@@ -913,6 +913,11 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord],
                 "class": cls,
                 "auto_class": e.get("autoClass"),
                 "failure_class": e.get("failureClass"),
+                # Tri-state on purpose (issue #69): True / False / None, where None is a
+                # pre-schema-v12 frame that never recorded presence. Never coerce the
+                # missing case to False — that would count unknown frames as real
+                # false positives.
+                "truth_present": e.get("truthPresent"),
                 "source": e.get("source"),
                 "distractor": e.get("distractor"),
                 "annotation_setup_hash": e.get("annotationSetupHash"),
@@ -937,8 +942,35 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord],
     return pd.DataFrame(rows)
 
 
+def _truth_presence_counts(g: pd.DataFrame) -> dict[str, Any]:
+    """Split one class's pooled frames by truth presence (issue #69).
+
+    Counts plus the two shares *within the class*, taken over the frames whose presence
+    is actually known: a pre-schema-v12 record carries no ``truthPresent``, and folding
+    those into the denominator would report a split the records never measured. When
+    nothing is known the shares are ``None``, not 0.0."""
+
+    col = g["truth_present"] if "truth_present" in g.columns else pd.Series(dtype=object)
+    known = col.notna()
+    vals = col[known].astype(bool)
+    present, absent = int(vals.sum()), int((~vals).sum())
+    n_known = present + absent
+    return {
+        "truth_present": present,
+        "truth_absent": absent,
+        "truth_unknown": int(len(g) - n_known),
+        "truth_present_share": present / n_known if n_known else None,
+        "truth_absent_share": absent / n_known if n_known else None,
+    }
+
+
 def _frame_quality_classes(fq_df: pd.DataFrame) -> pd.DataFrame:
-    """Failure-class frequency table over the pooled per-frame quality rows."""
+    """Failure-class frequency table over the pooled per-frame quality rows.
+
+    Each class is additionally split by truth presence (issue #69). The split matters
+    most for ``hallucination-fp``, where truth-absent is a real false positive
+    (presence gating) and truth-present is a tracking miss (tracking robustness), but
+    it is carried for every class because the axis is per-frame, not per-class."""
 
     if fq_df.empty:
         return pd.DataFrame()
@@ -951,9 +983,25 @@ def _frame_quality_classes(fq_df: pd.DataFrame) -> pd.DataFrame:
             "share": len(g) / total,
             "held_pose": int(g["held_pose"].sum()),
             "frozen_stale": int(g["frozen_stale"].sum()),
+            **_truth_presence_counts(g),
         })
     return pd.DataFrame(rows).sort_values(
         ["n", "class"], ascending=[False, True]).reset_index(drop=True)
+
+
+def _hallucination_split_totals(fq_df: pd.DataFrame) -> dict[str, Any]:
+    """Pooled truth-presence split of the ``hallucination-fp`` frames (issue #69).
+
+    The headline the class table's extra columns are there to support: of every frame
+    pooled as a hallucination, how many were emitted where no Climber was (a real false
+    positive, fixed by presence gating) versus where one was (a tracking miss)."""
+
+    empty = fq_df.empty or "class" not in fq_df.columns
+    sub = pd.DataFrame() if empty else fq_df[fq_df["class"] == "hallucination-fp"]
+    if sub.empty:
+        return {"total": 0, "truth_present": 0, "truth_absent": 0, "truth_unknown": 0,
+                "truth_present_share": None, "truth_absent_share": None}
+    return {"total": int(len(sub)), **_truth_presence_counts(sub)}
 
 
 def _frame_quality_distractors(fq_df: pd.DataFrame) -> pd.DataFrame:
@@ -989,8 +1037,8 @@ def _frame_quality_worklist(fq_df: pd.DataFrame) -> pd.DataFrame:
     sub["_sev"] = sub["class"].map(lambda c: _FQ_SEVERITY.get(c, 4))
     sub = sub.sort_values(
         ["_sev", "centroid_dist"], ascending=[True, False], na_position="last")
-    cols = ["route_folder", "video_key", "run_ts", "t", "class", "source",
-            "held_pose", "frozen_stale", "centroid_dist", "residual",
+    cols = ["route_folder", "video_key", "run_ts", "t", "class", "truth_present",
+            "source", "held_pose", "frozen_stale", "centroid_dist", "residual",
             "rejection_verdict", "rejection_centroid_dist", "rejection_joint_agreement",
             "detector_attempt_evidence", "detector_attempt_status",
             "reacquire_attempted", "reacquire_succeeded", "reacquire_failed",
@@ -1710,6 +1758,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     # is an independent pool from the trusted metrics above (conforming-only).
     fq_df = _frame_quality_rows(analysis_root, all_recs, pose_cache)
     fq_classes = _frame_quality_classes(fq_df)
+    fq_hallucination = _hallucination_split_totals(fq_df)
     fq_distractors = _frame_quality_distractors(fq_df)
     fq_worklist = _frame_quality_worklist(fq_df)
     fq_condition_bands = _frame_quality_condition_bands(fq_df)
@@ -1773,6 +1822,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "visible_histogram": visible_hist,
         "low_conf_worklist": low_conf_worklist,
         "frame_quality_classes": fq_classes,
+        "frame_quality_hallucination": fq_hallucination,
         "frame_quality_distractors": fq_distractors,
         "frame_quality_worklist": fq_worklist,
         "frame_quality_condition_bands": fq_condition_bands,
