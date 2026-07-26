@@ -24,6 +24,7 @@
       "scoreable": 0,
       "torsoUndefined": 0,
       "truthFrames": 0,
+      "unconfirmedAbsent": 0,
       "unmatchedAbsent": 0,
       "unmatchedPresent": 0,
       "verifiedFrames": 0
@@ -294,12 +295,13 @@
     },
     "frames": {
       "lowVisibility": 0,
-      "matchedAbsent": 154,
+      "matchedAbsent": 101,
       "matchedPresent": 0,
       "scoreable": 0,
       "torsoUndefined": 0,
-      "truthFrames": 698,
-      "unmatchedAbsent": 535,
+      "truthFrames": 618,
+      "unconfirmedAbsent": 0,
+      "unmatchedAbsent": 508,
       "unmatchedPresent": 9,
       "verifiedFrames": 0
     },
@@ -527,7 +529,7 @@
       }
     },
     "presence": {
-      "absentDetected": 154,
+      "absentDetected": 101,
       "absentUndetected": 0,
       "presentDetected": 0,
       "presentUndetected": 0
@@ -549,27 +551,37 @@
       0
     ]
   },
+  "climbWindow": {
+    "end": null,
+    "start": 7.91
+  },
   "conformance": {
     "cause": "sparse-match",
     "causeEvidence": {
       "acceptedAttempts": 0,
       "acceptedShare": null,
       "fitFrames": 0,
-      "presentAttempts": 0
+      "presentAttempts": 0,
+      "samplingRatio": 1.0,
+      "scaffoldStepSec": 0.1,
+      "truthStepSec": 0.1
     },
     "conforms": false,
     "n": 0,
     "reasons": [
       "insufficient-points",
+      "insufficient-frames",
       "x-nonconforming",
       "y-nonconforming"
     ],
     "thresholds": {
       "minAcceptedShare": 0.5,
       "minFitFrames": 20,
+      "minFitFramesGate": 20,
       "minPoints": 20,
       "r2Min": 0.9,
       "r2MinX": 0.75,
+      "rateMismatchMinRatio": 2.0,
       "slopeMax": 1.15,
       "slopeMin": 0.85
     },
@@ -585,9 +597,17 @@
     }
   },
   "counts": {
+    "absenceReasons": {
+      "confirmed-absent": 606,
+      "not-sampled": 0,
+      "out-of-scope": 80,
+      "unknown": 0,
+      "untracked": 3
+    },
     "agreementSkipped": {
       "flaggedAbsent": 0,
-      "flaggedWrong": 0
+      "flaggedWrong": 0,
+      "outOfScope": 80
     },
     "review": {
       "auto": 698,
@@ -595,6 +615,7 @@
       "flaggedWrong": 0
     },
     "truthFramesAbsent": 689,
+    "truthFramesOutOfScope": 80,
     "truthFramesPresent": 9,
     "truthFramesTotal": 698,
     "truthFramesVerified": 0
@@ -636,11 +657,11 @@
     "classCounts": {
       "distorted": 0,
       "flipped-rotated": 0,
-      "hallucination-fp": 154,
+      "hallucination-fp": 101,
       "ok": 0,
       "wrong-subject": 0
     },
-    "detectedFrames": 154,
+    "detectedFrames": 101,
     "detectorAttemptStatusCounts": {
       "accepted": 0,
       "flipRejected": 0,
@@ -649,1175 +670,10 @@
       "unknown": 0
     },
     "detectorEvidence": "legacy-frames",
-    "flaggedCount": 154,
+    "flaggedCount": 101,
     "frames": [
       {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 0.9,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.0,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.1,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.2,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.3,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.5,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": true,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.6,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": true,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.7,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.8,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 1.9,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.0,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.1,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.2,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.3,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.4,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.5,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.6,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.7,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 2.9,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": true,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 3.0,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": true,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 3.1,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 4.7,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 4.8,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 4.9,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.0,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.1,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.2,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.3,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.4,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.5,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.6,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.8,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 5.9,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.0,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.1,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.2,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.3,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.4,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.5,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.6,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.7,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.8,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 6.9,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.0,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.1,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.2,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.3,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.4,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.5,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.6,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.7,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.8,
-        "truthPresent": false
-      },
-      {
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 7.9,
-        "truthPresent": false
-      },
-      {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1840,6 +696,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1862,6 +719,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1884,6 +742,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1906,6 +765,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1928,6 +788,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1950,6 +811,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1972,6 +834,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1994,6 +857,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2016,6 +880,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2038,6 +903,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2060,6 +926,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2082,6 +949,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2104,6 +972,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2126,6 +995,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2148,6 +1018,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2170,6 +1041,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2192,6 +1064,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2214,6 +1087,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2236,6 +1110,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2258,6 +1133,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2280,6 +1156,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2302,6 +1179,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2324,6 +1202,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2346,6 +1225,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2368,6 +1248,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2390,6 +1271,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2412,6 +1294,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2434,6 +1317,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2456,6 +1340,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2478,6 +1363,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2500,6 +1386,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2522,6 +1409,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2544,6 +1432,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2566,6 +1455,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2588,6 +1478,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2610,6 +1501,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2632,6 +1524,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2654,6 +1547,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2676,6 +1570,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2698,6 +1593,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2720,6 +1616,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2742,6 +1639,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2764,6 +1662,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2786,6 +1685,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2808,6 +1708,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2830,6 +1731,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2852,6 +1754,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2874,6 +1777,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2896,6 +1800,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2918,6 +1823,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2940,6 +1846,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2962,6 +1869,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2984,6 +1892,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3006,6 +1915,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3028,6 +1938,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3050,6 +1961,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3072,6 +1984,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3094,6 +2007,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3116,6 +2030,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3138,6 +2053,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3160,6 +2076,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3182,6 +2099,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3204,6 +2122,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3226,6 +2145,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3248,6 +2168,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3270,6 +2191,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3292,6 +2214,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3314,6 +2237,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3336,6 +2260,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3358,6 +2283,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3380,6 +2306,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3402,6 +2329,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3424,6 +2352,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3446,6 +2375,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3468,6 +2398,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3490,6 +2421,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3512,6 +2444,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3534,6 +2467,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3556,6 +2490,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3578,6 +2513,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3600,6 +2536,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3622,6 +2559,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3644,6 +2582,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3666,6 +2605,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3688,6 +2628,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3710,6 +2651,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3732,6 +2674,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3754,6 +2697,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3776,6 +2720,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3798,6 +2743,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3820,6 +2766,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3842,6 +2789,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3864,6 +2812,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3886,6 +2835,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3908,6 +2858,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3930,6 +2881,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3952,6 +2904,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3974,6 +2927,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3996,6 +2950,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4018,6 +2973,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4042,13 +2998,14 @@
     ],
     "frozenStaleCount": 0,
     "hallucinationSplit": {
-      "total": 154,
-      "truth-absent": 154,
+      "total": 101,
+      "truth-absent": 101,
       "truth-present": 0,
       "truthAbsentShare": 1.0,
-      "truthPresentShare": 0.0
+      "truthPresentShare": 0.0,
+      "unconfirmedAbsent": 0
     },
-    "heldPoseCount": 70,
+    "heldPoseCount": 66,
     "rejectionCorrectness": {
       "byStatus": {
         "flipRejected": {
@@ -4131,7 +3088,7 @@
   "routeFolder": "rug-rat",
   "runTs": "20260723-111254",
   "scannerFrameIntervalSec": 0.2999999999999998,
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "setupHash": "1175a5fe565068889d56f393608889f158292642366a9838b1213ed0b24f57a9",
   "truthHash": "ba57c32c51c7de054e38632c07652e8cd5b3ecbe22325720364e49d8d3b025ce",
   "truthSetupHashSource": "truth",
