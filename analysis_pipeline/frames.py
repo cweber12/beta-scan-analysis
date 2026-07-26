@@ -16,6 +16,11 @@ Three sources of per-frame conditions/evidence, in priority order:
    decode the video at sampled timestamps and compute the crop stats here. In this
    path ``kp_count`` / ``mean_score`` are an explicit quality *proxy* (the exported
    frames are already post-processed and filled), not raw detector output.
+
+Issue #101 runtime contract: superseded legacy Runs are dropped *before* the table
+is built (``dedup_run_evidence_generations``), decode is sequential rather than
+seek-per-timestamp (``SequentialFrameReader``), and crop stats for a given video,
+timestamp and crop boxes are computed once, however many Runs sample them.
 """
 
 from __future__ import annotations
@@ -37,6 +42,107 @@ except Exception:  # pragma: no cover - exercised only when cv2 is absent
 
 # torso keypoints used for the centroid-velocity predictor
 _TORSO = ("left_shoulder", "right_shoulder", "left_hip", "right_hip")
+
+
+def dedup_run_evidence_generations(
+    records: list[RunRecord],
+) -> tuple[list[RunRecord], list[RunRecord]]:
+    """Split Runs into ``(kept, superseded)`` by evidence generation (issue #101).
+
+    The run-level counterpart of the evaluation-record dedup (issue #89): when a
+    video carries any attempt-backed Run, its legacy frames-only Runs are
+    superseded — the attempt stream answers directly what the legacy Run's
+    frame-derived proxy only approximates, and (measured on the 2026-07 corpus)
+    8,568 of the frame table's 8,569 video-decode operations served Runs the
+    evidence dedup was about to discard anyway. A video with no attempt-backed
+    Run is untouched, so a legacy-only corpus builds exactly as before.
+
+    Scoped per ``(route_folder, video_key)``: unlike the evaluation dedup there is
+    no truth revision in play — the frame table joins conditions to outcomes, and
+    for that pairing the newer evidence generation supersedes the old one outright.
+    """
+
+    by_video: dict[tuple[str, str], list[RunRecord]] = {}
+    for rec in records:
+        by_video.setdefault((rec.route_folder, rec.video_key), []).append(rec)
+
+    kept: list[RunRecord] = []
+    superseded: list[RunRecord] = []
+    for group in by_video.values():
+        attempt_backed = [r for r in group if r.detector_attempts is not None]
+        if not attempt_backed:
+            kept.extend(group)
+            continue
+        kept.extend(attempt_backed)
+        superseded.extend(r for r in group if r.detector_attempts is None)
+
+    sort_key = lambda r: (r.route_folder, r.video_key, r.run_ts)  # noqa: E731
+    return sorted(kept, key=sort_key), sorted(superseded, key=sort_key)
+
+
+class SequentialFrameReader:
+    """cv2-backed grayscale frame reader that reads forward instead of seeking.
+
+    A positioned seek (``CAP_PROP_POS_MSEC``) costs a keyframe seek plus decode —
+    ~54 ms per frame measured — while a sequential grab costs ~7 ms, and sampling
+    is dense enough that reading forward and discarding un-sampled frames is
+    almost always cheaper. Seeks survive only as the fallback for a backwards
+    request or a video with no usable fps.
+    """
+
+    def __init__(self) -> None:
+        # path -> [cap, fps, next_frame_index] (None marks a video that failed to open)
+        self._caps: dict[str, list[Any] | None] = {}
+
+    def _state(self, video_path: Any) -> list[Any] | None:
+        key = str(video_path)
+        if key not in self._caps:
+            if cv2 is None:
+                self._caps[key] = None
+            else:
+                cap = cv2.VideoCapture(key)
+                if not cap.isOpened():
+                    self._caps[key] = None
+                else:
+                    fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+                    self._caps[key] = [cap, fps, 0]
+        return self._caps[key]
+
+    def read_gray(self, video_path: Any, t: float):
+        """The frame nearest ``t`` seconds as a grayscale array, or ``None``."""
+
+        state = self._state(video_path)
+        if state is None:
+            return None
+        cap, fps, next_idx = state
+        if fps <= 0:
+            cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
+            ok, frame = cap.read()
+            state[2] = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+            if not ok or frame is None:
+                return None
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        target = int(round(t * fps))
+        if target < next_idx:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target)
+            next_idx = target
+        while next_idx < target:
+            if not cap.grab():
+                state[2] = next_idx
+                return None
+            next_idx += 1
+        ok, frame = cap.read()
+        state[2] = target + 1
+        if not ok or frame is None:
+            return None
+        return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    def close(self) -> None:
+        for state in self._caps.values():
+            if state is not None:
+                state[0].release()
+        self._caps.clear()
 
 
 def _sample_interval_sec(config: dict[str, Any]) -> float:
@@ -231,6 +337,14 @@ def _proxy_and_kinematics(keypoints: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _box_key(box: dict[str, Any]) -> tuple:
+    """A hashable identity for a crop box, for the per-(video, t, boxes) memo."""
+
+    if not isinstance(box, dict):
+        return ()
+    return tuple(sorted((k, v) for k, v in box.items() if isinstance(v, (int, float))))
+
+
 def _crop_stats(gray, box: dict[str, Any], h: int, w: int, prefix: str) -> dict[str, Any]:
     """Laplacian-variance sharpness + luma mean/std for a normalized crop box."""
 
@@ -252,8 +366,25 @@ def _crop_stats(gray, box: dict[str, Any], h: int, w: int, prefix: str) -> dict[
     }
 
 
-def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataFrame:
+def build_frame_table(records: list[RunRecord], decode: bool = True,
+                      frame_reader: Any = None) -> pd.DataFrame:
+    """Build the per-frame table over the current evidence generation of each video.
+
+    ``frame_reader`` is the decode collaborator — any object with
+    ``read_gray(video_path, t)`` and ``close()``. It defaults to the cv2-backed
+    ``SequentialFrameReader``; tests inject a fake to assert the access pattern
+    without a video file or codec. Superseded legacy Runs are dropped up front
+    (issue #101) so their decode never happens; crop stats are memoised per
+    (video, timestamp, crop boxes) so re-runs over the same video read each
+    frame once.
+    """
+
+    records, _ = dedup_run_evidence_generations(records)
     rows: list[dict[str, Any]] = []
+    reader = frame_reader
+    owns_reader = False
+    # (video path, t, climber box, wall box) -> computed crop stats ({} on a failed read)
+    crop_memo: dict[tuple, dict[str, Any]] = {}
 
     for rec in records:
         config = rec.config
@@ -267,21 +398,17 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
         has_attempts = rec.detector_attempts is not None
         has_frame_stats, has_provenance = _pose_export_flags(rec.pose)
 
-        cap = None
-        vh = vw = 0
         # Exported per-frame stats make the video decode unnecessary (and let the
         # committed record be analysed without the git-ignored binary).
         can_decode = (
-            decode and cv2 is not None and rec.video_path is not None and not has_frame_stats
+            decode
+            and rec.video_path is not None
+            and not has_frame_stats
+            and (frame_reader is not None or cv2 is not None)
         )
-        if can_decode:
-            cap = cv2.VideoCapture(str(rec.video_path))
-            if not cap.isOpened():
-                cap = None
-                can_decode = False
-            else:
-                vw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                vh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        if can_decode and reader is None:
+            reader = SequentialFrameReader()
+            owns_reader = True
 
         climber_box = rec.setup.get("climberCrop", {})
         wall_box = rec.setup.get("wallCrop", {})
@@ -397,16 +524,23 @@ def build_frame_table(records: list[RunRecord], decode: bool = True) -> pd.DataF
             elif has_frame_stats and isinstance(fr, dict):
                 row.update(_exported_region_stats(fr))
             elif can_decode:
-                cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
-                ok, frame = cap.read()
-                if ok and frame is not None:
-                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                    row.update(_crop_stats(gray, climber_box, vh, vw, "climber"))
-                    row.update(_crop_stats(gray, wall_box, vh, vw, "wall"))
+                memo_key = (str(rec.video_path), t,
+                            _box_key(climber_box), _box_key(wall_box))
+                if memo_key not in crop_memo:
+                    gray = reader.read_gray(rec.video_path, t)
+                    if gray is not None:
+                        vh, vw = gray.shape[:2]
+                        crop_memo[memo_key] = {
+                            **_crop_stats(gray, climber_box, vh, vw, "climber"),
+                            **_crop_stats(gray, wall_box, vh, vw, "wall"),
+                        }
+                    else:
+                        crop_memo[memo_key] = {}
+                row.update(crop_memo[memo_key])
 
             rows.append(row)
 
-        if cap is not None:
-            cap.release()
+    if owns_reader and reader is not None:
+        reader.close()
 
     return pd.DataFrame(rows)

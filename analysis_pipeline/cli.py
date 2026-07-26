@@ -11,7 +11,7 @@ import pandas as pd
 from . import crossmatch, report, stats, trends
 from .discovery import discover_runs
 from .evaluate import EVAL_MODE_ALL, EVAL_MODES, evaluate
-from .frames import build_frame_table
+from .frames import build_frame_table, dedup_run_evidence_generations
 from .runs import build_run_table
 
 
@@ -30,7 +30,12 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True,
     n_pose_files = len(list(analysis_root.glob("*/*/detections/*_pose.json")))
 
     run_df = build_run_table(records)
-    frame_df = build_frame_table(records, decode=decode)
+    # Issue #101: the frame table is built over the current evidence generation only —
+    # a legacy Run superseded by an attempt-backed one contributes no rows (and no
+    # video decode). build_frame_table applies the same dedup itself; splitting here
+    # too lets the drop be reported rather than silent.
+    frame_records, frame_superseded = dedup_run_evidence_generations(records)
+    frame_df = build_frame_table(frame_records, decode=decode)
 
     kept_labels, dropped_labels = stats.prune_labels(run_df)
 
@@ -51,6 +56,9 @@ def run(analysis_root: Path, out_dir: Path, decode: bool = True,
     print(f"discovered {len(records)} runs "
           f"({n_pose_files - len(records)} re-runs collapsed) across "
           f"{run_df['video_key'].nunique()} videos; {len(frame_df)} per-frame samples")
+    if frame_superseded:
+        print(f"frame table built without {len(frame_superseded)} legacy run(s) "
+              "superseded by attempt-backed evidence (#101 — no decode spent on them)")
     if dropped_labels:
         print("pruned labels: " + ", ".join(f"{c.replace('label_','')} ({r})" for c, r in dropped_labels))
     if orb_matrix.get("available"):

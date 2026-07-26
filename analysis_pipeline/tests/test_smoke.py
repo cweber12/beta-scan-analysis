@@ -332,10 +332,13 @@ def _kp_list(joints: dict) -> list:
 
 def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list,
                     app_version: str = "",
-                    detector_attempts: list[dict] | None = None) -> None:
+                    detector_attempts: list[dict] | None = None,
+                    config: dict | None = None) -> None:
     det = video_dir / "detections"
     det.mkdir(parents=True, exist_ok=True)
     diagnostics = {"appVersion": app_version} if app_version else {}
+    if config is not None:
+        diagnostics["config"] = config
     data = {"setupHash": setup_hash, "diagnostics": diagnostics, "frames": frames}
     if detector_attempts is not None:
         data["detectorAttempts"] = detector_attempts
@@ -2172,7 +2175,11 @@ def test_evidence_generation_dedup_prefers_attempt_backed_record():
         both = root / "routeGEN" / "vidBoth"
         _write_bundle_meta(both, setup_hash="sh_both")
         (both / "ground-truth.json").write_text(json.dumps(truth_doc), encoding="utf-8")
-        _write_pose_run(both, "20260724-090000", "sh_both", dense, app_version="aaa1111")
+        # The morning run carries a distinct config so the two generations survive
+        # discovery's byte-identical dedup as two observations, as they do in the
+        # real corpus.
+        _write_pose_run(both, "20260724-090000", "sh_both", dense, app_version="aaa1111",
+                        config={"frameStep": 10, "frameIntervalMs": 100})
         _write_pose_run(both, "20260724-150000", "sh_both", dense, app_version="aaa1111",
                         detector_attempts=attempts)
 
@@ -2182,7 +2189,8 @@ def test_evidence_generation_dedup_prefers_attempt_backed_record():
         (legacy / "ground-truth.json").write_text(
             json.dumps({**truth_doc, "groundTruthHash": "eeeeeeee55555555"}),
             encoding="utf-8")
-        _write_pose_run(legacy, "20260724-090001", "sh_legacy", dense, app_version="aaa1111")
+        _write_pose_run(legacy, "20260724-090001", "sh_legacy", dense, app_version="aaa1111",
+                        config={"frameStep": 10, "frameIntervalMs": 100})
         _write_pose_run(legacy, "20260724-150001", "sh_legacy", dense, app_version="aaa1111")
 
         summary = _evaluate(root)
@@ -2220,6 +2228,18 @@ def test_evidence_generation_dedup_prefers_attempt_backed_record():
         frame_rows = ctx["frame_joint_df"]
         assert set(frame_rows[frame_rows["video_key"] == "vidBoth"]["run_ts"]) == {
             "20260724-150000"}
+
+        # Issue #101: the same dedup now runs *before* the frame table is built — the
+        # superseded legacy run contributes no frame rows (so no decode is ever spent
+        # on it), while the legacy-only video keeps every run it has.
+        frame_records = discover_runs(root)
+        assert {r.run_ts for r in frame_records if r.video_key == "vidBoth"} == {
+            "20260724-090000", "20260724-150000"}
+        frame_df = build_frame_table(frame_records, decode=False)
+        assert set(frame_df[frame_df["video_key"] == "vidBoth"]["run_ts"]) == {
+            "20260724-150000"}
+        assert set(frame_df[frame_df["video_key"] == "vidLegacy"]["run_ts"]) == {
+            "20260724-090001", "20260724-150001"}
 
         # Every pooled section can state what it is made of, and a mixed pool says so.
         pooled = ctx["evidence_generation_trusted"]
@@ -2612,6 +2632,63 @@ def test_rate_mismatch_is_reported_even_when_the_bundle_conforms():
         assert row["video_key"] == "vidRATEPASS"
         assert (row["sampling_ratio"], row["conforms"]) == (10.0, True)
         assert "still <em>pass</em>" in report._absence_reason_html(ctx)
+
+def test_frame_table_sequential_reader_and_memo():
+    """Issue #101 decode contract, asserted through the injected frame-reader seam:
+    the decode path requests timestamps in sequential order, and a repeated
+    video/timestamp is read exactly once however many Runs sample it — with no
+    video file and no codec involved."""
+
+    import numpy as np
+
+    class LogReader:
+        """Fake frame reader: records every access, serves a synthetic gray frame."""
+
+        def __init__(self):
+            self.calls: list[tuple[str, float]] = []
+
+        def read_gray(self, video_path, t):
+            self.calls.append((Path(video_path).name, t))
+            return np.full((8, 8), 128, dtype=np.uint8)
+
+        def close(self):
+            pass
+
+    labels = {"route_orientation": "head-on", "camera_angle": "level",
+              "shadows": "high", "climber_contrast": "low", "wall_contrast": "medium",
+              "motion_blur": "low", "occlusion": "unknown", "camera_stability": "steady"}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        vdir = root / "routeSEQ" / "vidSEQ"
+        # Two legacy runs over the same video (no exported stats, no attempts), with
+        # distinct configs: the 1 s run samples t=0..3, the 2 s run t=0 and t=2 — a
+        # strict subset, so every one of its reads should be a memo hit.
+        _write_run(vdir, "20260101-000001", video_hash="hseq", setup_hash="sseq",
+                   config={"frameStep": 10, "frameIntervalMs": 100}, labels=labels,
+                   det_rate=1.0, written_at="2026-01-01T00:00:00")
+        _write_run(vdir, "20260101-000002", video_hash="hseq", setup_hash="sseq",
+                   config={"frameStep": 20, "frameIntervalMs": 100}, labels=labels,
+                   det_rate=1.0, written_at="2026-01-01T00:01:00")
+        # The (gitignored, here empty) binary only needs to exist for the decode
+        # path to engage; the fake reader never opens it.
+        (vdir / "vidSEQ.mp4").write_bytes(b"")
+
+        records = discover_runs(root)
+        assert len(records) == 2
+
+        reader = LogReader()
+        frame_df = build_frame_table(records, decode=True, frame_reader=reader)
+        assert len(frame_df) == 4 + 2  # t=0,1,2,3 and t=0,2
+
+        # Sequential access, one read per (video, timestamp) — the second run's
+        # samples are served from the crop-stat memo, not re-read.
+        assert reader.calls == [("vidSEQ.mp4", 0.0), ("vidSEQ.mp4", 1.0),
+                                ("vidSEQ.mp4", 2.0), ("vidSEQ.mp4", 3.0)]
+
+        # Both runs still carry decode-derived crop stats, memo hits included.
+        assert frame_df["climber_luma_mean"].notna().all()
+        assert frame_df["wall_luma_mean"].notna().all()
 
 
 def _run_keyed(n: int, runs: int) -> dict[str, list]:
@@ -3323,6 +3400,7 @@ def _run_all():
            test_attempt_funnel_pools_and_distributes_over_runs,
            test_evidence_generation_dedup_prefers_attempt_backed_record,
            test_evidence_generation_dedup_is_scoped_to_one_truth_revision,
+           test_frame_table_sequential_reader_and_memo,
            test_frame_quality_condition_bands_flagged_rate,
            test_condition_band_cis_are_computed_at_the_run_unit,
            test_evaluate_vitpose_fallback_when_no_ground_truth,

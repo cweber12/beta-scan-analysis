@@ -4,12 +4,13 @@ import json
 import threading
 import uuid
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 import video_stats
 import vitpose_job
@@ -118,12 +119,30 @@ class VitPoseJobRequest(BaseModel):
     climber_point: NormPoint | None = None
     climber_crop: NormCrop | None = None
     wall_crop: NormCrop | None = None  # accepted for contract parity; ignored for pose
+    # Climb window (issue #101). `climb_start` is the frozen **setup tap**'s timestamp
+    # — the scanner must send the *setup* tap here, never the re-seed tap — and
+    # `climb_end` the explicit end-of-climb marker. Both optional: omitted, the job
+    # falls back to the bundle's setup.json and, failing that, behaves as it does today.
+    climb_start: float | None = Field(default=None, alias="climbStart", ge=0)
+    climb_end: float | None = Field(default=None, alias="climbEnd", ge=0)
+    # Re-run even when the seed is unchanged (bypasses the idempotence skip).
+    force: bool = False
     panning: bool = False
     # Hash of the setup.json this job runs under; stamped into vitpose.json as the
     # provenance anchor. Optional: the job falls back to the bundle's setup.json.
     # Accepts `setup_hash` (canonical) or `setupHash`.
     setup_hash: str | None = Field(default=None, alias="setupHash")
     frames: list[VitPoseFrame] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def _check_climb_window(self) -> "VitPoseJobRequest":
+        if (
+            self.climb_start is not None
+            and self.climb_end is not None
+            and self.climb_end <= self.climb_start
+        ):
+            raise ValueError("climb_end must be greater than climb_start.")
+        return self
 
 
 class VideoStatsRequest(BaseModel):
@@ -223,8 +242,15 @@ def get_contract() -> dict[str, object]:
         # Additive feature flags the scanner gates on (no apiVersion bump). decoupledSeed
         # signals that POST /api/vitpose accepts seed_tap + seed_region as the seed
         # contract of record (with legacy climber_point/climber_crop alias support).
+        # splitTaps signals that the harness treats the setup tap and the ViTPose seed
+        # tap as *separate* values (issue #101): it reads the climb start from the
+        # frozen setup tap in setup.json, takes the re-seed tap from `seed_tap` only,
+        # accepts `climb_start`/`climb_end`, and skips a job whose seed is unchanged.
+        # A scanner that has not adopted the split keeps working — the harness then
+        # sees one tap and behaves as it does today.
         "capabilities": {
             "decoupledSeed": True,
+            "splitTaps": True,
         },
         "suggestions": {
             "available": bool(thresholds),
@@ -324,8 +350,11 @@ def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseReques
         frames=tuple(f.timestamp for f in payload.frames),
         seed_tap=seed_tap,
         seed_region=seed_region,
+        climb_start=payload.climb_start,
+        climb_end=payload.climb_end,
         panning=payload.panning,
         setup_hash=payload.setup_hash,
+        force=payload.force,
     )
 
 
@@ -381,6 +410,20 @@ def start_vitpose_job(payload: VitPoseJobRequest) -> JSONResponse:
         )
 
     request = _to_vitpose_request(payload)
+    # Seed idempotence (issue #101): when the seed tap, seed region, climb window and
+    # video binary all match the scaffold already on disk, re-running would rewrite the
+    # same artifact. Report the skip synchronously — the scanner polls for an artifact
+    # that is already there, so a 202 would make it wait for a job that never runs.
+    start, end = vitpose_job.resolve_climb_window(request, bundle_dir)
+    request = replace(request, climb_start=start, climb_end=end)
+    if vitpose_job.seed_is_unchanged(bundle_dir, request, video_path):
+        return JSONResponse(status_code=200, content={
+            "status": "skipped",
+            "reason": "unchanged-seed",
+            "seedHash": vitpose_job.artifact_seed_hash(bundle_dir),
+            "artifactPath": str(bundle_dir / vitpose_job.ARTIFACT_NAME),
+        })
+
     job_id = uuid.uuid4().hex
     thread = threading.Thread(
         target=_run_vitpose_safely, args=(request, job_id), daemon=True

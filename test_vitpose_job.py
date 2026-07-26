@@ -171,27 +171,48 @@ def test_climber_track_with_t_and_empty_window_has_no_global_fallback():
     assert build_climber_track(history, tap, None) == {}
 
 
-def test_seed_crop_gate_skips_best_outside_expanded_crop_and_picks_next():
-    best_outside_gate = Box(0.30, 0.30, 0.32, 0.32)  # center 0.46, outside crop+10%
-    next_best_inside_gate = Box(0.28, 0.28, 0.30, 0.30)  # center 0.43, inside crop+10%
-    crop = Box(0.0, 0.0, 0.40, 0.40)
-    history = [FrameTracks(0.0, {1: best_outside_gate, 2: next_best_inside_gate})]
-    tap = Point(0.45, 0.45, t=0.0)
+def test_seed_region_gate_skips_candidate_entirely_outside_and_picks_next():
+    # Issue #101: the gate is an *overlap* test, so only a box entirely outside the
+    # expanded region is refused. The nearer candidate here misses the region
+    # altogether; the further one straddles its edge and is taken instead.
+    nearest_fully_outside = Box(0.50, 0.50, 0.10, 0.10)   # x from 0.50 > 0.44 limit
+    next_best_overlapping = Box(0.38, 0.38, 0.14, 0.14)   # straddles the 0.44 edge
+    region = Box(0.0, 0.0, 0.40, 0.40)
+    history = [FrameTracks(0.0, {1: nearest_fully_outside, 2: next_best_overlapping})]
+    tap = Point(0.56, 0.56, t=0.0)
 
-    idx, box = vj._seed_climber(history, tap, crop)
+    idx, box = vj._seed_climber(history, tap, region)
     assert idx == 0
-    assert box == next_best_inside_gate
+    assert box == next_best_overlapping
 
 
-def test_seed_crop_gate_accepts_center_just_inside_expanded_margin():
-    near_margin = Box(0.389, 0.389, 0.10, 0.10)  # center 0.439 (inside 0.44 limit)
-    crop = Box(0.0, 0.0, 0.40, 0.40)
-    history = [FrameTracks(0.0, {1: near_margin})]
-    tap = Point(0.44, 0.44, t=0.0)
+def test_seed_region_gate_accepts_overlapping_box_whose_center_is_outside():
+    # THE behaviour change (issue #101). This box's center (0.52) sits outside the
+    # expanded region, so the old center-containment gate rejected it; it plainly
+    # overlaps the region, so the overlap gate accepts it. Measured on the worst
+    # Bundle, the center rule rejected all 182 candidates in the seed window on a
+    # video where a person is visible in 98% of sampled frames.
+    overlapping = Box(0.42, 0.42, 0.20, 0.20)  # center 0.52, outside the 0.44 limit
+    region = Box(0.0, 0.0, 0.40, 0.40)
+    history = [FrameTracks(0.0, {1: overlapping})]
+    tap = Point(0.50, 0.50, t=0.0)
 
-    idx, box = vj._seed_climber(history, tap, crop)
+    # A point-sized box at that same center — what the old rule tested — still fails.
+    assert not vj._seed_box_passes_region_gate(Box(0.52, 0.52, 0.001, 0.001), region)
+    idx, box = vj._seed_climber(history, tap, region)
     assert idx == 0
-    assert box == near_margin
+    assert box == overlapping
+
+
+def test_seed_region_gate_still_refuses_a_box_with_no_overlap():
+    # Loosening the gate must not manufacture truth: a candidate nowhere near the
+    # seed region is still refused, which is what keeps the genuinely hard Bundles
+    # failing honestly rather than seeding on a bystander.
+    region = Box(0.0, 0.0, 0.20, 0.20)
+    far = Box(0.60, 0.60, 0.10, 0.10)
+    assert vj._seed_box_passes_region_gate(far, region) is False
+    history = [FrameTracks(0.0, {1: far})]
+    assert vj._seed_climber(history, Point(0.65, 0.65, t=0.0), region) == (None, None)
 
 
 def test_climber_track_caps_association_slack_on_long_source_frame_gap():
@@ -792,6 +813,270 @@ def test_run_job_poses_climber_for_nonpanning_point_and_crop_setup():
         assert backend.seen_targets
         art = json.loads(path.read_text())
         assert any(f["keypoints"] for f in art["frames"])
+
+
+# --------------------------------------------------------------------------- #
+# The tap split, seed idempotence and the climb window (issue #101)
+# --------------------------------------------------------------------------- #
+
+class _ResultBoxes:
+    """Minimal ultralytics-results stand-in: normalized xywh rows and optional ids."""
+
+    def __init__(self, rows, ids=None):
+        self._rows = rows
+        self.xywhn = self
+        self.id = None if ids is None else _IntTensor(ids)
+
+    def tolist(self):
+        return self._rows
+
+
+class _IntTensor:
+    def __init__(self, values):
+        self._values = values
+
+    def int(self):
+        return self
+
+    def tolist(self):
+        return self._values
+
+
+class _Result:
+    def __init__(self, rows, ids=None):
+        self.boxes = _ResultBoxes(rows, ids)
+        self.orig_img = None
+
+
+def test_tracker_conversion_keeps_detections_with_no_track_id():
+    # Issue #101: ByteTrack assigns no ids on some frames, and the adapter used to
+    # discard every detection on such a frame — which is how a Bundle with a person
+    # visible in 79% of sampled frames came out "truthless". Id-less boxes now enter
+    # under synthetic negative ids, which no real ByteTrack id collides with.
+    idless = vj.frame_tracks_from_result(
+        _Result([[0.5, 0.5, 0.1, 0.2], [0.2, 0.6, 0.1, 0.2]]), timestamp=1.0, frame_number=24)
+    assert len(idless.boxes) == 2
+    assert all(tid < 0 for tid in idless.boxes)
+    assert idless.boxes[-1] == Box(0.45, 0.40, 0.1, 0.2)
+    assert idless.frame_number == 24 and idless.timestamp == 1.0
+
+    # Tracked detections are unchanged: real ids, same geometry.
+    tracked = vj.frame_tracks_from_result(
+        _Result([[0.5, 0.5, 0.1, 0.2]], ids=[7]), timestamp=1.0, frame_number=24)
+    assert set(tracked.boxes) == {7}
+
+    # A frame with no detections at all stays empty.
+    assert vj.frame_tracks_from_result(_Result([]), 0.0, 0).boxes == {}
+
+
+def test_idless_detections_can_seed_and_stitch():
+    # The point of keeping them: a history built entirely from id-less detections
+    # seeds and stitches exactly like a tracked one (association is geometry +
+    # appearance, never id).
+    history = [
+        vj.frame_tracks_from_result(
+            _Result([[0.50, 0.60 - 0.02 * i, 0.10, 0.20]]), timestamp=0.1 * i, frame_number=i)
+        for i in range(5)
+    ]
+    traj = build_climber_track(history, Point(0.50, 0.55, t=0.0), None)
+    assert set(traj) == {0, 1, 2, 3, 4}
+
+
+def test_seed_failure_reason_separates_hard_video_from_harness_failure():
+    # The repairable/hard split the corpus audit needed (issue #101).
+    empty = [FrameTracks(0.0, {}), FrameTracks(0.5, {})]
+    assert vj.seed_failure_reason(empty, Point(0.5, 0.5, t=0.0), None) == \
+        vj.SEED_FAIL_NO_DETECTIONS
+
+    # People are tracked, but nowhere near the tap's timestamp.
+    far_in_time = [FrameTracks(0.0, {1: Box(0.4, 0.4, 0.1, 0.1)})]
+    assert vj.seed_failure_reason(far_in_time, Point(0.5, 0.5, t=9.0), None) == \
+        vj.SEED_FAIL_EMPTY_WINDOW
+
+    # Frames exist in the window but carry no boxes: a hard video, not a bad gate.
+    sparse = [FrameTracks(0.0, {}), FrameTracks(5.0, {1: Box(0.4, 0.4, 0.1, 0.1)})]
+    assert vj.seed_failure_reason(sparse, Point(0.5, 0.5, t=0.0), None) == \
+        vj.SEED_FAIL_NO_CANDIDATES
+
+    # Candidates were there and the gate refused them all: repairable.
+    gated = [FrameTracks(0.0, {1: Box(0.80, 0.80, 0.10, 0.10)})]
+    assert vj.seed_failure_reason(gated, Point(0.85, 0.85, t=0.0),
+                                  Box(0.0, 0.0, 0.20, 0.20)) == vj.SEED_FAIL_REGION_GATED
+
+
+def test_run_job_records_seed_failure_reason_in_status():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        path = run_vitpose_job(root, _request([0.0]), StubTracker([]), StubPoseBackend())
+        debug = json.loads((path.parent / "vitpose.status.json").read_text())["seedDebug"]
+        assert debug["seedFound"] is False
+        assert debug["seedFailureReason"] == vj.SEED_FAIL_NO_DETECTIONS
+
+
+def _window_request(frames, *, start=None, end=None, tap=Point(0.50, 0.40, t=0.0)):
+    return VitPoseRequest(
+        video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
+        frames=tuple(frames), seed_tap=tap, climb_start=start, climb_end=end,
+    )
+
+
+def test_climb_window_bounds_which_frames_are_posed():
+    # Issue #101: a requested timestamp outside the climb window is echoed with empty
+    # keypoints and never handed to the pose backend — post-topout footage can
+    # contribute no evidence, so paying ViTPose for it is waste.
+    history = _history_two_people()  # decoded at 0.0, 0.5, 1.0
+    backend = StubPoseBackend()
+    req = _window_request([0.0, 0.5, 1.0], start=0.4, end=0.6)
+    bounded = vj.window_history(history, req.climb_start, req.climb_end)
+    art = build_artifact(req, bounded, backend, Path("x.mp4"))
+
+    by_ts = {f["timestamp"]: f["keypoints"] for f in art["frames"]}
+    assert [f["timestamp"] for f in art["frames"]] == [0.0, 0.5, 1.0]  # still echoed
+    assert by_ts[0.0] == [] and by_ts[1.0] == []
+    assert by_ts[0.5]
+    assert len(backend.seen_targets) == 1
+    assert art["climbWindow"] == {"start": 0.4, "end": 0.6}
+
+
+def test_absent_climb_window_behaves_exactly_as_today():
+    history = _history_two_people()
+    with_window = build_artifact(_window_request([0.0, 0.5, 1.0]), history,
+                                 StubPoseBackend(), Path("x.mp4"))
+    assert vj.window_history(history, None, None) == list(history)
+    assert all(f["keypoints"] for f in with_window["frames"])
+    assert "climbWindow" not in with_window
+
+
+def test_climb_window_start_comes_from_the_frozen_setup_tap():
+    # The tap split's payoff: the climb start is read from setup.json's *setup tap*
+    # (climberPoint), not from the ViTPose seed tap — which is free to move on every
+    # re-seed and, before the split, dragged the setup tap mid-climb.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        (root / "r" / "k" / "setup.json").write_text(json.dumps({
+            "setupHash": "sh_tap",
+            "climberPoint": {"x": 0.5, "y": 0.9, "t": 3.5},   # setup tap: climb start
+            "seedTap": {"x": 0.5, "y": 0.3, "t": 41.0},        # a later re-seed tap
+            "climbEnd": 58.0,
+        }), encoding="utf-8")
+        req = _request([0.0])
+        assert vj.resolve_climb_window(req, root / "r" / "k") == (3.5, 58.0)
+
+        # An explicit request window still wins over the bundle's calibration.
+        explicit = _window_request([0.0], start=1.0, end=2.0)
+        assert vj.resolve_climb_window(explicit, root / "r" / "k") == (1.0, 2.0)
+
+        # A bundle with neither marker keeps the open window (today's behaviour).
+        (root / "r" / "k" / "setup.json").write_text('{"setupHash": "sh_tap"}')
+        assert vj.resolve_climb_window(req, root / "r" / "k") == (None, None)
+
+
+def test_reseed_moves_only_the_seed_tap_and_leaves_the_setup_tap_frozen():
+    # The whole point of the split: re-seeding writes no calibration at all, so the
+    # setup tap the climb start is read from survives every re-seed byte-identical.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        setup_path = root / "r" / "k" / "setup.json"
+        setup_path.write_text(json.dumps({
+            "setupHash": "sh_split",
+            "climberPoint": {"x": 0.5, "y": 0.9, "t": 2.0},
+        }), encoding="utf-8")
+        before = setup_path.read_text(encoding="utf-8")
+
+        # A re-seed from a tap high on the wall, mid-climb.
+        reseed = VitPoseRequest(
+            video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
+            frames=(0.0, 0.5), seed_tap=Point(0.47, 0.22, t=0.5),
+        )
+        run_vitpose_job(root, reseed, StubTracker(_history_two_people()), StubPoseBackend())
+
+        assert setup_path.read_text(encoding="utf-8") == before
+        art = json.loads((root / "r" / "k" / "vitpose.json").read_text())
+        # ...and the scaffold records the seed tap it was actually built from.
+        assert art["seedTap"] == {"x": 0.47, "y": 0.22, "t": 0.5}
+
+
+def test_reseed_propagates_backwards_over_the_whole_trajectory():
+    # A seed tap late in the clip must fix the Climber's landmarks for *every* frame,
+    # not only frames after the tap — the stitcher walks both directions from the seed.
+    history = [
+        FrameTracks(0.5 * i, {1: Box(0.50, 0.80 - 0.05 * i, 0.06, 0.20)})
+        for i in range(6)
+    ]
+    traj = build_climber_track(history, Point(0.53, 0.62, t=2.5), None)
+    assert set(traj) == {0, 1, 2, 3, 4, 5}
+
+
+def test_seed_hash_changes_with_every_seed_input():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vid = _make_bundle(root)
+        base = _window_request([0.0], start=1.0, end=9.0)
+        h = vj.seed_hash(base, vid)
+
+        assert vj.seed_hash(base, vid) == h  # stable
+        from dataclasses import replace as _replace
+        assert vj.seed_hash(_replace(base, seed_tap=Point(0.1, 0.2, t=1.0)), vid) != h
+        assert vj.seed_hash(_replace(base, seed_region=Box(0, 0, 0.3, 0.3)), vid) != h
+        assert vj.seed_hash(_replace(base, climb_end=8.0), vid) != h
+        # ...but not with things the scaffold does not depend on.
+        assert vj.seed_hash(_replace(base, frames=(0.0, 1.0, 2.0)), vid) == h
+        assert vj.seed_hash(_replace(base, setup_hash="other"), vid) == h
+
+
+def test_unchanged_seed_skips_the_job_and_reports_the_skip():
+    # Issue #101: the same seed produces the same scaffold, so re-running is waste —
+    # and, before the hash was consulted, a *changed* seed silently left a stale
+    # scaffold behind because the setupHash matched either way.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _make_bundle(root)
+        bundle = root / "r" / "k"
+        req = _request([0.0, 0.5])
+
+        run_vitpose_job(root, req, StubTracker(_history_two_people()), StubPoseBackend())
+        first = json.loads((bundle / "vitpose.json").read_text())
+        assert first["seedHash"]
+
+        class CountingTracker(StubTracker):
+            def __init__(self, history):
+                super().__init__(history)
+                self.calls = 0
+
+            def track(self, video_path):
+                self.calls += 1
+                return self.history
+
+        # Same seed -> skipped, tracker never invoked, artifact untouched.
+        again = CountingTracker(_history_two_people())
+        run_vitpose_job(root, req, again, StubPoseBackend())
+        assert again.calls == 0
+        assert json.loads((bundle / "vitpose.json").read_text()) == first
+        status = json.loads((bundle / "vitpose.status.json").read_text())
+        assert status["status"] == "skipped"
+        assert status["skipReason"] == "unchanged-seed"
+        assert status["seedHash"] == first["seedHash"]
+
+        # A moved seed tap is not unchanged: the job runs and re-stamps.
+        moved = VitPoseRequest(
+            video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
+            frames=(0.0, 0.5), seed_tap=Point(0.06, 0.75),
+        )
+        ran = CountingTracker(_history_two_people())
+        run_vitpose_job(root, moved, ran, StubPoseBackend())
+        assert ran.calls == 1
+        assert json.loads((bundle / "vitpose.json").read_text())["seedHash"] != \
+            first["seedHash"]
+        assert json.loads((bundle / "vitpose.status.json").read_text())["status"] == "done"
+
+        # ...and force re-runs even an unchanged seed.
+        from dataclasses import replace as _replace
+        forced = CountingTracker(_history_two_people())
+        run_vitpose_job(root, _replace(moved, force=True), forced, StubPoseBackend())
+        assert forced.calls == 1
 
 
 # --------------------------------------------------------------------------- #

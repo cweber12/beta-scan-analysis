@@ -19,14 +19,48 @@ not a spec — it carries no implementation detail.
   **`seed_tap`** (the tap anchoring **Climber Identity**, with an optional `t` that
   picks the nearest tapped frame) plus **`seed_region`** (the **seed gate** deciding
   which track is the climber). `seed_region` is *decoupled from the Climber Crop* — the
-  crop is a Video Stats input, not the gate. Legacy `climber_point` / `climber_crop`
-  are backward-compatible aliases; the new fields win when both are present. Scanners
-  gate on `GET /api/contract` → `capabilities.decoupledSeed`. See `docs/adr/0006`.
+  crop is a Video Stats input, not the gate. The gate is an **overlap** test against
+  the expanded seed region, not a test of the candidate box's centre. Legacy
+  `climber_point` / `climber_crop` are backward-compatible aliases; the new fields win
+  when both are present. Scanners gate on `GET /api/contract` →
+  `capabilities.decoupledSeed`. See `docs/adr/0006`.
+- **Setup tap** vs **seed tap** — two distinct calibration values, initially equal, and
+  never again "the tap". The **setup tap** (`setup.json.climberPoint`) is frozen at
+  initial calibration: it seeds MediaPipe and it defines the **climb start**. The
+  **seed tap** (`setup.json.seedTap`, sent as `seed_tap`) identifies the Climber for
+  the ViTPose scaffold only, is free to move on every re-seed, and propagates its
+  correction backwards over the whole trajectory as well as forwards. They were one
+  field until issue #101, which is how re-seeding dragged 27 Bundles' setup taps into
+  the middle of the climb. Scanners gate on `capabilities.splitTaps`. See
+  `docs/adr/0007`.
+- **Climb window** — the `[climb start, climb end]` span of a Bundle in which frames
+  can be evidence at all. The start comes from the frozen setup tap (or an explicit
+  `climbStart`), the end from an explicit `climbEnd` marker — there is no gesture to
+  infer a topout from. Either bound may be absent, and an absent window admits every
+  frame, so a Bundle with no end marked behaves exactly as it did before the window
+  existed. Frames outside it are never tracked, never posed, and never scored: a
+  Climber walking away from a finished problem is out of scope, not a detection
+  failure.
+- **Seed hash** — the identity of everything a ViTPose scaffold is a function of: the
+  seed tap, the seed region, the climb window and the video binary. Stamped into
+  `vitpose.json` so a scaffold records *which seed it was built from*, and compared on
+  every request so unchanged inputs skip the job. This is what makes a **stale
+  scaffold** detectable; `setupHash` structurally could not, because it matches whether
+  or not a re-seed moved the tap.
+- **Seed failure reason** — why seeding found no Climber, recorded in the status
+  sidecar so diagnosis never requires re-running the job: `no-detections` /
+  `no-candidates` (the detector found nobody — the video is genuinely hard), or
+  `no-frames-in-window` / `region-gated` (candidates existed and the harness refused
+  them — repairable by re-tapping or widening the seed region). Only the repairable
+  classes are worth spending effort on; the audit behind #101 found only 5 of 15
+  truthless Bundles were genuinely hard.
 - **Ground Truth** (`ground-truth.json`) — beta-scanner's per-frame pose truth
   artifact, authored from the ViTPose scaffold plus human flags. New artifacts carry
   top-level `setupHash` and per-frame `review` provenance. `review: "auto"` is
   agreement-tier evidence only; human-flagged frames are the accuracy-tier evidence.
-  See `docs/adr/0004`.
+  Ground Truth stays **pure keypoints**: per-frame metadata derived by the harness
+  (the **absence reason**, the climb window) lives on the calibration or in the
+  evaluation record, never in the truth artifact. See `docs/adr/0004`.
 - **Video Stats** (`video-stats.json` + `metadata.json.video_stats`) — computed
   image-statistic Predictors, two-phased: whole-frame *source stats* stamped into
   `metadata.json` at download/import (never stale), and crop-aware *region stats*
