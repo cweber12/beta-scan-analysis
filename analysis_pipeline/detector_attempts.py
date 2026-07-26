@@ -31,6 +31,16 @@ assert DETECTOR_ATTEMPT_STATUSES == frozenset(DETECTOR_ATTEMPT_STATUS_ORDER) - {
 DETECTOR_ATTEMPT_EVIDENCE_ATTEMPTS = "attempts"
 DETECTOR_ATTEMPT_EVIDENCE_UNKNOWN = "unknown"
 
+# Why a ``missing`` attempt missed, per the scanner's evidence contract (reply handoff,
+# 2026-07-25). ``no-candidates`` — MediaPipe returned zero poses on every region searched,
+# a detector failure. ``identity-gated`` — candidates existed but every one fell outside
+# the identity gate in ``selectClimberPose``, a scanner gating decision. The scanner only
+# stamps the field on ``missing`` attempts; any other value stays unrecognised rather than
+# being coerced.
+MISS_REASON_NO_CANDIDATES = "no-candidates"
+MISS_REASON_IDENTITY_GATED = "identity-gated"
+MISS_REASONS = frozenset({MISS_REASON_NO_CANDIDATES, MISS_REASON_IDENTITY_GATED})
+
 _REGION_KEYS = ("x", "y", "w", "h")
 
 
@@ -42,6 +52,25 @@ def _region(value: Any) -> dict[str, Any] | None:
 
 def _list(value: Any) -> list[Any]:
     return deepcopy(value) if isinstance(value, list) else []
+
+
+def _reacquire_steps(value: Any) -> list[dict[str, Any]] | None:
+    """Normalized reacquire rungs, preserving the contract's absent/empty distinction:
+    ``None`` — the payload predates the field (legacy); ``[]`` — no reacquire ran on this
+    attempt. Today's scanner emits at most one full-frame rung; the array fills out to
+    real rungs when the expanding-ladder reacquire ships (scanner issue 03)."""
+
+    if not isinstance(value, list):
+        return None
+    steps: list[dict[str, Any]] = []
+    for raw in value:
+        if not isinstance(raw, dict):
+            continue
+        steps.append({
+            "region": _region(raw.get("region")),
+            "found": bool(raw.get("found", False)),
+        })
+    return steps
 
 
 def parse_detector_attempts(pose_data: dict[str, Any]) -> list[dict[str, Any]] | None:
@@ -78,9 +107,30 @@ def parse_detector_attempts(pose_data: dict[str, Any]) -> list[dict[str, Any]] |
             "candidateCount": raw.get("candidateCount"),
             "rejectedCandidateCount": raw.get("rejectedCandidateCount"),
             "selectionMethod": raw.get("selectionMethod"),
+            "missReason": raw.get("missReason"),
+            "reacquireSteps": _reacquire_steps(raw.get("reacquireSteps")),
+            "bestUnselectedCandidateScore": _num(raw.get("bestUnselectedCandidateScore")),
             "statusKnown": raw.get("status") in DETECTOR_ATTEMPT_STATUSES,
         })
     return parsed
+
+
+def miss_reason(attempt: dict[str, Any]) -> str | None:
+    """The effective miss reason for one parsed attempt.
+
+    Prefers the scanner-authored ``missReason``; when absent (corpora predating the
+    2026-07-25 evidence build) it is retro-derived from ``candidateCount``, which the
+    reply handoff states agrees with the field by construction: a ``missing`` attempt
+    with candidates was identity-gated, one without was undetected. ``None`` when
+    neither signal exists — the caller must fail open, never over-claim."""
+
+    reason = attempt.get("missReason")
+    if reason in MISS_REASONS:
+        return reason
+    count = attempt.get("candidateCount")
+    if isinstance(count, (int, float)) and not isinstance(count, bool):
+        return MISS_REASON_IDENTITY_GATED if count > 0 else MISS_REASON_NO_CANDIDATES
+    return None
 
 
 def detector_attempt_evidence(attempts: list[dict[str, Any]] | None) -> str:

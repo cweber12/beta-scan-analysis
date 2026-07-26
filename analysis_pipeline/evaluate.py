@@ -58,7 +58,10 @@ from typing import Any
 
 from .detector_attempts import (
     DETECTOR_ATTEMPT_STATUSES,
+    MISS_REASON_IDENTITY_GATED,
+    MISS_REASON_NO_CANDIDATES,
     condition_flags,
+    miss_reason,
     parse_detector_attempts,
     rect_containment,
     rect_iou,
@@ -99,7 +102,14 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 #    plus the pooled ``frameQuality.hallucinationSplit`` it enables. Additive and
 #    fail-open — a pre-v12 frame carries no flag and reads as *unknown* presence
 #    downstream (never as absent, which would silently inflate the real-FP side).
-SCHEMA_VERSION = 12
+# v13 splits the miss-cause residual by the scanner's ``missReason`` (reply handoff,
+#    2026-07-25): ``identity-gated`` / ``no-candidates`` join the cause vocabulary, and
+#    each ``cropQuality`` frame carries the effective ``missReason`` plus
+#    ``bestUnselectedCandidateScore``. Retro-derived from ``candidateCount`` on streams
+#    predating the field (the two agree by construction); ``adverse-conditions`` /
+#    ``unexplained`` survive only when neither signal exists. (#101's absence-provenance
+#    bump moves to v14.)
+SCHEMA_VERSION = 13
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -360,10 +370,12 @@ REACQUIRE_SEARCHES_FULL_FRAME = True
 # Miss causes. Ordered most-decisive first; ``_miss_cause`` returns the first that fits.
 MISS_CLIMBER_ABSENT = "climber-absent"      # truth says no Climber — a correct miss
 MISS_CROP_MISPLACED = "crop-misplaced"      # the only searched region excluded the Climber
-MISS_ADVERSE_CONDITIONS = "adverse-conditions"  # everything searched, condition flags fired
-MISS_UNEXPLAINED = "unexplained"            # everything searched, conditions clean, still lost
-MISS_CAUSES = [MISS_CLIMBER_ABSENT, MISS_CROP_MISPLACED, MISS_ADVERSE_CONDITIONS,
-               MISS_UNEXPLAINED]
+MISS_IDENTITY_GATED = "identity-gated"      # candidates existed; the identity gate rejected all
+MISS_NO_CANDIDATES = "no-candidates"        # detector returned nothing anywhere searched
+MISS_ADVERSE_CONDITIONS = "adverse-conditions"  # no candidate signal; condition flags fired
+MISS_UNEXPLAINED = "unexplained"            # no candidate signal, conditions clean, still lost
+MISS_CAUSES = [MISS_CLIMBER_ABSENT, MISS_CROP_MISPLACED, MISS_IDENTITY_GATED,
+               MISS_NO_CANDIDATES, MISS_ADVERSE_CONDITIONS, MISS_UNEXPLAINED]
 
 
 @dataclass
@@ -1352,16 +1364,24 @@ def _bbox_block(bbox: tuple[float, float, float, float] | None) -> dict[str, Any
 
 def _miss_cause(p: _FramePair, bbox: tuple[float, float, float, float] | None,
                 containment: float | None, flags_fired: bool,
-                reacquire_attempted: bool) -> str:
+                reacquire_attempted: bool, reason: str | None) -> str:
     """Why one missing Detector Attempt found no Climber (issue #86).
 
     The ordering encodes what the evidence can actually support. ``crop-misplaced`` is a
     claim about *causation*, so it requires that the misplaced crop was the only place the
     scanner looked: when a full-frame reacquire also ran and still failed, the Climber was
     searched for everywhere, and the crop cannot be what lost them — however badly placed
-    it was. Crop placement is still measured on every miss (``initialCropContainment``);
+    it was. It also outranks ``reason``: candidates found inside a crop that excluded the
+    Climber were not the Climber, so gating them out was correct and the crop still owns
+    the miss. Crop placement is still measured on every miss (``initialCropContainment``);
     it is just not allowed to masquerade as the cause.
-    """
+
+    ``reason`` is the effective miss reason (``detector_attempts.miss_reason``): the
+    scanner-authored ``missReason`` or its ``candidateCount`` retro-derivation. When it
+    exists it splits the old residual — ``identity-gated`` (a gate rejection, not a
+    detector failure) vs ``no-candidates`` (the detector genuinely saw nobody).
+    ``adverse-conditions`` / ``unexplained`` remain only for streams carrying neither
+    signal, so a pre-evidence record is never over-claimed."""
 
     if not p.truth.present:
         return MISS_CLIMBER_ABSENT
@@ -1369,6 +1389,10 @@ def _miss_cause(p: _FramePair, bbox: tuple[float, float, float, float] | None,
     if (not searched_everywhere and bbox is not None and containment is not None
             and containment < CROP_CONTAINMENT_MIN):
         return MISS_CROP_MISPLACED
+    if reason == MISS_REASON_IDENTITY_GATED:
+        return MISS_IDENTITY_GATED
+    if reason == MISS_REASON_NO_CANDIDATES:
+        return MISS_NO_CANDIDATES
     if flags_fired:
         return MISS_ADVERSE_CONDITIONS
     return MISS_UNEXPLAINED
@@ -1421,8 +1445,11 @@ def _crop_quality(pairs: list[_FramePair]) -> dict[str, Any]:
             contained += containment >= CROP_CONTAINMENT_MIN
 
         cause = None
+        reason = None
         if status == "missing":
-            cause = _miss_cause(p, bbox, containment, flags_fired, reacquire_attempted)
+            reason = miss_reason(attempt)
+            cause = _miss_cause(p, bbox, containment, flags_fired, reacquire_attempted,
+                                reason)
             cause_counts[cause] += 1
 
         entries.append({
@@ -1439,6 +1466,9 @@ def _crop_quality(pairs: list[_FramePair]) -> dict[str, Any]:
             "firedSearchFlags": sorted(n for n, v in flags.items() if v),
             "reacquireAttempted": reacquire_attempted,
             "missCause": cause,
+            "missReason": reason,
+            "bestUnselectedCandidateScore": _round6(
+                attempt.get("bestUnselectedCandidateScore")),
         })
 
     def stats(values: list[float]) -> dict[str, Any]:

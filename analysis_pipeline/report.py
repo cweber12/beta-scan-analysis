@@ -1085,18 +1085,25 @@ def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
                 f"<td>{int(r['crop_missed_truth'])}/{int(r['crop_containment_scored'])}</td>"
                 f"<td>{_fmt(r['median_initial_crop_containment'])}</td>"
                 f"<td>{int(r['flags_fired'])}</td>"
+                f"<td>{_fmt(r.get('median_best_unselected_candidate_score'))}</td>"
                 "</tr>"
             )
         cause_tbl = (
             "<p class='sub'>Why the detector found no Climber, per matched missing "
-            "attempt. <code>crop-misplaced</code> requires that the misplaced crop was "
-            "the <em>only</em> place searched &mdash; when a full-frame reacquire also "
-            "ran and failed, the Climber was searched for everywhere, so the crop cannot "
-            "be what lost them. Crop placement is still measured on every miss in the "
-            "next column.</p>"
+            "attempt. <code>identity-gated</code> means candidates existed but the "
+            "identity gate rejected every one (a scanner gating decision); "
+            "<code>no-candidates</code> means MediaPipe returned nothing anywhere "
+            "searched (a detector failure). Split by the scanner's "
+            "<code>missReason</code>, retro-derived from <code>candidateCount</code> on "
+            "older streams. <code>crop-misplaced</code> requires that the misplaced crop "
+            "was the <em>only</em> place searched &mdash; when a full-frame reacquire "
+            "also ran and failed, the Climber was searched for everywhere, so the crop "
+            "cannot be what lost them. Crop placement is still measured on every miss "
+            "in the next column.</p>"
             "<div class='tablewrap'><table><thead><tr><th>miss cause</th><th>n</th>"
             "<th>share</th><th>crop excluded Climber</th>"
-            "<th>median crop containment</th><th>condition flags fired</th></tr></thead>"
+            "<th>median crop containment</th><th>condition flags fired</th>"
+            "<th>median best unselected candidate score</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table></div>")
 
     crop_tiles = _stat_tiles([
@@ -1109,6 +1116,7 @@ def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
     display_cols = [
         "route_folder", "video_key", "run_ts", "flagged_rate",
         "crop_contained_truth_rate", "miss_crop_misplaced_share",
+        "miss_identity_gated_share", "miss_no_candidates_share",
         "miss_unexplained_share", "missing_attempts",
         "over_rejection_rate", "over_rejection_rate_truth_present",
         "flip_over_rejection_rate", "rejection_truth_checkable", "rejected_attempts",

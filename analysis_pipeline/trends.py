@@ -1228,6 +1228,8 @@ def _crop_quality_rows(recs: list[EvalRecord]) -> pd.DataFrame:
                 "status": e.get("status"),
                 "truth_present": e.get("truthPresent"),
                 "miss_cause": e.get("missCause"),
+                "miss_reason": e.get("missReason"),
+                "best_unselected_candidate_score": e.get("bestUnselectedCandidateScore"),
                 "initial_search_region_iou": e.get("initialSearchRegionIou"),
                 "detection_region_iou": e.get("detectionRegionIou"),
                 "initial_crop_containment": e.get("initialCropContainment"),
@@ -1264,6 +1266,7 @@ def _miss_cause_table(crop_df: pd.DataFrame) -> pd.DataFrame:
     for cause, g in sub.groupby("miss_cause"):
         contained = g["crop_contained_truth"]
         scored = int(contained.notna().sum())
+        best = g.get("best_unselected_candidate_score")
         rows.append({
             "miss_cause": str(cause),
             "n": int(len(g)),
@@ -1274,6 +1277,10 @@ def _miss_cause_table(crop_df: pd.DataFrame) -> pd.DataFrame:
                 float(g["initial_crop_containment"].median())
                 if g["initial_crop_containment"].notna().any() else None),
             "flags_fired": int((g["search_flags_fired"] == True).sum()),  # noqa: E712
+            # The gate-tuning number (scanner issues 03-04): on identity-gated misses,
+            # how confident the best candidate the gate rejected was.
+            "median_best_unselected_candidate_score": (
+                float(best.median()) if best is not None and best.notna().any() else None),
         })
     return pd.DataFrame(rows).sort_values(
         ["n", "miss_cause"], ascending=[False, True]).reset_index(drop=True)
