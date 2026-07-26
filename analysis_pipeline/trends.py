@@ -80,6 +80,10 @@ def _pct_ci(samples: list[float], alpha: float = 0.05) -> tuple[float, float]:
     return (s[lo_i], s[hi_i])
 
 
+def _p90(values: pd.Series) -> float | None:
+    return float(np.quantile(values.to_numpy(dtype=float), 0.9)) if len(values) else None
+
+
 def _bootstrap_rate(values: list[int], n_boot: int = N_BOOT) -> tuple[float, float, float] | None:
     if not values:
         return None
@@ -92,6 +96,76 @@ def _bootstrap_rate(values: list[int], n_boot: int = N_BOOT) -> tuple[float, flo
         draws.append(sum(sample) / n)
     lo, hi = _pct_ci(draws)
     return (mean, lo, hi)
+
+
+# The three columns that identify a Run. The Run is the unit of inference (CONTEXT.md),
+# so anything that puts a CI on a per-frame outcome resamples these, not the frames.
+_RUN_KEY_COLS = ("route_folder", "video_key", "run_ts")
+
+
+def _cluster_bootstrap_rate(sums: list[float], counts: list[int],
+                            n_boot: int = N_BOOT) -> tuple[float, float, float] | None:
+    """Percentile bootstrap of a pooled rate that resamples **runs**, not frames (#70).
+
+    ``sums[i]`` / ``counts[i]`` are run *i*'s outcome total and row count. Each draw
+    takes ``len(counts)`` runs with replacement and recomputes the pooled rate over the
+    drawn runs, so the interval's width tracks how many independent runs the estimate
+    rests on rather than how many correlated frames they happened to contribute. The
+    point estimate is untouched — it is still the pooled rate over every frame.
+    """
+    total = sum(counts)
+    if not counts or total == 0:
+        return None
+    rng = random.Random(BOOT_SEED)
+    n = len(counts)
+    pooled = sum(sums) / total
+    draws: list[float] = []
+    for _ in range(n_boot):
+        s = c = 0.0
+        for _ in range(n):
+            i = rng.randrange(n)
+            s += sums[i]
+            c += counts[i]
+        if c:
+            draws.append(s / c)
+    if not draws:
+        return None
+    lo, hi = _pct_ci(draws)
+    return (pooled, lo, hi)
+
+
+def _run_unit_rate(df: pd.DataFrame, outcome: str) -> dict[str, Any] | None:
+    """Pooled ``outcome`` rate with a run-unit CI and the per-run dispersion beside it.
+
+    Frames inside a run are massively pseudo-replicated — a band can hold 100k frames
+    drawn from a few dozen runs — so an iid bootstrap over those frames reports a CI far
+    tighter than the design supports and makes marginal condition effects read as
+    significant (#70). The rate stays pooled (that is what the corpus shows); the
+    interval comes from the cluster bootstrap, and ``run_rate_median`` / ``run_rate_p90``
+    expose the spread across runs that a single pooled number hides.
+
+    Returns ``None`` when the frame carries no run identity — better to drop the band
+    than to publish a frame-pooled interval that looks like a run-unit one.
+    """
+    key_cols = [c for c in _RUN_KEY_COLS if c in df.columns]
+    if not key_cols or df.empty:
+        return None
+    grouped = df.groupby(key_cols, dropna=False)[outcome]
+    sums = [float(v) for v in grouped.sum()]
+    counts = [int(v) for v in grouped.size()]
+    boot = _cluster_bootstrap_rate(sums, counts)
+    if boot is None:
+        return None
+    run_rates = pd.Series([s / c for s, c in zip(sums, counts) if c], dtype=float)
+    return {
+        "n": int(sum(counts)),
+        "n_runs": len(counts),
+        "rate": boot[0],
+        "ci_low": boot[1],
+        "ci_high": boot[2],
+        "run_rate_median": float(run_rates.median()),
+        "run_rate_p90": _p90(run_rates),
+    }
 
 
 def _iter_eval_records(analysis_root: Path) -> list[EvalRecord]:
@@ -418,11 +492,18 @@ def _joint_ranking(frame_joint_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _condition_bands(frame_joint_df: pd.DataFrame, col: str, bins: int = 3) -> pd.DataFrame:
+    """Failure rate per quantile band of a geometric condition, CI'd at the run unit.
+
+    A frame/joint row is not an independent observation — one run contributes thousands
+    of them — so the band's interval comes from ``_run_unit_rate``'s cluster bootstrap
+    and the per-run median/p90 travel with it (#70)."""
+
     if frame_joint_df.empty or col not in frame_joint_df.columns:
         return pd.DataFrame()
+    key_cols = [c for c in _RUN_KEY_COLS if c in frame_joint_df.columns]
     rows: list[dict[str, Any]] = []
     for tier, tg in frame_joint_df.groupby("tier"):
-        d = tg[[col, "failure"]].dropna()
+        d = tg[[*key_cols, col, "failure"]].dropna(subset=[col, "failure"])
         if len(d) < bins * 10:
             continue
         try:
@@ -430,18 +511,20 @@ def _condition_bands(frame_joint_df: pd.DataFrame, col: str, bins: int = 3) -> p
         except ValueError:
             continue
         for band, bg in d.groupby("_bin"):
-            vals = bg["failure"].astype(int).tolist()
-            boot = _bootstrap_rate(vals)
-            if boot is None:
+            stats = _run_unit_rate(bg.assign(failure=bg["failure"].astype(int)), "failure")
+            if stats is None:
                 continue
             rows.append({
                 "tier": tier,
                 "condition": col,
                 "band": int(band) + 1,
-                "n": len(vals),
-                "failure_rate": boot[0],
-                "ci_low": boot[1],
-                "ci_high": boot[2],
+                "n": stats["n"],
+                "n_runs": stats["n_runs"],
+                "failure_rate": stats["rate"],
+                "ci_low": stats["ci_low"],
+                "ci_high": stats["ci_high"],
+                "run_rate_median": stats["run_rate_median"],
+                "run_rate_p90": stats["run_rate_p90"],
                 "band_min": float(bg[col].min()),
                 "band_max": float(bg[col].max()),
             })
@@ -1050,16 +1133,21 @@ def _frame_quality_worklist(fq_df: pd.DataFrame) -> pd.DataFrame:
 def _frame_quality_condition_bands(fq_df: pd.DataFrame, bins: int = 3) -> pd.DataFrame:
     """Flagged-frame rate per Video Stats condition tercile (issue #44 deliverable 3).
 
-    Reuses the condition-band machinery (``pd.qcut`` + ``_bootstrap_rate``) from the
+    Reuses the condition-band machinery (``pd.qcut`` + ``_run_unit_rate``) from the
     within-video trends, but the outcome is the auto ``flagged`` flag and the predictor
-    is a per-bundle Video Stats condition rather than a per-frame geometric one."""
+    is a per-bundle Video Stats condition rather than a per-frame geometric one.
+
+    A Video Stats condition is constant *within* a bundle, so a band here is really a
+    handful of videos' worth of frames — the pseudo-replication is even starker than in
+    the geometric bands, and the CI is likewise a run-unit cluster bootstrap (#70)."""
 
     if fq_df.empty:
         return pd.DataFrame()
     cond_cols = [c for c in fq_df.columns if c.startswith("vs_")]
+    key_cols = [c for c in _RUN_KEY_COLS if c in fq_df.columns]
     rows: list[dict[str, Any]] = []
     for col in cond_cols:
-        d = fq_df[[col, "flagged"]].dropna()
+        d = fq_df[[*key_cols, col, "flagged"]].dropna(subset=[col, "flagged"])
         if len(d) < bins * 10:
             continue
         try:
@@ -1067,17 +1155,19 @@ def _frame_quality_condition_bands(fq_df: pd.DataFrame, bins: int = 3) -> pd.Dat
         except ValueError:
             continue
         for band, bg in d.groupby("_bin"):
-            vals = bg["flagged"].astype(int).tolist()
-            boot = _bootstrap_rate(vals)
-            if boot is None:
+            stats = _run_unit_rate(bg.assign(flagged=bg["flagged"].astype(int)), "flagged")
+            if stats is None:
                 continue
             rows.append({
                 "condition": col[len("vs_"):],
                 "band": int(band) + 1,
-                "n": len(vals),
-                "flagged_rate": boot[0],
-                "ci_low": boot[1],
-                "ci_high": boot[2],
+                "n": stats["n"],
+                "n_runs": stats["n_runs"],
+                "flagged_rate": stats["rate"],
+                "ci_low": stats["ci_low"],
+                "ci_high": stats["ci_high"],
+                "run_rate_median": stats["run_rate_median"],
+                "run_rate_p90": stats["run_rate_p90"],
                 "band_min": float(bg[col].min()),
                 "band_max": float(bg[col].max()),
             })
@@ -1371,10 +1461,6 @@ _FUNNEL_RUN_METRICS = [
     ("attempt_full_frame_reacquire_success_rate",
      "full-frame reacquire succeeded / attempts"),
 ]
-
-
-def _p90(values: pd.Series) -> float | None:
-    return float(np.quantile(values.to_numpy(dtype=float), 0.9)) if len(values) else None
 
 
 def _status_columns(status: str) -> tuple[str, str]:

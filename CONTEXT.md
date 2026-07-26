@@ -152,6 +152,13 @@ not a spec — it carries no implementation detail.
   detector output. Causes are discovered by correlating Detection Errors against
   Detector Attempts, crops, and computed pixel conditions, not by accepting
   hand-authored frame metadata as truth.
+- **Condition Band** — a quantile slice of one Predictor (terciles by default),
+  reported with the failure/flagged rate of the frames that fall in it. The rate
+  pools frames, but the **confidence interval is computed at the Run unit**: a
+  band's frames come from a few dozen Runs at most and are heavily correlated
+  within each, so the bootstrap resamples Runs and the per-Run median/p90 is
+  reported beside the pooled rate. A band with many frames and few Runs is weak
+  evidence, and its interval says so.
 
 ## ORB cross-match
 

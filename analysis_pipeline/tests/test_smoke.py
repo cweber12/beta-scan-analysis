@@ -2065,14 +2065,26 @@ def test_evidence_generation_dedup_is_scoped_to_one_truth_revision():
         assert ctx["eval_count_total"] == 2
 
 
+def _run_keyed(n: int, runs: int) -> dict[str, list]:
+    """Run-identity columns spreading ``n`` frames evenly over ``runs`` runs."""
+
+    idx = [i % runs for i in range(n)]
+    return {
+        "route_folder": [f"route{i}" for i in idx],
+        "video_key": [f"vid{i}" for i in idx],
+        "run_ts": [f"2026010{i}-000000" for i in idx],
+    }
+
+
 def test_frame_quality_condition_bands_flagged_rate():
     """Issue #44 deliverable 3: the flagged-frame rate is banded against a Video Stats
     condition via the same qcut + bootstrap machinery as the geometric trends."""
 
     from analysis_pipeline import trends
 
-    # 30 rows: the lowest-luma tercile is all flagged, the rest clean.
+    # 30 rows over 3 runs: the lowest-luma tercile is all flagged, the rest clean.
     df = pd.DataFrame({
+        **_run_keyed(30, 3),
         "vs_wall_luma_mean": [float(i) for i in range(30)],
         "flagged": [1 if i < 10 else 0 for i in range(30)],
     })
@@ -2085,6 +2097,52 @@ def test_frame_quality_condition_bands_flagged_rate():
     assert by_band[2] == 0.0 and by_band[3] == 0.0
 
     assert trends._frame_quality_condition_bands(pd.DataFrame()).empty
+
+
+def test_condition_band_cis_are_computed_at_the_run_unit():
+    """Issue #70: frames within a run are pseudo-replicated, so a band's CI resamples
+    runs, not frames — the pooled rate is unchanged but the interval widens to match the
+    handful of runs it actually rests on, and the per-run dispersion travels with it."""
+
+    from analysis_pipeline import trends
+
+    # 120 frames from 4 runs. Two runs fail on every frame, two on none: the pooled rate
+    # is 0.5, but the evidence is 4 runs, so the interval must span most of [0, 1].
+    n_runs, per_run = 4, 30
+    df = pd.DataFrame({
+        **_run_keyed(n_runs * per_run, n_runs),
+        "tier": ["agreement"] * (n_runs * per_run),
+        "size_frac": [0.5] * (n_runs * per_run),
+        # _run_keyed cycles run index i % 4, so runs 0 and 1 fail, runs 2 and 3 do not.
+        "failure": [1 if (i % n_runs) < 2 else 0 for i in range(n_runs * per_run)],
+    })
+    stats = trends._run_unit_rate(df, "failure")
+    assert stats == {
+        "n": 120, "n_runs": 4, "rate": 0.5,
+        "ci_low": stats["ci_low"], "ci_high": stats["ci_high"],
+        "run_rate_median": 0.5, "run_rate_p90": stats["run_rate_p90"],
+    }
+    # Every run is all-or-nothing, so a 4-run resample can land on 0.0 or 1.0.
+    assert stats["ci_low"] == 0.0 and stats["ci_high"] == 1.0
+    assert stats["run_rate_p90"] == 1.0
+
+    # The frame-pooled bootstrap on the same rows would claim ~±0.09 — that gap is the
+    # whole point of #70.
+    frame_pooled = trends._bootstrap_rate(df["failure"].tolist())
+    assert frame_pooled[0] == 0.5
+    assert (frame_pooled[2] - frame_pooled[1]) < 0.3
+
+    # And the band builders carry the run-unit columns through.
+    bands = trends._condition_bands(
+        df.assign(size_frac=[float(i) for i in range(len(df))]), "size_frac", bins=3)
+    assert not bands.empty
+    assert {"n_runs", "run_rate_median", "run_rate_p90"} <= set(bands.columns)
+    assert (bands["ci_low"] <= bands["failure_rate"]).all()
+    assert (bands["failure_rate"] <= bands["ci_high"]).all()
+
+    # No run identity -> no band, rather than a frame-pooled CI wearing a run-unit label.
+    assert trends._run_unit_rate(df.drop(columns=list(trends._RUN_KEY_COLS)),
+                                "failure") is None
 
 
 def test_evaluate_vitpose_fallback_when_no_ground_truth():
@@ -2705,6 +2763,7 @@ def _run_all():
            test_evidence_generation_dedup_prefers_attempt_backed_record,
            test_evidence_generation_dedup_is_scoped_to_one_truth_revision,
            test_frame_quality_condition_bands_flagged_rate,
+           test_condition_band_cis_are_computed_at_the_run_unit,
            test_evaluate_vitpose_fallback_when_no_ground_truth,
            test_evaluate_prune_removes_stale_run_orphan_keeps_history,
            test_evaluate_mode_all_default_is_full_sweep,

@@ -95,6 +95,17 @@ def _fmt(v: Any, nd: int = 2) -> str:
     return str(v)
 
 
+def _fmt_int(v: Any) -> str:
+    """An integer cell that tolerates a missing column (older CSVs, empty frames)."""
+
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return "–"
+    try:
+        return str(int(v))
+    except (TypeError, ValueError):
+        return "–"
+
+
 def _pct(v: Any, nd: int = 1) -> str:
     """A 0..1 share as a percentage.
 
@@ -407,15 +418,18 @@ def _condition_table(df: pd.DataFrame) -> str:
             f"<td>{_esc(name_map.get(str(r['condition']), str(r['condition'])))}</td>"
             f"<td>band {int(r['band'])}</td>"
             f"<td>{int(r['n'])}</td>"
+            f"<td>{_fmt_int(r.get('n_runs'))}</td>"
             f"<td>{_esc(rng)}</td>"
             f"<td>{_fmt(r['failure_rate'])}</td>"
             f"<td>[{_fmt(r['ci_low'])}, {_fmt(r['ci_high'])}]</td>"
+            f"<td>{_fmt(r.get('run_rate_median'))} / {_fmt(r.get('run_rate_p90'))}</td>"
             "</tr>"
         )
     return (
         "<div class='tablewrap'><table><thead><tr>"
         "<th>tier</th><th>condition</th><th>quantile band</th><th>frame/joint n</th>"
-        "<th>band range</th><th>failure rate</th><th>bootstrap 95% CI</th>"
+        "<th>runs</th><th>band range</th><th>failure rate</th>"
+        "<th>run-unit 95% CI</th><th>per-run rate median / p90</th>"
         "</tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
@@ -802,18 +816,24 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
                 f"<td>{_esc(r['condition'])}</td>"
                 f"<td>band {int(r['band'])}</td>"
                 f"<td>{int(r['n'])}</td>"
+                f"<td>{_fmt_int(r.get('n_runs'))}</td>"
                 f"<td>{_esc(rng)}</td>"
                 f"<td>{_fmt(r['flagged_rate'])}</td>"
                 f"<td>[{_fmt(r['ci_low'])}, {_fmt(r['ci_high'])}]</td>"
+                f"<td>{_fmt(r.get('run_rate_median'))} / {_fmt(r.get('run_rate_p90'))}</td>"
                 "</tr>"
             )
         worst = ", ".join(f"{c} (Δ{_fmt(spread[c])})" for c in order[:3]) or "none"
         cond_tbl = (
             f"<p class='sub'>Conditions ranked by flagged-rate spread across bands: "
-            f"{_esc(worst)}.</p>"
+            f"{_esc(worst)}. A Video Stats condition is constant within a bundle, so a "
+            "band is only as strong as its <em>runs</em> column — the CI resamples runs, "
+            "and the per-run median/p90 shows how much of the band's rate is one "
+            "video.</p>"
             "<div class='tablewrap'><table><thead><tr><th>Video Stats condition</th>"
-            "<th>tercile band</th><th>frames</th><th>band range</th>"
-            "<th>flagged rate</th><th>bootstrap 95% CI</th></tr></thead>"
+            "<th>tercile band</th><th>frames</th><th>runs</th><th>band range</th>"
+            "<th>flagged rate</th><th>run-unit 95% CI</th>"
+            "<th>per-run rate median / p90</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table></div>")
 
     worklist = ctx.get("frame_quality_worklist")
@@ -1488,8 +1508,13 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         _joint_ranking_table(ctx.get("joint_rank", pd.DataFrame())),
 
         "<h2>Within-video frame-level conditions vs error</h2>",
-        "<p class='sub'>Frame/joint rows are grouped into quantile bands by "
-        "condition; table reports failure rates and bootstrap CIs by tier.</p>",
+        "<p class='sub'>Frame/joint rows are grouped into quantile bands by condition; "
+        "the table reports each band's pooled failure rate by tier. The rate pools "
+        "frames, but the interval does <em>not</em> treat them as independent — frames "
+        "within a run are correlated, so the CI is a cluster bootstrap over the band's "
+        "runs (#70) and the per-run median/p90 sits beside it. Read a band as "
+        "well-evidenced only when its <code>runs</code> count is large; a wide interval "
+        "over many frames means few runs, not noisy frames.</p>",
         trusted_evidence,
         _condition_table(ctx.get("condition_bands", pd.DataFrame())),
 
