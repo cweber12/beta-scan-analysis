@@ -24,6 +24,7 @@
       "scoreable": 0,
       "torsoUndefined": 0,
       "truthFrames": 0,
+      "unconfirmedAbsent": 0,
       "unmatchedAbsent": 0,
       "unmatchedPresent": 0,
       "verifiedFrames": 0
@@ -299,6 +300,7 @@
       "scoreable": 273,
       "torsoUndefined": 15,
       "truthFrames": 329,
+      "unconfirmedAbsent": 31,
       "unmatchedAbsent": 0,
       "unmatchedPresent": 0,
       "verifiedFrames": 0
@@ -527,8 +529,8 @@
       }
     },
     "presence": {
-      "absentDetected": 26,
-      "absentUndetected": 15,
+      "absentDetected": 6,
+      "absentUndetected": 4,
       "presentDetected": 275,
       "presentUndetected": 13
     },
@@ -549,13 +551,20 @@
       135
     ]
   },
+  "climbWindow": {
+    "end": null,
+    "start": 0.0
+  },
   "conformance": {
     "cause": null,
     "causeEvidence": {
       "acceptedAttempts": 275,
       "acceptedShare": 0.954861,
       "fitFrames": 274,
-      "presentAttempts": 288
+      "presentAttempts": 288,
+      "samplingRatio": 1.0,
+      "scaffoldStepSec": 0.1,
+      "truthStepSec": 0.1
     },
     "conforms": true,
     "n": 3105,
@@ -563,9 +572,11 @@
     "thresholds": {
       "minAcceptedShare": 0.5,
       "minFitFrames": 20,
+      "minFitFramesGate": 20,
       "minPoints": 20,
       "r2Min": 0.9,
       "r2MinX": 0.75,
+      "rateMismatchMinRatio": 2.0,
       "slopeMax": 1.15,
       "slopeMin": 0.85
     },
@@ -581,9 +592,17 @@
     }
   },
   "counts": {
+    "absenceReasons": {
+      "confirmed-absent": 10,
+      "not-sampled": 0,
+      "out-of-scope": 0,
+      "unknown": 0,
+      "untracked": 31
+    },
     "agreementSkipped": {
       "flaggedAbsent": 0,
-      "flaggedWrong": 0
+      "flaggedWrong": 0,
+      "outOfScope": 0
     },
     "review": {
       "auto": 329,
@@ -591,6 +610,7 @@
       "flaggedWrong": 0
     },
     "truthFramesAbsent": 41,
+    "truthFramesOutOfScope": 0,
     "truthFramesPresent": 288,
     "truthFramesTotal": 329,
     "truthFramesVerified": 0
@@ -7353,6 +7373,7 @@
     "flaggedCount": 37,
     "frames": [
       {
+        "absenceReason": "confirmed-absent",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -7684,6 +7705,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -8015,6 +8037,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -8346,6 +8369,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -8725,6 +8749,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -9152,6 +9177,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -9579,6 +9605,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -9946,6 +9973,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -10325,6 +10353,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -10752,6 +10781,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -11119,6 +11149,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -11546,6 +11577,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -11973,6 +12005,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -12400,6 +12433,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -12827,6 +12861,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -13242,6 +13277,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -13633,6 +13669,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -14060,6 +14097,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -14487,6 +14525,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -14914,6 +14953,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -15341,6 +15381,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -15768,6 +15809,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -16195,6 +16237,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -16622,6 +16665,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -17049,6 +17093,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -17476,6 +17521,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -17903,6 +17949,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [],
         "annotationSetupHash": null,
         "autoClass": "flipped-rotated",
@@ -18053,6 +18100,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -18432,6 +18480,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -18859,6 +18908,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -19286,6 +19336,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -19713,6 +19764,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -20140,6 +20192,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -20567,6 +20620,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -20994,6 +21048,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -21421,6 +21476,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -21848,6 +21904,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -22275,6 +22332,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -22702,6 +22760,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [],
         "annotationSetupHash": null,
         "autoClass": "flipped-rotated",
@@ -22930,6 +22989,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -23345,6 +23405,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [],
         "annotationSetupHash": null,
         "autoClass": "flipped-rotated",
@@ -23549,6 +23610,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -23952,6 +24014,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [],
         "annotationSetupHash": null,
         "autoClass": "flipped-rotated",
@@ -24132,6 +24195,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [],
         "annotationSetupHash": null,
         "autoClass": "flipped-rotated",
@@ -24312,6 +24376,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -24739,6 +24804,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -25154,6 +25220,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -25569,6 +25636,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -25984,6 +26052,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -26399,6 +26468,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -26802,6 +26872,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -27217,6 +27288,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -27584,6 +27656,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -27939,6 +28012,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -28306,6 +28380,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -28673,6 +28748,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -29040,6 +29116,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -29407,6 +29484,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -29774,6 +29852,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -30189,6 +30268,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -30604,6 +30684,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -31031,6 +31112,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -31398,6 +31480,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -31789,6 +31872,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -32216,6 +32300,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -32643,6 +32728,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -33070,6 +33156,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -33449,6 +33536,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -33876,6 +33964,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -34255,6 +34344,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -34682,6 +34772,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -35061,6 +35152,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -35428,6 +35520,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -35807,6 +35900,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -36174,6 +36268,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -36553,6 +36648,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -36920,6 +37016,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -37287,6 +37384,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -37666,6 +37764,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -38033,6 +38132,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -38400,6 +38500,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -38767,6 +38868,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -39134,6 +39236,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -39477,6 +39580,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -39844,6 +39948,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -40211,6 +40316,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -40554,6 +40660,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -40885,6 +40992,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -41252,6 +41360,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -41619,6 +41728,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -41962,6 +42072,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -42293,6 +42404,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -42636,6 +42748,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -42979,6 +43092,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -43346,6 +43460,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -43773,6 +43888,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -44188,6 +44304,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -44567,6 +44684,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -44994,6 +45112,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -45397,6 +45516,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -45716,6 +45836,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -46119,6 +46240,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -46522,6 +46644,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -46949,6 +47072,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -47376,6 +47500,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -47803,6 +47928,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -48218,6 +48344,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -48645,6 +48772,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -49072,6 +49200,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -49487,6 +49616,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -49914,6 +50044,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -50341,6 +50472,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -50768,6 +50900,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -51195,6 +51328,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -51622,6 +51756,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -52049,6 +52184,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -52476,6 +52612,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -52903,6 +53040,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -53330,6 +53468,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -53757,6 +53896,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -54184,6 +54324,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -54611,6 +54752,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -55038,6 +55180,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -55465,6 +55608,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -55892,6 +56036,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -56307,6 +56452,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -56710,6 +56856,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -57113,6 +57260,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -57528,6 +57676,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -57943,6 +58092,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -58334,6 +58484,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -58725,6 +58876,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -59128,6 +59280,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -59531,6 +59684,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -59934,6 +60088,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -60337,6 +60492,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -60740,6 +60896,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -61143,6 +61300,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -61546,6 +61704,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -61973,6 +62132,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -62400,6 +62560,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -62827,6 +62988,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -63254,6 +63416,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -63669,6 +63832,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -64096,6 +64260,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -64511,6 +64676,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -64926,6 +65092,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -65341,6 +65508,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -65768,6 +65936,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -66195,6 +66364,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -66622,6 +66792,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -67049,6 +67220,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -67476,6 +67648,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -67903,6 +68076,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -68330,6 +68504,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -68757,6 +68932,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -69184,6 +69360,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -69611,6 +69788,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -70038,6 +70216,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -70465,6 +70644,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -70892,6 +71072,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -71319,6 +71500,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -71734,6 +71916,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -72161,6 +72344,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -72588,6 +72772,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -73015,6 +73200,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -73442,6 +73628,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -73869,6 +74056,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -74296,6 +74484,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -74711,6 +74900,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -75138,6 +75328,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -75565,6 +75756,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -75992,6 +76184,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -76407,6 +76600,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -76774,6 +76968,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -77201,6 +77396,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -77580,6 +77776,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -77995,6 +78192,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -78386,6 +78584,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -78801,6 +79000,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -79204,6 +79404,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -79583,6 +79784,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -79986,6 +80188,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -80269,6 +80472,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -80636,6 +80840,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -81051,6 +81256,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -81418,6 +81624,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -81797,6 +82004,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -82224,6 +82432,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -82651,6 +82860,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -83078,6 +83288,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -83505,6 +83716,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -83932,6 +84144,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -84359,6 +84572,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -84786,6 +85000,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -85213,6 +85428,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -85640,6 +85856,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -86067,6 +86284,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -86494,6 +86712,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -86897,6 +87116,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -87288,6 +87508,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -87703,6 +87924,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -88094,6 +88316,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -88521,6 +88744,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -88912,6 +89136,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -89339,6 +89564,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -89742,6 +89968,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -90121,6 +90348,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -90500,6 +90728,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -90879,6 +91108,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -91306,6 +91536,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -91733,6 +91964,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -92160,6 +92392,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -92587,6 +92820,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -93014,6 +93248,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -93441,6 +93676,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -93868,6 +94104,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -94295,6 +94532,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -94722,6 +94960,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -95149,6 +95388,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -95576,6 +95816,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -96003,6 +96244,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -96430,6 +96672,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -96857,6 +97100,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -97284,6 +97528,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -97711,6 +97956,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -98138,6 +98384,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -98565,6 +98812,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -98992,6 +99240,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -99419,6 +99668,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -99846,6 +100096,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -100273,6 +100524,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -100700,6 +100952,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -101079,6 +101332,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -101446,6 +101700,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -101777,6 +102032,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -102156,6 +102412,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -102487,6 +102744,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -102818,6 +103076,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -103197,6 +103456,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -103576,6 +103836,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -104003,6 +104264,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -104430,6 +104692,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -104857,6 +105120,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -105284,6 +105548,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -105687,6 +105952,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -106102,6 +106368,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -106505,6 +106772,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -106872,6 +107140,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -107239,6 +107508,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -107606,6 +107876,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -107973,6 +108244,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -108400,6 +108672,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -108779,6 +109052,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -109206,6 +109480,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -109621,6 +109896,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -110012,6 +110288,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -110403,6 +110680,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -110818,6 +111096,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -111101,6 +111380,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -111420,6 +111700,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -111751,6 +112032,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -112070,6 +112352,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -112377,6 +112660,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -112684,6 +112968,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -112991,6 +113276,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -113358,6 +113644,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -113725,6 +114012,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -114092,6 +114380,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -114459,6 +114748,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -114826,6 +115116,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -115193,6 +115484,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -115512,6 +115804,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -115819,6 +116112,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -116138,6 +116432,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -116445,6 +116740,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -116752,6 +117048,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -117059,6 +117356,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -117366,6 +117664,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -117685,6 +117984,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -118016,6 +118316,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -118323,6 +118624,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -118642,6 +118944,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -118949,6 +119252,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -119268,6 +119572,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -119575,6 +119880,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -119882,6 +120188,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -120189,6 +120496,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -120496,6 +120804,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -120803,6 +121112,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -121122,6 +121432,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -121453,6 +121764,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -121784,6 +122096,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -122103,6 +122416,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "left_shoulder",
@@ -122290,6 +122604,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [],
         "annotationSetupHash": null,
         "autoClass": "flipped-rotated",
@@ -122398,6 +122713,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -122705,6 +123021,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -123060,6 +123377,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -123439,6 +123757,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -123758,6 +124077,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -124125,6 +124445,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -124408,6 +124729,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -124679,6 +125001,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "confirmed-absent",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -124938,6 +125261,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -125257,6 +125581,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -125576,6 +125901,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -126003,6 +126329,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "confirmed-absent",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -126433,10 +126760,11 @@
     "frozenStaleCount": 6,
     "hallucinationSplit": {
       "total": 26,
-      "truth-absent": 26,
+      "truth-absent": 6,
       "truth-present": 0,
       "truthAbsentShare": 1.0,
-      "truthPresentShare": 0.0
+      "truthPresentShare": 0.0,
+      "unconfirmedAbsent": 20
     },
     "heldPoseCount": 6,
     "rejectionCorrectness": {
@@ -126521,7 +126849,7 @@
   "routeFolder": "brown-power",
   "runTs": "20260725-194319",
   "scannerFrameIntervalSec": 0.09999999999999998,
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "setupHash": "bd9269a0de9e9368c904ae36e67690c14467847b4ade3ba0d8b3e3e50e8c7ca3",
   "truthHash": "192da5c77c3c140ea1a61a3f48775cff8bc0005811a0f548a08f5d6316cf8351",
   "truthSetupHashSource": "truth",

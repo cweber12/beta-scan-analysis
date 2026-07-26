@@ -15,6 +15,8 @@ from typing import Any
 
 import pandas as pd
 
+from .evaluate import RATE_MISMATCH_MIN_RATIO
+
 try:  # optional: only used to embed downscaled final-frame thumbnails
     import cv2  # type: ignore
 except Exception:  # pragma: no cover
@@ -553,7 +555,15 @@ def _loose_table(rows: list[dict[str, Any]]) -> str:
 # Why each non-conformance cause is quarantined, and what to do about it (issue #88).
 # Ordered mis-track first: it is the actionable group, and the only one that feeds the
 # truth-repair worklist.
+#
+# ``rate-mismatch`` leads the *data* group (issue #101): it is neither a truth problem
+# nor a detector problem, and routing it to either worklist wastes the effort.
 _NONCONFORMANCE_CAUSE_BLURB = {
+    "rate-mismatch": (
+        "The ViTPose scaffold sampled on a much coarser grid than the truth was "
+        "exported onto, so most truth frames were never looked at and read as absent. "
+        "Neither the truth nor the detector is at fault — <strong>regenerate the "
+        "scaffold</strong> at the truth's sampling rate and re-export."),
     "suspected-mistrack": (
         "Ample accepted detections and the fit still misses identity — the #19 "
         "appearance-stitch signature. <strong>This is the truth-repair worklist</strong> "
@@ -732,12 +742,86 @@ def _hallucination_split_html(ctx: dict[str, Any]) -> str:
         f"<strong>{present}</strong> ({_pct(split['truth_present_share'])}) on "
         "<em>truth-present</em> frames — tracking misses, fixed by tracking robustness",
     ]
+    unconfirmed = int(split.get("truth_absent_unconfirmed") or 0)
     tail = ("" if not unknown else
             f" {unknown} more come from pre-schema-v12 records that never recorded "
             "presence and are excluded from those shares — re-run <code>evaluate</code> "
             "to place them.")
+    # Issue #101: an absence the harness cannot confirm is not evidence of a false
+    # positive. Say how many were held out, and why, rather than letting the shares
+    # quietly rest on a population that includes scaffold gaps and tracking losses.
+    if unconfirmed:
+        tail += (f" A further <strong>{unconfirmed}</strong> sit on absent frames whose "
+                 "absence is <em>not confirmed</em> — out of scope, never sampled, or a "
+                 "tracking loss — and are held out of both shares. See the absence-reason "
+                 "breakdown below before reading this split as a presence-gating result.")
     return (f"<p class='sub'>Of {total} pooled <code>hallucination-fp</code> frames: "
             f"{'; '.join(parts)}.{tail}</p>")
+
+
+def _absence_reason_html(ctx: dict[str, Any]) -> str:
+    """How the pooled truth-absent frames split by reason (issue #101).
+
+    The corpus audit that motivated this found 44% of every pooled truth-absent frame
+    coming from five videos where "absent" meant a scaffold that never sampled the
+    frame or a tracker that lost the Climber — not a Climber who left. That population
+    is the evidence base under the hallucination headline, so the breakdown belongs
+    beside it rather than in a CSV."""
+
+    table = ctx.get("frame_quality_absence_reasons")
+    if not isinstance(table, pd.DataFrame) or table.empty:
+        return ("<p class='muted'>No truth-absent frames pooled — nothing to attribute. "
+                "(Pre-v14 records carry no reason; re-run <code>evaluate</code>.)</p>")
+
+    blurbs = {
+        "confirmed-absent": "the Climber really is not in the frame — <strong>the only "
+                            "reason that counts as an absence</strong>",
+        "out-of-scope": "outside the climb window: before the climb started or after "
+                        "the topout",
+        "not-sampled": "the ViTPose scaffold never sampled this frame — a scaffold "
+                       "artifact, fixed by regenerating truth",
+        "untracked": "the scaffold's tracker lost or never acquired the Climber — a "
+                     "truth-repair problem, not a scanner one",
+        "unknown": "no evidence on disk to derive a reason from; never counted as an "
+                   "absence",
+    }
+    head = ("<tr><th>reason</th><th>frames</th><th>share</th>"
+            "<th>counts as absent</th><th>what it means</th></tr>")
+    body = "".join(
+        f"<tr><td><code>{_esc(r['reason'])}</code></td><td>{int(r['n'])}</td>"
+        f"<td>{_pct(r['share'])}</td>"
+        f"<td>{'yes' if r['counts_as_absent'] else 'no'}</td>"
+        f"<td>{blurbs.get(r['reason'], '')}</td></tr>"
+        for _, r in table.iterrows()
+    )
+    confirmed = table.loc[table["reason"] == "confirmed-absent", "share"]
+    lead = ""
+    if len(confirmed):
+        lead = (f"<p class='sub'><strong>{_pct(float(confirmed.iloc[0]))}</strong> of "
+                "pooled truth-absent frames are confirmed absences; the rest are held "
+                "out of the presence 2×2 and the hallucination split.</p>")
+
+    # The underlying data defect, reported whether or not it tripped the gate. A Bundle
+    # can under-sample its truth grid tenfold and still fit cleanly on the frames it did
+    # sample, so `rate-mismatch` (a non-conformance *cause*) stays silent on it — while
+    # it fabricates absences by the thousand. The fix is the same either way.
+    n_mismatch = int(ctx.get("rate_mismatch_count") or 0)
+    tail = ""
+    if n_mismatch:
+        rows = ctx.get("rate_mismatch_records") or []
+        conforming = sum(1 for r in rows if r.get("conforms"))
+        tail = (f"<p class='sub'><strong>{n_mismatch}</strong> record"
+                f"{'' if n_mismatch == 1 else 's'} sampled the ViTPose scaffold on a "
+                "grid at least "
+                f"{_fmt(RATE_MISMATCH_MIN_RATIO)}× coarser than the truth grid — the "
+                "source of the <code>not-sampled</code> frames above. "
+                f"{conforming} of them still <em>pass</em> the conformance gate, so the "
+                "<code>rate-mismatch</code> quarantine cause never fires on them: "
+                "regenerate those scaffolds at the truth's sampling rate. Full list in "
+                "<code>eval_rate_mismatch_records.csv</code>.</p>")
+
+    return (lead + "<div class='tablewrap'><table><thead>" + head
+            + f"</thead><tbody>{body}</tbody></table></div>" + tail)
 
 
 def _frame_quality_html(ctx: dict[str, Any]) -> str:
@@ -783,7 +867,9 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
                      "<th>truth-present</th><th>presence unknown</th>"
                      "<th>held-pose repeats</th><th>raw frozen-stale</th>"
                      f"</tr></thead><tbody>{rows}</tbody></table></div>")
-    class_tbl = _hallucination_split_html(ctx) + class_tbl
+    class_tbl = (_hallucination_split_html(ctx) + class_tbl
+                 + "<h3>Why the absent frames are absent (#101)</h3>"
+                 + _absence_reason_html(ctx))
 
     distractors = ctx.get("frame_quality_distractors")
     distractor_tbl = "<p class='muted'>(no annotated distractors yet)</p>"

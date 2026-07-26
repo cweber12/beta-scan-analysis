@@ -38,6 +38,10 @@ from .detector_attempts import (
 )
 from .runs import _detector_attempt_summary
 from .evaluate import (
+    ABSENCE_CONFIRMED,
+    RATE_MISMATCH_MIN_RATIO,
+    ABSENCE_REASONS,
+    ABSENCE_UNKNOWN,
     COCO_CORE_JOINTS,
     EVIDENCE_ATTEMPTS,
     EVIDENCE_GENERATIONS,
@@ -1001,6 +1005,10 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord],
                 # missing case to False — that would count unknown frames as real
                 # false positives.
                 "truth_present": e.get("truthPresent"),
+                # Why an absent frame is absent (issue #101). ``None`` on a present
+                # frame; a pre-v14 record carries no field and reads as ``unknown``
+                # downstream — never as a confirmed absence.
+                "absence_reason": e.get("absenceReason"),
                 "source": e.get("source"),
                 "distractor": e.get("distractor"),
                 "annotation_setup_hash": e.get("annotationSetupHash"),
@@ -1026,25 +1034,63 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord],
 
 
 def _truth_presence_counts(g: pd.DataFrame) -> dict[str, Any]:
-    """Split one class's pooled frames by truth presence (issue #69).
+    """Split one class's pooled frames by truth presence (issue #69, #101).
 
     Counts plus the two shares *within the class*, taken over the frames whose presence
     is actually known: a pre-schema-v12 record carries no ``truthPresent``, and folding
     those into the denominator would report a split the records never measured. When
-    nothing is known the shares are ``None``, not 0.0."""
+    nothing is known the shares are ``None``, not 0.0.
+
+    From v14 an absence additionally has to be **confirmed** to count (issue #101). An
+    absence that is out of scope, never sampled or a tracking loss is reported as
+    ``truth_absent_unconfirmed`` and kept out of both the numerator and the
+    denominator — those frames are the 44% of the pooled absent population that made
+    the old truth-absent share unsafe to act on."""
 
     col = g["truth_present"] if "truth_present" in g.columns else pd.Series(dtype=object)
+    reasons = (g["absence_reason"] if "absence_reason" in g.columns
+               else pd.Series([None] * len(g), index=g.index, dtype=object))
     known = col.notna()
     vals = col[known].astype(bool)
-    present, absent = int(vals.sum()), int((~vals).sum())
+    present = int(vals.sum())
+    absent_idx = vals[~vals].index
+    confirmed_mask = reasons.reindex(absent_idx) == ABSENCE_CONFIRMED
+    absent = int(confirmed_mask.sum())
+    unconfirmed = int(len(absent_idx) - absent)
     n_known = present + absent
     return {
         "truth_present": present,
         "truth_absent": absent,
-        "truth_unknown": int(len(g) - n_known),
+        "truth_absent_unconfirmed": unconfirmed,
+        "truth_unknown": int(len(g) - present - len(absent_idx)),
         "truth_present_share": present / n_known if n_known else None,
         "truth_absent_share": absent / n_known if n_known else None,
     }
+
+
+def _absence_reason_counts(fq_df: pd.DataFrame) -> pd.DataFrame:
+    """How the pooled truth-*absent* frames split by reason (issue #101).
+
+    The table that says how much of "the Climber was not there" actually means that.
+    Every reason is keyed even at zero, so "no scaffold gaps this batch" is a readable
+    result rather than something inferred from an absent row."""
+
+    if fq_df.empty or "truth_present" not in fq_df.columns:
+        return pd.DataFrame()
+    absent = fq_df[fq_df["truth_present"] == False]  # noqa: E712 — object column
+    if absent.empty:
+        return pd.DataFrame()
+    reasons = (absent["absence_reason"] if "absence_reason" in absent.columns
+               else pd.Series([None] * len(absent), index=absent.index, dtype=object))
+    reasons = reasons.fillna(ABSENCE_UNKNOWN)
+    total = len(absent)
+    rows = [{
+        "reason": reason,
+        "n": int((reasons == reason).sum()),
+        "share": float((reasons == reason).sum()) / total,
+        "counts_as_absent": reason == ABSENCE_CONFIRMED,
+    } for reason in ABSENCE_REASONS]
+    return pd.DataFrame(rows)
 
 
 def _frame_quality_classes(fq_df: pd.DataFrame) -> pd.DataFrame:
@@ -1082,7 +1128,8 @@ def _hallucination_split_totals(fq_df: pd.DataFrame) -> dict[str, Any]:
     empty = fq_df.empty or "class" not in fq_df.columns
     sub = pd.DataFrame() if empty else fq_df[fq_df["class"] == "hallucination-fp"]
     if sub.empty:
-        return {"total": 0, "truth_present": 0, "truth_absent": 0, "truth_unknown": 0,
+        return {"total": 0, "truth_present": 0, "truth_absent": 0,
+                "truth_absent_unconfirmed": 0, "truth_unknown": 0,
                 "truth_present_share": None, "truth_absent_share": None}
     return {"total": int(len(sub)), **_truth_presence_counts(sub)}
 
@@ -1771,6 +1818,37 @@ def _quarantine_cause_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
+def _rate_mismatch_records(recs: list[EvalRecord]) -> list[dict[str, Any]]:
+    """Records whose scaffold sampled coarser than the truth grid (issue #101).
+
+    Reported independently of the conformance gate on purpose. ``rate-mismatch`` is a
+    *non-conformance cause*, so it only speaks when a record also fails — and a Bundle
+    can under-sample its truth grid tenfold while still fitting cleanly on the frames it
+    did sample. Those Bundles fabricate absences by the thousand, and absence provenance
+    now keeps that out of the numbers; this list is what stops the underlying data defect
+    from staying invisible, because the fix (regenerate the scaffold) is the same either
+    way."""
+
+    rows: list[dict[str, Any]] = []
+    for rec in recs:
+        conf = rec.data.get("conformance") or {}
+        evidence = conf.get("causeEvidence") or {}
+        ratio = evidence.get("samplingRatio")
+        if not isinstance(ratio, (int, float)) or ratio < RATE_MISMATCH_MIN_RATIO:
+            continue
+        rows.append({
+            "route_folder": rec.route_folder,
+            "video_key": rec.video_key,
+            "run_ts": rec.run_ts,
+            "scaffold_step_sec": evidence.get("scaffoldStepSec"),
+            "truth_step_sec": evidence.get("truthStepSec"),
+            "sampling_ratio": ratio,
+            "conforms": bool(conf.get("conforms")),
+        })
+    return sorted(rows, key=lambda r: (-r["sampling_ratio"], r["route_folder"],
+                                       r["video_key"], r["run_ts"]))
+
+
 def _truth_repair_worklist(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The subset of quarantined records worth re-seeding truth for (issues #21/#34).
 
@@ -1852,6 +1930,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     fq_df = _frame_quality_rows(analysis_root, all_recs, pose_cache)
     fq_classes = _frame_quality_classes(fq_df)
     fq_hallucination = _hallucination_split_totals(fq_df)
+    fq_absence_reasons = _absence_reason_counts(fq_df)
+    rate_mismatches = _rate_mismatch_records(all_recs)
     fq_distractors = _frame_quality_distractors(fq_df)
     fq_worklist = _frame_quality_worklist(fq_df)
     fq_condition_bands = _frame_quality_condition_bands(fq_df)
@@ -1916,6 +1996,9 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "low_conf_worklist": low_conf_worklist,
         "frame_quality_classes": fq_classes,
         "frame_quality_hallucination": fq_hallucination,
+        "frame_quality_absence_reasons": fq_absence_reasons,
+        "rate_mismatch_records": rate_mismatches,
+        "rate_mismatch_count": len(rate_mismatches),
         "frame_quality_distractors": fq_distractors,
         "frame_quality_worklist": fq_worklist,
         "frame_quality_condition_bands": fq_condition_bands,
@@ -1953,6 +2036,8 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
     truth_repair_df = pd.DataFrame(truth_repair) if truth_repair else pd.DataFrame()
     superseded = ctx.get("superseded_records") or []
     superseded_df = pd.DataFrame(superseded) if superseded else pd.DataFrame()
+    rate_mismatch = ctx.get("rate_mismatch_records") or []
+    rate_mismatch_df = pd.DataFrame(rate_mismatch) if rate_mismatch else pd.DataFrame()
     tables = {
         "eval_joint_ranking.csv": ctx.get("joint_rank"),
         "eval_condition_bands.csv": ctx.get("condition_bands"),
@@ -1964,6 +2049,8 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_truth_repair_worklist.csv": truth_repair_df,
         "eval_superseded_records.csv": superseded_df,
         "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
+        "eval_frame_quality_absence_reasons.csv": ctx.get("frame_quality_absence_reasons"),
+        "eval_rate_mismatch_records.csv": rate_mismatch_df,
         "eval_frame_quality_distractors.csv": ctx.get("frame_quality_distractors"),
         "eval_frame_quality_worklist.csv": ctx.get("frame_quality_worklist"),
         "eval_frame_quality_condition_bands.csv": ctx.get("frame_quality_condition_bands"),

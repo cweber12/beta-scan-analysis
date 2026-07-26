@@ -24,6 +24,7 @@
       "scoreable": 0,
       "torsoUndefined": 0,
       "truthFrames": 0,
+      "unconfirmedAbsent": 0,
       "unmatchedAbsent": 0,
       "unmatchedPresent": 0,
       "verifiedFrames": 0
@@ -299,6 +300,7 @@
       "scoreable": 59,
       "torsoUndefined": 2,
       "truthFrames": 719,
+      "unconfirmedAbsent": 657,
       "unmatchedAbsent": 0,
       "unmatchedPresent": 0,
       "verifiedFrames": 0
@@ -527,7 +529,7 @@
       }
     },
     "presence": {
-      "absentDetected": 658,
+      "absentDetected": 1,
       "absentUndetected": 0,
       "presentDetected": 61,
       "presentUndetected": 0
@@ -549,13 +551,20 @@
       37
     ]
   },
+  "climbWindow": {
+    "end": null,
+    "start": 0.0
+  },
   "conformance": {
     "cause": null,
     "causeEvidence": {
       "acceptedAttempts": 0,
       "acceptedShare": null,
       "fitFrames": 61,
-      "presentAttempts": 0
+      "presentAttempts": 0,
+      "samplingRatio": 10.0,
+      "scaffoldStepSec": 1.0,
+      "truthStepSec": 0.1
     },
     "conforms": true,
     "n": 741,
@@ -563,9 +572,11 @@
     "thresholds": {
       "minAcceptedShare": 0.5,
       "minFitFrames": 20,
+      "minFitFramesGate": 20,
       "minPoints": 20,
       "r2Min": 0.9,
       "r2MinX": 0.75,
+      "rateMismatchMinRatio": 2.0,
       "slopeMax": 1.15,
       "slopeMin": 0.85
     },
@@ -581,9 +592,17 @@
     }
   },
   "counts": {
+    "absenceReasons": {
+      "confirmed-absent": 1,
+      "not-sampled": 647,
+      "out-of-scope": 0,
+      "unknown": 0,
+      "untracked": 10
+    },
     "agreementSkipped": {
       "flaggedAbsent": 0,
-      "flaggedWrong": 0
+      "flaggedWrong": 0,
+      "outOfScope": 0
     },
     "review": {
       "auto": 719,
@@ -591,6 +610,7 @@
       "flaggedWrong": 0
     },
     "truthFramesAbsent": 658,
+    "truthFramesOutOfScope": 0,
     "truthFramesPresent": 61,
     "truthFramesTotal": 719,
     "truthFramesVerified": 0
@@ -648,6 +668,7 @@
     "flaggedCount": 658,
     "frames": [
       {
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -670,6 +691,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -692,6 +714,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -714,6 +737,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -736,6 +760,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -758,6 +783,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -780,6 +806,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -802,6 +829,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -824,6 +852,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -846,6 +875,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -868,6 +898,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.015447,
@@ -890,6 +921,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -912,6 +944,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -934,6 +967,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -956,6 +990,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -978,6 +1013,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1000,6 +1036,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1022,6 +1059,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1044,6 +1082,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1066,6 +1105,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1088,6 +1128,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.015667,
@@ -1110,6 +1151,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1132,6 +1174,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1154,6 +1197,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1176,6 +1220,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1198,6 +1243,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1220,6 +1266,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1242,6 +1289,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1264,6 +1312,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1286,6 +1335,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1308,6 +1358,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.012976,
@@ -1330,6 +1381,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1352,6 +1404,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1374,6 +1427,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1396,6 +1450,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1418,6 +1473,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1440,6 +1496,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1462,6 +1519,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1484,6 +1542,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1506,6 +1565,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1528,6 +1588,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.021745,
@@ -1550,6 +1611,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1572,6 +1634,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1594,6 +1657,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1616,6 +1680,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1638,6 +1703,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1660,6 +1726,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1682,6 +1749,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1704,6 +1772,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1726,6 +1795,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1748,6 +1818,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1770,6 +1841,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1792,6 +1864,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1814,6 +1887,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1836,6 +1910,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1858,6 +1933,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1880,6 +1956,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1902,6 +1979,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1924,6 +2002,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1946,6 +2025,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1968,6 +2048,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -1990,6 +2071,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2012,6 +2094,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2034,6 +2117,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2056,6 +2140,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2078,6 +2163,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2100,6 +2186,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2122,6 +2209,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2144,6 +2232,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2166,6 +2255,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2188,6 +2278,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2210,6 +2301,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2232,6 +2324,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2254,6 +2347,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2276,6 +2370,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2298,6 +2393,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2320,6 +2416,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2342,6 +2439,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2364,6 +2462,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2386,6 +2485,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2408,6 +2508,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2430,6 +2531,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2452,6 +2554,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2474,6 +2577,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2496,6 +2600,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2518,6 +2623,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2540,6 +2646,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2562,6 +2669,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2584,6 +2692,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2606,6 +2715,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2628,6 +2738,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2650,6 +2761,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2672,6 +2784,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2694,6 +2807,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2716,6 +2830,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2738,6 +2853,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2760,6 +2876,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2782,6 +2899,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2804,6 +2922,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2826,6 +2945,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2848,6 +2968,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2870,6 +2991,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2892,6 +3014,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2914,6 +3037,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2936,6 +3060,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2958,6 +3083,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2980,6 +3106,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3002,6 +3129,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3024,6 +3152,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3046,6 +3175,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3068,6 +3198,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3090,6 +3221,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3112,6 +3244,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3134,6 +3267,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3156,6 +3290,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3178,6 +3313,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3200,6 +3336,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3222,6 +3359,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3244,6 +3382,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3266,6 +3405,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3288,6 +3428,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3310,6 +3451,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3332,6 +3474,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3354,6 +3497,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3376,6 +3520,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3398,6 +3543,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3420,6 +3566,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3442,6 +3589,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3464,6 +3612,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3486,6 +3635,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3508,6 +3658,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3530,6 +3681,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3552,6 +3704,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3574,6 +3727,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3596,6 +3750,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3618,6 +3773,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3640,6 +3796,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3662,6 +3819,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3684,6 +3842,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3706,6 +3865,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3728,6 +3888,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.066529,
@@ -3750,6 +3911,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3772,6 +3934,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3794,6 +3957,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3816,6 +3980,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3838,6 +4003,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3860,6 +4026,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3882,6 +4049,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3904,6 +4072,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3926,6 +4095,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3948,6 +4118,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.029285,
@@ -3970,6 +4141,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -3992,6 +4164,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4014,6 +4187,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4036,6 +4210,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4058,6 +4233,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4080,6 +4256,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4102,6 +4279,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4124,6 +4302,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4146,6 +4325,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4168,6 +4348,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.040592,
@@ -4190,6 +4371,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4212,6 +4394,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4234,6 +4417,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4256,6 +4440,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4278,6 +4463,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4300,6 +4486,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4322,6 +4509,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4344,6 +4532,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4366,6 +4555,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4388,6 +4578,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.018614,
@@ -4410,6 +4601,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4432,6 +4624,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4454,6 +4647,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4476,6 +4670,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4498,6 +4693,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4520,6 +4716,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4542,6 +4739,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4564,6 +4762,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4586,6 +4785,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4608,6 +4808,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4630,6 +4831,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4652,6 +4854,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4674,6 +4877,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4696,6 +4900,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4718,6 +4923,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4740,6 +4946,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4762,6 +4969,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4784,6 +4992,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4806,6 +5015,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4828,6 +5038,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.500434,
@@ -4850,6 +5061,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4872,6 +5084,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4894,6 +5107,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4916,6 +5130,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4938,6 +5153,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4960,6 +5176,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -4982,6 +5199,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5004,6 +5222,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5026,6 +5245,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5048,6 +5268,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.115755,
@@ -5070,6 +5291,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5092,6 +5314,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5114,6 +5337,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5136,6 +5360,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5158,6 +5383,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5180,6 +5406,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5202,6 +5429,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5224,6 +5452,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5246,6 +5475,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5268,6 +5498,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.056173,
@@ -5290,6 +5521,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5312,6 +5544,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5334,6 +5567,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5356,6 +5590,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5378,6 +5613,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5400,6 +5636,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5422,6 +5659,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5444,6 +5682,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5466,6 +5705,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5488,6 +5728,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.018401,
@@ -5510,6 +5751,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5532,6 +5774,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5554,6 +5797,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5576,6 +5820,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5598,6 +5843,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5620,6 +5866,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5642,6 +5889,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5664,6 +5912,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5686,6 +5935,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5708,6 +5958,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.011289,
@@ -5730,6 +5981,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5752,6 +6004,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5774,6 +6027,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5796,6 +6050,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5818,6 +6073,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5840,6 +6096,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5862,6 +6119,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5884,6 +6142,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5906,6 +6165,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5928,6 +6188,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.009744,
@@ -5950,6 +6211,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5972,6 +6234,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -5994,6 +6257,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6016,6 +6280,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6038,6 +6303,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6060,6 +6326,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6082,6 +6349,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6104,6 +6372,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6126,6 +6395,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6148,6 +6418,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.019127,
@@ -6170,6 +6441,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6192,6 +6464,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6214,6 +6487,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6236,6 +6510,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6258,6 +6533,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6280,6 +6556,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6302,6 +6579,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6324,6 +6602,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6346,6 +6625,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6368,6 +6648,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.062448,
@@ -6390,6 +6671,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6412,6 +6694,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6434,6 +6717,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6456,6 +6740,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6478,6 +6763,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6500,6 +6786,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6522,6 +6809,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6544,6 +6832,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6566,6 +6855,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6588,6 +6878,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": null,
@@ -6610,6 +6901,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6632,6 +6924,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6654,6 +6947,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6676,6 +6970,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6698,6 +6993,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6720,6 +7016,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6742,6 +7039,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6764,6 +7062,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6786,6 +7085,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6808,6 +7108,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.039569,
@@ -6830,6 +7131,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6852,6 +7154,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6874,6 +7177,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6896,6 +7200,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6918,6 +7223,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6940,6 +7246,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6962,6 +7269,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -6984,6 +7292,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7006,6 +7315,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7028,6 +7338,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": null,
@@ -7050,6 +7361,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7072,6 +7384,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7094,6 +7407,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7116,6 +7430,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7138,6 +7453,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7160,6 +7476,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7182,6 +7499,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7204,6 +7522,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7226,6 +7545,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7248,6 +7568,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.031511,
@@ -7270,6 +7591,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7292,6 +7614,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7314,6 +7637,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7336,6 +7660,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7358,6 +7683,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7380,6 +7706,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7402,6 +7729,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7424,6 +7752,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7446,6 +7775,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7468,6 +7798,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.008892,
@@ -7490,6 +7821,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7512,6 +7844,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7534,6 +7867,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7556,6 +7890,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7578,6 +7913,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7600,6 +7936,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7622,6 +7959,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7644,6 +7982,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7666,6 +8005,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7688,6 +8028,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.02855,
@@ -7710,6 +8051,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7732,6 +8074,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7754,6 +8097,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7776,6 +8120,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7798,6 +8143,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7820,6 +8166,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7842,6 +8189,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7864,6 +8212,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7886,6 +8235,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7908,6 +8258,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.07144,
@@ -7930,6 +8281,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7952,6 +8304,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7974,6 +8327,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -7996,6 +8350,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8018,6 +8373,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8040,6 +8396,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8062,6 +8419,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8084,6 +8442,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8106,6 +8465,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8128,6 +8488,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.023126,
@@ -8150,6 +8511,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8172,6 +8534,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8194,6 +8557,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8216,6 +8580,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8238,6 +8603,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8260,6 +8626,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8282,6 +8649,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8304,6 +8672,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8326,6 +8695,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8348,6 +8718,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.0183,
@@ -8370,6 +8741,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8392,6 +8764,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8414,6 +8787,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8436,6 +8810,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8458,6 +8833,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8480,6 +8856,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8502,6 +8879,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8524,6 +8902,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8546,6 +8925,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8568,6 +8948,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.242392,
@@ -8590,6 +8971,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8612,6 +8994,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8634,6 +9017,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8656,6 +9040,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8678,6 +9063,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8700,6 +9086,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8722,6 +9109,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8744,6 +9132,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8766,6 +9155,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8788,6 +9178,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.028718,
@@ -8810,6 +9201,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8832,6 +9224,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8854,6 +9247,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8876,6 +9270,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8898,6 +9293,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8920,6 +9316,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8942,6 +9339,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8964,6 +9362,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -8986,6 +9385,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9008,6 +9408,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.515196,
@@ -9030,6 +9431,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9052,6 +9454,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9074,6 +9477,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9096,6 +9500,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9118,6 +9523,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9140,6 +9546,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9162,6 +9569,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9184,6 +9592,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9206,6 +9615,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9228,6 +9638,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.004868,
@@ -9250,6 +9661,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9272,6 +9684,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9294,6 +9707,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9316,6 +9730,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9338,6 +9753,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9360,6 +9776,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9382,6 +9799,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9404,6 +9822,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9426,6 +9845,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9448,6 +9868,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.023347,
@@ -9470,6 +9891,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9492,6 +9914,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9514,6 +9937,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9536,6 +9960,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9558,6 +9983,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9580,6 +10006,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9602,6 +10029,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9624,6 +10052,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9646,6 +10075,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9668,6 +10098,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.03534,
@@ -9690,6 +10121,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9712,6 +10144,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9734,6 +10167,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9756,6 +10190,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9778,6 +10213,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9800,6 +10236,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9822,6 +10259,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9844,6 +10282,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9866,6 +10305,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9888,6 +10328,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.021517,
@@ -9910,6 +10351,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9932,6 +10374,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9954,6 +10397,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9976,6 +10420,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -9998,6 +10443,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10020,6 +10466,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10042,6 +10489,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10064,6 +10512,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10086,6 +10535,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10108,6 +10558,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.016551,
@@ -10130,6 +10581,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10152,6 +10604,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10174,6 +10627,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10196,6 +10650,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10218,6 +10673,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10240,6 +10696,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10262,6 +10719,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10284,6 +10742,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10306,6 +10765,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10328,6 +10788,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.016499,
@@ -10350,6 +10811,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10372,6 +10834,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10394,6 +10857,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10416,6 +10880,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10438,6 +10903,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10460,6 +10926,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10482,6 +10949,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10504,6 +10972,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10526,6 +10995,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10548,6 +11018,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.027977,
@@ -10570,6 +11041,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10592,6 +11064,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10614,6 +11087,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10636,6 +11110,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10658,6 +11133,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10680,6 +11156,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10702,6 +11179,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10724,6 +11202,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10746,6 +11225,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10768,6 +11248,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.078753,
@@ -10790,6 +11271,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10812,6 +11294,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10834,6 +11317,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10856,6 +11340,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10878,6 +11363,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10900,6 +11386,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10922,6 +11409,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10944,6 +11432,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10966,6 +11455,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -10988,6 +11478,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.007449,
@@ -11010,6 +11501,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11032,6 +11524,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11054,6 +11547,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11076,6 +11570,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11098,6 +11593,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11120,6 +11616,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11142,6 +11639,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11164,6 +11662,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11186,6 +11685,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11208,6 +11708,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.028995,
@@ -11230,6 +11731,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11252,6 +11754,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11274,6 +11777,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11296,6 +11800,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11318,6 +11823,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11340,6 +11846,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11362,6 +11869,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11384,6 +11892,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11406,6 +11915,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11428,6 +11938,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.039461,
@@ -11450,6 +11961,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11472,6 +11984,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11494,6 +12007,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11516,6 +12030,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11538,6 +12053,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11560,6 +12076,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11582,6 +12099,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11604,6 +12122,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11626,6 +12145,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11648,6 +12168,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.032627,
@@ -11670,6 +12191,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11692,6 +12214,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11714,6 +12237,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11736,6 +12260,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11758,6 +12283,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11780,6 +12306,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11802,6 +12329,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11824,6 +12352,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11846,6 +12375,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11868,6 +12398,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.043277,
@@ -11890,6 +12421,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11912,6 +12444,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11934,6 +12467,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11956,6 +12490,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -11978,6 +12513,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12000,6 +12536,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12022,6 +12559,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12044,6 +12582,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12066,6 +12605,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12088,6 +12628,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.037484,
@@ -12110,6 +12651,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12132,6 +12674,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12154,6 +12697,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12176,6 +12720,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12198,6 +12743,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12220,6 +12766,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12242,6 +12789,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12264,6 +12812,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12286,6 +12835,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12308,6 +12858,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.026866,
@@ -12330,6 +12881,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12352,6 +12904,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12374,6 +12927,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12396,6 +12950,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12418,6 +12973,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12440,6 +12996,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12462,6 +13019,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12484,6 +13042,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12506,6 +13065,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12528,6 +13088,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.028494,
@@ -12550,6 +13111,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12572,6 +13134,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12594,6 +13157,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12616,6 +13180,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12638,6 +13203,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12660,6 +13226,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12682,6 +13249,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12704,6 +13272,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12726,6 +13295,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12748,6 +13318,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.036151,
@@ -12770,6 +13341,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12792,6 +13364,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12814,6 +13387,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12836,6 +13410,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12858,6 +13433,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12880,6 +13456,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12902,6 +13479,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12924,6 +13502,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12946,6 +13525,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -12968,6 +13548,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.010636,
@@ -12990,6 +13571,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13012,6 +13594,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13034,6 +13617,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13056,6 +13640,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13078,6 +13663,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13100,6 +13686,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13122,6 +13709,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13144,6 +13732,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13166,6 +13755,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13188,6 +13778,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.022893,
@@ -13210,6 +13801,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13232,6 +13824,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13254,6 +13847,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13276,6 +13870,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13298,6 +13893,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13320,6 +13916,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13342,6 +13939,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13364,6 +13962,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13386,6 +13985,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13408,6 +14008,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.052522,
@@ -13430,6 +14031,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13452,6 +14054,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13474,6 +14077,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13496,6 +14100,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13518,6 +14123,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13540,6 +14146,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13562,6 +14169,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13584,6 +14192,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13606,6 +14215,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13628,6 +14238,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.004595,
@@ -13650,6 +14261,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13672,6 +14284,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13694,6 +14307,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13716,6 +14330,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13738,6 +14353,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13760,6 +14376,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13782,6 +14399,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13804,6 +14422,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13826,6 +14445,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13848,6 +14468,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.01808,
@@ -13870,6 +14491,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13892,6 +14514,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13914,6 +14537,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13936,6 +14560,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13958,6 +14583,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -13980,6 +14606,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14002,6 +14629,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14024,6 +14652,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14046,6 +14675,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14068,6 +14698,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.017025,
@@ -14090,6 +14721,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14112,6 +14744,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14134,6 +14767,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14156,6 +14790,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14178,6 +14813,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14200,6 +14836,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14222,6 +14859,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14244,6 +14882,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14266,6 +14905,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14288,6 +14928,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.047057,
@@ -14310,6 +14951,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14332,6 +14974,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14354,6 +14997,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14376,6 +15020,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14398,6 +15043,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14420,6 +15066,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14442,6 +15089,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14464,6 +15112,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14486,6 +15135,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14508,6 +15158,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.030363,
@@ -14530,6 +15181,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14552,6 +15204,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14574,6 +15227,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14596,6 +15250,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14618,6 +15273,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14640,6 +15296,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14662,6 +15319,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14684,6 +15342,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14706,6 +15365,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14728,6 +15388,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.018532,
@@ -14750,6 +15411,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14772,6 +15434,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14794,6 +15457,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14816,6 +15480,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14838,6 +15503,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14860,6 +15526,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14882,6 +15549,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14904,6 +15572,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14926,6 +15595,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14948,6 +15618,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.016498,
@@ -14970,6 +15641,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -14992,6 +15664,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15014,6 +15687,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15036,6 +15710,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15058,6 +15733,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15080,6 +15756,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15102,6 +15779,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15124,6 +15802,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15146,6 +15825,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15168,6 +15848,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.02453,
@@ -15190,6 +15871,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15212,6 +15894,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15234,6 +15917,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15256,6 +15940,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15278,6 +15963,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15300,6 +15986,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15322,6 +16009,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15344,6 +16032,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15366,6 +16055,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15388,6 +16078,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.026239,
@@ -15410,6 +16101,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15432,6 +16124,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15454,6 +16147,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15476,6 +16170,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15498,6 +16193,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15520,6 +16216,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15542,6 +16239,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15564,6 +16262,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15586,6 +16285,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15608,6 +16308,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.249218,
@@ -15630,6 +16331,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15652,6 +16354,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15674,6 +16377,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15696,6 +16400,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15718,6 +16423,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15740,6 +16446,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15762,6 +16469,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15784,6 +16492,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15806,6 +16515,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15828,6 +16538,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.04106,
@@ -15850,6 +16561,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15872,6 +16584,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15894,6 +16607,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15916,6 +16630,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15938,6 +16653,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15960,6 +16676,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -15982,6 +16699,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16004,6 +16722,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16026,6 +16745,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16048,6 +16768,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.160161,
@@ -16070,6 +16791,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16092,6 +16814,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16114,6 +16837,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16136,6 +16860,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16158,6 +16883,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16180,6 +16906,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16202,6 +16929,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16224,6 +16952,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16246,6 +16975,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16268,6 +16998,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "annotationSetupHash": null,
         "autoClass": "ok",
         "centroidDist": 0.191868,
@@ -16290,6 +17021,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16312,6 +17044,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16334,6 +17067,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16356,6 +17090,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16378,6 +17113,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16400,6 +17136,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16422,6 +17159,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16444,6 +17182,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "not-sampled",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -16469,10 +17208,11 @@
     "frozenStaleCount": 23,
     "hallucinationSplit": {
       "total": 658,
-      "truth-absent": 658,
+      "truth-absent": 1,
       "truth-present": 0,
       "truthAbsentShare": 1.0,
-      "truthPresentShare": 0.0
+      "truthPresentShare": 0.0,
+      "unconfirmedAbsent": 657
     },
     "heldPoseCount": 396,
     "rejectionCorrectness": {
@@ -16557,7 +17297,7 @@
   "routeFolder": "mandala-the",
   "runTs": "20260724-081822",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "setupHash": "66f12c7747723f0696ca9317525a8f21d81f92aba3ca88d1b0fda5c494557101",
   "truthHash": "bd32f5e79200eae3c07696df34b547ce9ff2da89d23e07f9969511c011eab1f3",
   "truthSetupHashSource": "truth",

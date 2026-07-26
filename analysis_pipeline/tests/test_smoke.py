@@ -18,6 +18,45 @@ from analysis_pipeline.frames import build_frame_table
 from analysis_pipeline.runs import build_run_table
 
 
+def _write_scaffold(video_dir: Path, samples: list[float], posed: list[float],
+                    seed_found: bool | None = None) -> None:
+    """A ViTPose scaffold + status sidecar — the evidence absence provenance is derived
+    from (issue #101): which timestamps were sampled, which carry a posed Climber, and
+    whether seeding succeeded at all."""
+
+    video_dir.mkdir(parents=True, exist_ok=True)
+    frames = [{"timestamp": t,
+               "keypoints": _kp_list(_TRUTH_JOINTS) if t in posed else []}
+              for t in samples]
+    (video_dir / "vitpose.json").write_text(
+        json.dumps({"version": 1, "frames": frames}), encoding="utf-8")
+    if seed_found is not None:
+        (video_dir / "vitpose.status.json").write_text(
+            json.dumps({"status": "done", "seedDebug": {"seedFound": seed_found}}),
+            encoding="utf-8")
+
+
+def _evaluate(root, **kw):
+    """``evaluate`` with the truth-sufficiency floor lowered to fit these fixtures.
+
+    Issue #101 gates a real Bundle at 20 truth-present fit frames — the floor that
+    quarantines a Bundle whose near-perfect fit rests on eleven frames. The synthetic
+    Bundles here carry three to five frames by design, so every one of them would
+    quarantine and each test would stop being about its own subject. The production
+    floor itself is asserted, unpatched, in
+    ``test_truth_sufficiency_floor_quarantines_a_thin_bundle``.
+    """
+
+    from analysis_pipeline import evaluate as ev
+
+    original = ev.CONFORMANCE_MIN_FIT_FRAMES
+    ev.CONFORMANCE_MIN_FIT_FRAMES = 2
+    try:
+        return ev.evaluate(root, **kw)
+    finally:
+        ev.CONFORMANCE_MIN_FIT_FRAMES = original
+
+
 def _write_run(video_dir: Path, stem: str, *, video_hash: str, setup_hash: str,
                config: dict, labels: dict, det_rate: float, written_at: str,
                overlay_quality: float | None = None, bad_stretches: list | None = None,
@@ -384,12 +423,12 @@ def test_evaluate_pck_exact_and_edge_cases():
             json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
         _write_pose_run(vdir, "20260101-000001", "sh_match", _scanner_frames_for_pck())
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 1 and not summary.skipped
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 13
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 14
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -402,10 +441,19 @@ def test_evaluate_pck_exact_and_edge_cases():
         # The t3 frame is a deprecated manual absent flag (ADR 0005): excluded from
         # scoring and reported in agreementSkipped. The rest are auto; there are no
         # flagged-wrong seeds, and nothing is accuracy-tier evidence.
+        # The one absent frame carries an absence reason (issue #101); with no scaffold
+        # in this synthetic bundle there is nothing to derive from, so it reads
+        # `unknown` — never silently promoted to a confirmed absence.
         assert counts == {"truthFramesTotal": 5, "truthFramesPresent": 4,
                           "truthFramesAbsent": 1, "truthFramesVerified": 0,
+                          "truthFramesOutOfScope": 0,
+                          "absenceReasons": {"out-of-scope": 0, "not-sampled": 0,
+                                             "untracked": 0, "confirmed-absent": 0,
+                                             "unknown": 1},
                           "review": {"auto": 4, "flaggedWrong": 0, "flaggedAbsent": 1},
-                          "agreementSkipped": {"flaggedWrong": 0, "flaggedAbsent": 1}}
+                          "agreementSkipped": {"flaggedWrong": 0, "flaggedAbsent": 1,
+                                               "outOfScope": 0}}
+        assert rec["climbWindow"] == {"start": None, "end": None}
         assert rec["scannerFrameIntervalSec"] == 1.0
         assert rec["joinToleranceSec"] == 0.5
 
@@ -417,7 +465,8 @@ def test_evaluate_pck_exact_and_edge_cases():
             "truthFrames": 4, "verifiedFrames": 0,
             "matchedPresent": 3, "matchedAbsent": 0,
             "unmatchedPresent": 1, "unmatchedAbsent": 0,
-            "lowVisibility": 0, "torsoUndefined": 1, "scoreable": 2}
+            "lowVisibility": 0, "torsoUndefined": 1, "scoreable": 2,
+            "unconfirmedAbsent": 0}
         assert agr["presence"] == {"presentDetected": 3, "presentUndetected": 0,
                                    "absentDetected": 0, "absentUndetected": 0}
 
@@ -462,7 +511,8 @@ def test_evaluate_pck_exact_and_edge_cases():
             "truthFrames": 0, "verifiedFrames": 0,
             "matchedPresent": 0, "matchedAbsent": 0,
             "unmatchedPresent": 0, "unmatchedAbsent": 0,
-            "lowVisibility": 0, "torsoUndefined": 0, "scoreable": 0}
+            "lowVisibility": 0, "torsoUndefined": 0, "scoreable": 0,
+            "unconfirmedAbsent": 0}
         assert sum(acc["visibleJoints"]) == 0
         assert acc["presence"] == {"presentDetected": 0, "presentUndetected": 0,
                                    "absentDetected": 0, "absentUndetected": 0}
@@ -484,15 +534,21 @@ def test_evaluate_pck_exact_and_edge_cases():
             "slopeMin": ev.CONFORMANCE_SLOPE_MIN, "slopeMax": ev.CONFORMANCE_SLOPE_MAX,
             "r2Min": ev.CONFORMANCE_R2_MIN, "r2MinX": ev.CONFORMANCE_R2_MIN_X,
             "minPoints": ev.CONFORMANCE_MIN_POINTS,
+            # The gate's own truth-sufficiency floor is echoed beside the cause-split
+            # floor it used to be conflated with (issue #101). ``_evaluate`` lowered
+            # the gate for this miniature fixture, and the record captures what it
+            # was actually judged under rather than the module default.
+            "minFitFramesGate": 2,
             "minFitFrames": ev.NONCONFORMANCE_MIN_FIT_FRAMES,
-            "minAcceptedShare": ev.NONCONFORMANCE_MIN_ACCEPTED_SHARE}
+            "minAcceptedShare": ev.NONCONFORMANCE_MIN_ACCEPTED_SHARE,
+            "rateMismatchMinRatio": ev.RATE_MISMATCH_MIN_RATIO}
         assert conf["n"] == 37  # matched-present truth joints with a scanner pred
         assert conf["conforms"] is True and conf["reasons"] == []
         assert conf["y"] == {"slope": 1.0, "intercept": 0.0, "r2": 1.0}
         assert ev.record_conforms(rec) is True
 
         # Idempotent filename: rerun overwrites, no second file.
-        summary2 = ev.evaluate(root)
+        summary2 = _evaluate(root)
         assert len(summary2.written) == 1
         assert summary2.written[0].record_path == summary.written[0].record_path
         assert len(list((vdir / "evaluations").glob("*.json"))) == 1
@@ -538,7 +594,7 @@ def test_evaluate_conformance_gate_and_pooled_quarantine():
         _write_pose_run(bad, "20260101-000002", "sh",
                         _scanner_frames(lambda x, y: (2 * x, 2 * y)))  # slope 2 → off-band
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 2
         recs = {}
         for p in summary.written:
@@ -665,7 +721,7 @@ def test_nonconformance_cause_splits_sparse_match_from_suspected_mistrack():
         _write_pose_run(clean, "20260101-000090", "sh88", [],
                         detector_attempts=_attempts(24, 24, 1.0))
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         recs = {p.video_key: json.loads(p.record_path.read_text(encoding="utf-8"))
                 for p in summary.written}
         assert recs["vidMistrack"]["schemaVersion"] >= 11  # the cause split landed in v11
@@ -674,7 +730,11 @@ def test_nonconformance_cause_splits_sparse_match_from_suspected_mistrack():
         assert mc["conforms"] is False  # the #15 verdict is unchanged by the split
         assert mc["cause"] == ev.NONCONFORMANCE_SUSPECTED_MISTRACK
         assert mc["causeEvidence"] == {"fitFrames": 24, "presentAttempts": 24,
-                                       "acceptedAttempts": 24, "acceptedShare": 1.0}
+                                       "acceptedAttempts": 24, "acceptedShare": 1.0,
+                                       # No scaffold on disk, so the sampling grids
+                                       # cannot be compared: unknown, never "agree".
+                                       "scaffoldStepSec": None, "truthStepSec": 1.0,
+                                       "samplingRatio": None}
         assert ev.record_nonconformance_cause(recs["vidMistrack"]) == "suspected-mistrack"
 
         sc = recs["vidSparse"]["conformance"]
@@ -704,7 +764,8 @@ def test_nonconformance_cause_splits_sparse_match_from_suspected_mistrack():
         # mis-track suspect feeds the truth-repair worklist.
         ctx = trends.build_trend_context(root)
         assert ctx["quarantined_count"] == 2
-        assert ctx["quarantine_cause_counts"] == {"sparse-match": 1,
+        assert ctx["quarantine_cause_counts"] == {"rate-mismatch": 0,
+                                                  "sparse-match": 1,
                                                   "suspected-mistrack": 1}
         assert ctx["truth_repair_count"] == 1
         worklist = ctx["truth_repair_worklist"]
@@ -743,7 +804,7 @@ def test_evaluate_setuphash_mismatch_is_skipped():
                  for i in range(4)]
         _write_pose_run(vdir, "20260101-000009", "sh_STALE", stale)
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert not summary.written
         assert not summary.loose
         assert len(summary.skipped) == 1
@@ -773,7 +834,7 @@ def test_evaluate_loose_overlap_pairing_fallback():
         # Stale run (sh_OLD) overlaps truth at t1/t2/t4 -> the best-overlap candidate.
         _write_pose_run(vdir, "20260101-000002", "sh_OLD", _scanner_frames_for_pck())
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         # The matched-but-disjoint run writes a normal (n=0) record; the stale
         # overlapping run is recovered as a loose pairing.
         assert len(summary.written) == 2
@@ -815,7 +876,7 @@ def test_evaluate_detection_annotations_override_and_ignore_stale():
             json.dumps(_ground_truth_doc_with_annotations(setup_hash)), encoding="utf-8")
         _write_pose_run(vdir, "20260101-000060", setup_hash, _scanner_frames_for_pck())
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 1
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
@@ -827,27 +888,31 @@ def test_evaluate_detection_annotations_override_and_ignore_stale():
         assert by_t[2.0]["class"] == "wrong-subject"
         assert by_t[2.0]["autoClass"] == "ok"
         assert by_t[2.0]["distractor"] == "tree_bush"
-        assert by_t[3.0]["class"] == "wrong-subject"
-        assert by_t[3.0]["autoClass"] == "ok"
-        assert by_t[3.0]["distractor"] == "tree_bush"
+        # The annotation range covers frame indices 2-3, but frame 3 is the deprecated
+        # manual-absent flag (ADR 0005) and is excluded from scoring entirely — so it
+        # yields no frameQuality entry for an annotation to override. Only frame 2 of
+        # the range is scorable.
+        assert 3.0 not in by_t
         assert by_t[1.0]["annotationSetupHash"] is None
         assert by_t[2.0]["annotationSetupHash"] == setup_hash
-        assert fq["classCounts"] == {"ok": 1, "wrong-subject": 2,
+        assert fq["classCounts"] == {"ok": 2, "wrong-subject": 1,
                                       "hallucination-fp": 0,
                                       "flipped-rotated": 0, "distorted": 0}
 
         ctx = trends.build_trend_context(root)
         classes = ctx["frame_quality_classes"].set_index("class")
-        assert classes.loc["ok", "n"] == 1
-        assert classes.loc["wrong-subject", "n"] == 2
+        assert classes.loc["ok", "n"] == 2
+        assert classes.loc["wrong-subject", "n"] == 1
         distractors = ctx["frame_quality_distractors"].set_index("distractor")
-        assert distractors.loc["tree_bush", "n"] == 2
+        assert distractors.loc["tree_bush", "n"] == 1
         assert "gear" not in distractors.index
-        assert ctx["frame_quality_flagged"] == 2
+        assert ctx["frame_quality_flagged"] == 1
 
         from analysis_pipeline import report
 
-        assert "Distractor frequency" in report.build_report_html(ctx)
+        # The frame-quality section, not the whole page: build_report_html additionally
+        # needs the correlation context that only the `analysis` command assembles.
+        assert "Distractor frequency" in report._frame_quality_html(ctx)
 
 
 def test_frame_quality_classification_one_per_class():
@@ -898,7 +963,7 @@ def test_frame_quality_classification_one_per_class():
         (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
         _write_pose_run(vdir, "20260101-000050", "sh_fq", scanner)
 
-        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
         fq = rec["frameQuality"]
         assert fq["detectedFrames"] == 6
         assert fq["classCounts"] == {"ok": 2, "wrong-subject": 1, "hallucination-fp": 1,
@@ -983,7 +1048,7 @@ def test_frame_quality_splits_held_pose_from_raw_frozen_stale():
         (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
         _write_pose_run(vdir, "20260101-000060", "sh_held", scanner)
 
-        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
         fq = rec["frameQuality"]
         assert fq["heldPoseCount"] == 4
         assert fq["frozenStaleCount"] == 1
@@ -1073,7 +1138,7 @@ def test_evaluate_prefers_detector_attempts_over_dense_frames():
             detector_attempts=attempts,
         )
 
-        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
         agr = rec["agreement"]
         assert agr["frames"]["matchedPresent"] == 4
         assert agr["presence"] == {"presentDetected": 1, "presentUndetected": 3,
@@ -1203,7 +1268,7 @@ def test_rejection_correctness_verdicts_and_pooled_rate():
             json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
         _write_pose_run(legacy, "20260101-000086", "sh_legacy", _scanner_frames_for_pck())
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 2
         by_run = {p.run_ts: json.loads(p.record_path.read_text(encoding="utf-8"))
                   for p in summary.written}
@@ -1386,7 +1451,7 @@ def test_crop_quality_iou_and_miss_causes():
             json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
         _write_pose_run(legacy, "20260101-000087", "sh_cqlegacy", _scanner_frames_for_pck())
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         by_run = {p.run_ts: json.loads(p.record_path.read_text(encoding="utf-8"))
                   for p in summary.written}
         rec = by_run["20260101-000086"]
@@ -1566,7 +1631,7 @@ def test_miss_reason_splits_the_residual_and_retro_derives():
         _write_pose_run(vdir, "20260101-000101", "sh_reason", [],
                         detector_attempts=attempts)
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
         assert rec["schemaVersion"] >= 13
 
@@ -1712,7 +1777,7 @@ def test_frame_quality_aggregation_pools_all_records():
              "keypoints": _kp_list(_TRUTH_JOINTS)}
             for i in (1, 2, 3)])
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 3
 
         ctx = trends.build_trend_context(root)
@@ -1788,8 +1853,14 @@ def test_hallucination_split_by_truth_presence():
         _write_bundle_meta(vdir, setup_hash=setup_hash)
         (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
         _write_pose_run(vdir, "20260101-000069", setup_hash, scanner)
+        # A scaffold on the same grid as truth, holding the Climber up to t=2 and
+        # losing them after: the two absent frames are a trailing run, not an
+        # interior gap, so they are *confirmed* absences and the split can claim
+        # them (issue #101).
+        _write_scaffold(vdir, samples=[1.0, 2.0, 3.0, 4.0], posed=[1.0, 2.0],
+                        seed_found=True)
 
-        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
         assert rec["schemaVersion"] == ev.SCHEMA_VERSION >= 12
         fq = rec["frameQuality"]
         assert fq["classCounts"]["hallucination-fp"] == 3
@@ -1804,11 +1875,15 @@ def test_hallucination_split_by_truth_presence():
         assert by_t[3.0]["class"] == "hallucination-fp"
         assert by_t[3.0]["truthPresent"] is False   # ...a real false positive
         assert by_t[4.0]["truthPresent"] is False
+        # ...and the absence is one the harness can actually claim (issue #101).
+        assert by_t[3.0]["absenceReason"] == ev.ABSENCE_CONFIRMED
+        assert by_t[1.0]["absenceReason"] is None   # present frame: no such question
 
         split = fq["hallucinationSplit"]
         assert split["total"] == 3
         assert split[ev.HALLUCINATION_TRUTH_ABSENT] == 2
         assert split[ev.HALLUCINATION_TRUTH_PRESENT] == 1
+        assert split["unconfirmedAbsent"] == 0
         assert split["truthAbsentShare"] == round(2 / 3, 6)
         assert split["truthPresentShare"] == round(1 / 3, 6)
 
@@ -1843,32 +1918,43 @@ def test_hallucination_split_by_truth_presence():
                 "truth_absent_share"}.issubset(set(header.split(",")))
 
 
-def test_hallucination_split_reads_pre_v12_frames_as_unknown():
-    """Issue #69 fail-open: a record written before schema v12 recorded no presence, and
-    must read as *unknown* rather than being counted on either side of the split."""
+def test_hallucination_split_reads_old_frames_as_unknown_and_unconfirmed():
+    """Fail-open on both axes, one per schema bump.
+
+    Issue #69: a frame from a record written before schema v12 recorded no presence and
+    reads as *unknown* rather than being counted on either side. Issue #101: a frame
+    whose absence carries no reason — a pre-v14 record — is an absence the harness
+    cannot confirm, and an unconfirmed absence is not evidence of a false positive, so
+    it is held out of the split instead of being promoted to one."""
 
     import pandas as pd
 
     from analysis_pipeline import trends
 
     df = pd.DataFrame([
-        {"class": "hallucination-fp", "truth_present": None,   # pre-v12 frame
+        {"class": "hallucination-fp", "truth_present": None,      # pre-v12 frame
+         "absence_reason": None, "held_pose": 0, "frozen_stale": 0},
+        {"class": "hallucination-fp", "truth_present": False,     # pre-v14 frame
+         "absence_reason": None, "held_pose": 0, "frozen_stale": 0},
+        {"class": "hallucination-fp", "truth_present": False,     # v14, confirmed
+         "absence_reason": "confirmed-absent", "held_pose": 0, "frozen_stale": 0},
+        {"class": "hallucination-fp", "truth_present": False,     # v14, not confirmed
+         "absence_reason": "not-sampled", "held_pose": 0, "frozen_stale": 0},
+        {"class": "ok", "truth_present": True, "absence_reason": None,
          "held_pose": 0, "frozen_stale": 0},
-        {"class": "hallucination-fp", "truth_present": False,
-         "held_pose": 0, "frozen_stale": 0},
-        {"class": "ok", "truth_present": True, "held_pose": 0, "frozen_stale": 0},
     ])
     classes = trends._frame_quality_classes(df).set_index("class")
-    assert classes.loc["hallucination-fp", "truth_unknown"] == 1
-    assert classes.loc["hallucination-fp", "truth_absent"] == 1
+    assert classes.loc["hallucination-fp", "truth_unknown"] == 1        # presence unknown
+    assert classes.loc["hallucination-fp", "truth_absent"] == 1         # confirmed only
+    assert classes.loc["hallucination-fp", "truth_absent_unconfirmed"] == 2
     assert classes.loc["hallucination-fp", "truth_present"] == 0
-    # Shares are over the *known* frames only — the unknown one is not a real FP.
+    # Shares are over the frames the harness can actually claim.
     assert classes.loc["hallucination-fp", "truth_absent_share"] == 1.0
 
     pooled = trends._hallucination_split_totals(df)
-    assert pooled == {"total": 2, "truth_present": 0, "truth_absent": 1,
-                      "truth_unknown": 1, "truth_present_share": 0.0,
-                      "truth_absent_share": 1.0}
+    assert pooled == {"total": 4, "truth_present": 0, "truth_absent": 1,
+                      "truth_absent_unconfirmed": 2, "truth_unknown": 1,
+                      "truth_present_share": 0.0, "truth_absent_share": 1.0}
 
     # An all-unknown pool reports no split at all rather than a fabricated 0%.
     legacy = trends._hallucination_split_totals(
@@ -1876,6 +1962,17 @@ def test_hallucination_split_reads_pre_v12_frames_as_unknown():
     assert legacy["truth_unknown"] == 1
     assert legacy["truth_absent_share"] is None
     assert trends._hallucination_split_totals(pd.DataFrame())["total"] == 0
+
+    # The absence-reason breakdown names every reason, marks which one counts, and
+    # covers every absent frame exactly once.
+    reasons = trends._absence_reason_counts(df).set_index("reason")
+    assert reasons.loc["confirmed-absent", "n"] == 1
+    assert reasons.loc["not-sampled", "n"] == 1
+    assert reasons.loc["unknown", "n"] == 1        # the pre-v14 absent frame
+    assert reasons.loc["out-of-scope", "n"] == 0   # keyed even at zero
+    assert int(reasons["n"].sum()) == 3            # the three absent frames
+    assert bool(reasons.loc["confirmed-absent", "counts_as_absent"]) is True
+    assert bool(reasons.loc["untracked", "counts_as_absent"]) is False
 
 
 def test_attempt_funnel_pools_and_distributes_over_runs():
@@ -1959,7 +2056,7 @@ def test_attempt_funnel_pools_and_distributes_over_runs():
             json.dumps(truth_doc("33333333cccccccc")), encoding="utf-8")
         _write_pose_run(legacy, "20260101-0000LG", "sh_legacy", dense)
 
-        assert len(ev.evaluate(root).written) == 3
+        assert len(_evaluate(root).written) == 3
         ctx = trends.build_trend_context(root)
 
         # Attempt-backed runs only — the legacy run is in the corpus but not the funnel.
@@ -2096,7 +2193,7 @@ def test_evidence_generation_dedup_prefers_attempt_backed_record():
                         config={"frameStep": 10, "frameIntervalMs": 100})
         _write_pose_run(legacy, "20260724-150001", "sh_legacy", dense, app_version="aaa1111")
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 4  # every run is still evaluated and committed
 
         ctx = trends.build_trend_context(root)
@@ -2198,7 +2295,7 @@ def test_evidence_generation_dedup_is_scoped_to_one_truth_revision():
                 {"timestamp": float(i), "status": "accepted", "rawKeypoints": exact,
                  "acceptedKeypoints": exact, "candidateCount": 1}
                 for i in (1, 2, 3)])
-        assert len(ev.evaluate(root).written) == 1
+        assert len(_evaluate(root).written) == 1
 
         # A legacy record for the same video, scored against the truth revision this
         # bundle has since replaced.
@@ -2214,6 +2311,327 @@ def test_evidence_generation_dedup_is_scoped_to_one_truth_revision():
         assert ctx["superseded_count"] == 0
         assert ctx["eval_count_total"] == 2
 
+
+def _absence_bundle(root: Path, *, setup: dict, truth_frames: list,
+                    scanner: list, samples: list[float], posed: list[float],
+                    seed_found: bool | None = None, name: str = "vidABS") -> Path:
+    """A bundle wired for absence provenance: calibration, truth, scaffold, one Run."""
+
+    vdir = root / "routeABS" / name
+    vdir.mkdir(parents=True, exist_ok=True)
+    (vdir / "metadata.json").write_text(
+        json.dumps({"route_folder": "routeABS", "video_key": name}), encoding="utf-8")
+    (vdir / "setup.json").write_text(json.dumps(setup), encoding="utf-8")
+    (vdir / "ground-truth.json").write_text(json.dumps({
+        "version": 1, "jointSet": list(_TRUTH_JOINTS), "setupHash": setup["setupHash"],
+        "groundTruthHash": f"ab5{name}"[:16].ljust(16, "0"),
+        "frames": truth_frames}), encoding="utf-8")
+    _write_pose_run(vdir, "20260101-000101", setup["setupHash"], scanner)
+    _write_scaffold(vdir, samples=samples, posed=posed, seed_found=seed_found)
+    return vdir
+
+
+def _truth_frame(i: int, t: float, present: bool) -> dict:
+    joints = ({n: {"x": x, "y": y, "occluded": False}
+               for n, (x, y) in _TRUTH_JOINTS.items()} if present else {})
+    return {"frameIndex": i, "timestamp": t,
+            "state": "present" if present else "absent",
+            "review": "auto", "joints": joints}
+
+
+def test_absence_reason_is_derived_from_on_disk_evidence():
+    """Issue #101: every absent truth frame carries *why* it is absent, derived from the
+    climb window, the scaffold's sampling grid and its tracking-gap structure — never
+    authored into Ground Truth, which stays pure keypoints.
+
+    One frame per reason, in one bundle. Truth is on a 0.5 s grid while the scaffold
+    sampled at 1 Hz — the shape of the real defect: t=0.5 is before the climb start
+    (out-of-scope), t=2.5 falls between the scaffold's samples (not-sampled), t=4 sits
+    inside a gap the scaffold held the Climber on both sides of (untracked), and t=7 is
+    a trailing absence after the last posed frame (confirmed-absent)."""
+
+    from analysis_pipeline import evaluate as ev
+
+    truth = [
+        _truth_frame(1, 0.5, False),    # before climbStart=1.0
+        _truth_frame(2, 1.0, True),
+        _truth_frame(3, 1.5, True),
+        _truth_frame(4, 2.0, True),
+        _truth_frame(5, 2.5, False),    # between the scaffold's 1 s samples
+        _truth_frame(6, 3.0, True),
+        _truth_frame(7, 3.5, True),
+        _truth_frame(8, 4.0, False),    # interior gap: posed at 3 and 5
+        _truth_frame(9, 4.5, True),
+        _truth_frame(10, 5.0, True),
+        _truth_frame(11, 7.0, False),   # trailing: nothing posed after 5
+    ]
+    scanner = [{"timestamp": f["timestamp"], "keypoints": _kp_list(_TRUTH_JOINTS)}
+               for f in truth]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _absence_bundle(
+            root,
+            setup={"setupHash": "sh_abs", "climberPoint": {"x": 0.5, "y": 0.9, "t": 1.0},
+                   "climbEnd": 8.0},
+            truth_frames=truth, scanner=scanner,
+            samples=[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0], posed=[2.0, 3.0, 5.0],
+            seed_found=True)
+
+        rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 14
+        assert rec["counts"]["absenceReasons"] == {
+            ev.ABSENCE_OUT_OF_SCOPE: 1, ev.ABSENCE_NOT_SAMPLED: 1,
+            ev.ABSENCE_UNTRACKED: 1, ev.ABSENCE_CONFIRMED: 1, ev.ABSENCE_UNKNOWN: 0}
+        assert rec["climbWindow"] == {"start": 1.0, "end": 8.0}
+
+        # Each reason is visible per frame, not only in the totals.
+        by_t = {e["t"]: e for e in rec["frameQuality"]["frames"]}
+        assert by_t[2.5]["absenceReason"] == ev.ABSENCE_NOT_SAMPLED
+        assert by_t[4.0]["absenceReason"] == ev.ABSENCE_UNTRACKED
+        assert by_t[7.0]["absenceReason"] == ev.ABSENCE_CONFIRMED
+        assert by_t[2.0]["absenceReason"] is None      # present: no such question
+        assert 0.5 not in by_t                         # out of scope: not scored at all
+
+        # Only the confirmed absence reaches the presence 2×2; the other two matched
+        # absences are held out and counted, never dropped.
+        agr = rec["agreement"]
+        assert agr["presence"]["absentDetected"] == 1
+        assert agr["frames"]["unconfirmedAbsent"] == 2
+
+
+def test_untracked_absence_when_the_scaffold_never_seeded():
+    """A scaffold whose seeding failed outright makes *every* absence a tracking
+    failure — reading those as a departed Climber would blame the scanner for the
+    harness's own miss (issue #101)."""
+
+    from analysis_pipeline import evaluate as ev
+
+    truth = [_truth_frame(1, 1.0, True), _truth_frame(2, 2.0, False),
+             _truth_frame(3, 3.0, False)]
+    scanner = [{"timestamp": f["timestamp"], "keypoints": _kp_list(_TRUTH_JOINTS)}
+               for f in truth]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _absence_bundle(root, setup={"setupHash": "sh_seedfail"},
+                        truth_frames=truth, scanner=scanner,
+                        samples=[1.0, 2.0, 3.0], posed=[], seed_found=False)
+        rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        assert rec["counts"]["absenceReasons"][ev.ABSENCE_UNTRACKED] == 2
+        assert rec["counts"]["absenceReasons"][ev.ABSENCE_CONFIRMED] == 0
+        assert rec["agreement"]["presence"]["absentDetected"] == 0
+
+
+def test_absence_reason_is_unknown_without_a_scaffold_to_derive_from():
+    """Fail-open: with no scaffold on disk there is nothing to derive from, so an absent
+    frame reads ``unknown`` and stays out of the presence 2×2 — never silently promoted
+    to a confirmed absence (issue #101)."""
+
+    from analysis_pipeline import evaluate as ev
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeNS" / "vidNS"
+        _write_bundle_meta(vdir, setup_hash="sh_ns")
+        (vdir / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS), "setupHash": "sh_ns",
+            "groundTruthHash": "ns00ns00ns00ns00",
+            "frames": [_truth_frame(1, 1.0, True), _truth_frame(2, 2.0, False)]}),
+            encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000102", "sh_ns",
+                        [{"timestamp": t, "keypoints": _kp_list(_TRUTH_JOINTS)}
+                         for t in (1.0, 2.0)])
+
+        rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        assert rec["counts"]["absenceReasons"][ev.ABSENCE_UNKNOWN] == 1
+        assert rec["counts"]["absenceReasons"][ev.ABSENCE_CONFIRMED] == 0
+        assert rec["agreement"]["presence"]["absentDetected"] == 0
+        assert rec["agreement"]["frames"]["unconfirmedAbsent"] == 1
+
+
+def test_climb_window_excludes_out_of_scope_frames_from_scoring_and_the_fit():
+    """Issue #101: a Climber walking away from a finished problem is out of scope, not a
+    detection failure. Out-of-window truth frames are excluded from scoring *and* from
+    the conformance fit — so they cannot influence whether a Bundle is quarantined — and
+    the count is surfaced rather than silently applied."""
+
+    from analysis_pipeline import evaluate as ev
+
+    # Six in-window present frames, plus two post-topout frames where the scanner is
+    # tracking something else entirely (joints far from truth).
+    truth = [_truth_frame(i, float(i), True) for i in range(1, 7)]
+    truth += [_truth_frame(7, 7.0, True), _truth_frame(8, 8.0, True)]
+    scanner = [{"timestamp": float(i), "keypoints": _kp_list(_TRUTH_JOINTS)}
+               for i in range(1, 7)]
+    wrong = {n: (x * 0.2 + 0.05, y * 0.2 + 0.05) for n, (x, y) in _TRUTH_JOINTS.items()}
+    scanner += [{"timestamp": float(i), "keypoints": _kp_list(wrong)} for i in (7, 8)]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _absence_bundle(
+            root,
+            setup={"setupHash": "sh_win", "climberPoint": {"x": 0.5, "y": 0.9, "t": 1.0},
+                   "climbEnd": 6.0},
+            truth_frames=truth, scanner=scanner,
+            samples=[float(i) for i in range(1, 9)],
+            posed=[float(i) for i in range(1, 7)], seed_found=True)
+
+        rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        assert rec["counts"]["truthFramesOutOfScope"] == 2
+        assert rec["counts"]["agreementSkipped"]["outOfScope"] == 2
+        # Scored over the six in-window frames only...
+        assert rec["agreement"]["frames"]["matchedPresent"] == 6
+        # ...and the fit is clean, which it would not be with the two wrong-subject
+        # post-topout frames dragged in.
+        assert rec["conformance"]["y"]["slope"] == 1.0
+        assert rec["conformance"]["conforms"] is True
+
+        # With the end marker removed the bundle behaves exactly as it did before the
+        # window existed: every frame scored, and the fit sees the bad ones.
+        setup_path = root / "routeABS" / "vidABS" / "setup.json"
+        setup_path.write_text(json.dumps({"setupHash": "sh_win"}), encoding="utf-8")
+        rec2 = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        assert rec2["counts"]["truthFramesOutOfScope"] == 0
+        assert rec2["climbWindow"] == {"start": None, "end": None}
+        assert rec2["agreement"]["frames"]["matchedPresent"] == 8
+        assert rec2["conformance"]["conforms"] is False
+
+
+def test_truth_sufficiency_floor_quarantines_a_thin_bundle():
+    """Issue #101: the conformance gate gains a floor counted in **frames**.
+
+    The motivating Bundle fit near-perfectly on 11 truth-present frames out of 633 and
+    passed, because ``CONFORMANCE_MIN_POINTS`` counts joint-pairs and 11 frames × 11
+    joints clears 20 comfortably. This runs the real, unpatched gate: a thin bundle
+    quarantines on ``insufficient-frames`` even with a flawless fit, while the same
+    bundle padded past the floor conforms."""
+
+    from analysis_pipeline import evaluate as ev
+
+    def _bundle(root: Path, n_frames: int, name: str) -> dict:
+        truth = [_truth_frame(i, float(i), True) for i in range(1, n_frames + 1)]
+        scanner = [{"timestamp": float(i), "keypoints": _kp_list(_TRUTH_JOINTS)}
+                   for i in range(1, n_frames + 1)]
+        _absence_bundle(root, setup={"setupHash": f"sh_{name}"}, truth_frames=truth,
+                        scanner=scanner, samples=[float(i) for i in range(1, n_frames + 1)],
+                        posed=[float(i) for i in range(1, n_frames + 1)],
+                        seed_found=True, name=name)
+        written = {p.video_key: p for p in ev.evaluate(root).written}
+        return json.loads(written[name].record_path.read_text(encoding="utf-8"))
+
+    assert ev.CONFORMANCE_MIN_FIT_FRAMES == 20
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        thin = _bundle(root, 11, "vidTHIN")
+        # A flawless fit over plenty of joint-pairs...
+        assert thin["conformance"]["y"]["r2"] == 1.0
+        assert thin["conformance"]["n"] >= ev.CONFORMANCE_MIN_POINTS
+        # ...and still quarantined, on frames.
+        assert thin["conformance"]["causeEvidence"]["fitFrames"] == 11
+        assert thin["conformance"]["conforms"] is False
+        assert "insufficient-frames" in thin["conformance"]["reasons"]
+        assert thin["conformance"]["thresholds"]["minFitFramesGate"] == 20
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        thick = _bundle(root, 25, "vidTHICK")
+        assert thick["conformance"]["causeEvidence"]["fitFrames"] == 25
+        assert thick["conformance"]["conforms"] is True
+        assert thick["conformance"]["reasons"] == []
+
+
+def test_rate_mismatch_is_its_own_nonconformance_cause():
+    """Issue #101: a scaffold sampled far coarser than the truth grid is a *data* defect
+    — it routes to regenerating the scaffold, not to the truth-repair worklist and not
+    to the detector worklist, so it must not be labelled ``sparse-match``."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    # Truth on a 0.1 s grid; the scaffold sampled at 1 Hz — the measured corpus defect.
+    truth, scanner = [], []
+    for i in range(1, 41):
+        t = round(i * 0.1, 1)
+        posed_here = abs(t - round(t)) < 1e-9
+        truth.append(_truth_frame(i, t, posed_here))
+        scanner.append({"timestamp": t, "keypoints": _kp_list(_TRUTH_JOINTS)})
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _absence_bundle(root, setup={"setupHash": "sh_rate"}, truth_frames=truth,
+                        scanner=scanner, samples=[float(i) for i in range(1, 5)],
+                        posed=[float(i) for i in range(1, 5)], seed_found=True,
+                        name="vidRATE")
+        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+
+        conf = rec["conformance"]
+        assert conf["conforms"] is False           # only 4 present frames survive
+        assert conf["cause"] == ev.NONCONFORMANCE_RATE_MISMATCH
+        assert conf["causeEvidence"]["samplingRatio"] == 10.0
+        assert conf["causeEvidence"]["scaffoldStepSec"] == 1.0
+        assert conf["causeEvidence"]["truthStepSec"] == 0.1
+        # The absences it fabricates are named as such, not counted as departures.
+        assert rec["counts"]["absenceReasons"][ev.ABSENCE_NOT_SAMPLED] == 36
+        assert rec["counts"]["absenceReasons"][ev.ABSENCE_CONFIRMED] == 0
+
+        # It quarantines under its own cause, and never reaches the truth-repair
+        # worklist — re-seeding truth would repair nothing here.
+        ctx = trends.build_trend_context(root)
+        assert ctx["quarantine_cause_counts"][ev.NONCONFORMANCE_RATE_MISMATCH] == 1
+        assert ctx["truth_repair_count"] == 0
+
+        # The report names the cause and tells the reader what to do about it...
+        from analysis_pipeline import report
+        quarantine_html = report._quarantine_table(ctx["quarantined_bundles"])
+        assert "rate-mismatch" in quarantine_html
+        assert "regenerate the scaffold" in quarantine_html.lower()
+        # ...and the absence breakdown is rendered rather than left in a CSV.
+        absence_html = report._absence_reason_html(ctx)
+        assert "not-sampled" in absence_html
+        assert "scaffold artifact" in absence_html
+        assert "regenerate those scaffolds" in absence_html
+
+
+def test_rate_mismatch_is_reported_even_when_the_bundle_conforms():
+    """Issue #101: ``rate-mismatch`` is a non-conformance *cause*, so it only speaks
+    when a record also fails the gate — and a Bundle can under-sample its truth grid
+    tenfold while fitting cleanly on the frames it did sample. On the real corpus that
+    is 17 records. The defect must stay visible anyway, because the fix is the same."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    # Truth on a 0.1 s grid, scaffold at 1 Hz — but enough posed frames that the fit is
+    # clean and the truth-sufficiency floor is cleared, so the gate passes.
+    truth, scanner = [], []
+    for i in range(1, 251):
+        t = round(i * 0.1, 1)
+        posed_here = abs(t - round(t)) < 1e-9
+        truth.append(_truth_frame(i, t, posed_here))
+        scanner.append({"timestamp": t, "keypoints": _kp_list(_TRUTH_JOINTS)})
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _absence_bundle(root, setup={"setupHash": "sh_ratepass"}, truth_frames=truth,
+                        scanner=scanner, samples=[float(i) for i in range(1, 26)],
+                        posed=[float(i) for i in range(1, 26)], seed_found=True,
+                        name="vidRATEPASS")
+        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+
+        # It conforms — so the quarantine cause is silent by construction...
+        assert rec["conformance"]["conforms"] is True
+        assert rec["conformance"]["cause"] is None
+        assert rec["conformance"]["causeEvidence"]["samplingRatio"] == 10.0
+
+        ctx = trends.build_trend_context(root)
+        assert ctx["quarantine_cause_counts"][ev.NONCONFORMANCE_RATE_MISMATCH] == 0
+        # ...and the record is surfaced regardless, named with its ratio.
+        assert ctx["rate_mismatch_count"] == 1
+        row = ctx["rate_mismatch_records"][0]
+        assert row["video_key"] == "vidRATEPASS"
+        assert (row["sampling_ratio"], row["conforms"]) == (10.0, True)
+        assert "still <em>pass</em>" in report._absence_reason_html(ctx)
 
 def test_frame_table_sequential_reader_and_memo():
     """Issue #101 decode contract, asserted through the injected frame-reader seam:
@@ -2369,7 +2787,7 @@ def test_evaluate_vitpose_fallback_when_no_ground_truth():
                         [{"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
                          {"timestamp": 2.0, "keypoints": _kp_list(_TRUTH_JOINTS)}])
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 1
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
         assert rec["truthSource"] == "vitpose"
@@ -2433,7 +2851,7 @@ def test_evaluate_review_provenance_routing():
         (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
         _write_pose_run(vdir, "20260101-000020", "sh_r", scanner)
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 1
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
@@ -2441,7 +2859,8 @@ def test_evaluate_review_provenance_routing():
         assert rec["counts"]["review"] == {"auto": 2, "flaggedWrong": 1,
                                             "flaggedAbsent": 1}
         assert rec["counts"]["agreementSkipped"] == {"flaggedWrong": 1,
-                                                     "flaggedAbsent": 1}
+                                                     "flaggedAbsent": 1,
+                                                     "outOfScope": 0}
         assert rec["counts"]["truthFramesVerified"] == 0
 
         # Agreement excludes both the flagged-wrong seed and the manual absent flag:
@@ -2487,13 +2906,14 @@ def test_evaluate_legacy_ground_truth_without_review_all_auto():
         (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
         _write_pose_run(vdir, "20260101-000021", "sh_l", scanner)
 
-        rec = json.loads(ev.evaluate(root).written[0].record_path
+        rec = json.loads(_evaluate(root).written[0].record_path
                          .read_text(encoding="utf-8"))
         assert rec["counts"]["review"] == {"auto": 2, "flaggedWrong": 0,
                                            "flaggedAbsent": 0}
         assert rec["counts"]["truthFramesVerified"] == 0
         assert rec["counts"]["agreementSkipped"] == {"flaggedWrong": 0,
-                                                    "flaggedAbsent": 0}
+                                                    "flaggedAbsent": 0,
+                                                    "outOfScope": 0}
         assert rec["agreement"]["frames"]["truthFrames"] == 2
         assert rec["accuracy"]["frames"]["truthFrames"] == 0
 
@@ -2527,7 +2947,7 @@ def test_analysis_report_includes_eval_trend_sections():
 
         # Seed committed evaluation records once, then run analysis. vidT is a trusted
         # record; vidStale is loose-paired (setupHash mismatch, but overlaps truth).
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 2
         assert len(summary.loose) == 1
 
@@ -2585,7 +3005,7 @@ def test_low_confidence_visible_measurement_and_worklist():
         (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
         _write_pose_run(vdir, "20260101-000030", "sh_lc", scanner)
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
         vj = rec["agreement"]["visibleJoints"]
         assert vj[13] == 1 and vj[11] == 1
@@ -2640,7 +3060,7 @@ def test_version_regression_delta_isolated_to_injected_joint():
         _write_pose_run(vdir, "20260102-000001", "sh_v", frames_v2,
                         app_version="bbb2222")
 
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 2
 
         ctx = trends.build_trend_context(root)
@@ -2694,7 +3114,7 @@ def test_version_regression_never_deltas_across_truth_revisions():
                         app_version="bbb2222")
         _write_pose_run(vdir, "20260101-000001", "sh_OLD", _scanner_frames_for_pck(),
                         app_version="aaa1111")
-        summary = ev.evaluate(root)
+        summary = _evaluate(root)
         assert len(summary.written) == 1
 
         # The older version's committed record was evaluated against a different
@@ -2736,7 +3156,7 @@ def test_evaluate_prune_removes_stale_run_orphan_keeps_history():
         _write_pose_run(vdir, "20260101-000002", "sh_STALE", _scanner_frames_for_pck())
 
         # First pass writes the live record for run ...0001 vs abcdef12.
-        summary0 = ev.evaluate(root)
+        summary0 = _evaluate(root)
         assert len(summary0.written) == 1
         eval_dir = vdir / "evaluations"
         live_name = "20260101-000001_vs_abcdef12.json"
@@ -2753,7 +3173,7 @@ def test_evaluate_prune_removes_stale_run_orphan_keeps_history():
         (eval_dir / history_name).write_text(json.dumps({"old": True}), encoding="utf-8")
 
         # Dry run: reports the orphan, deletes nothing.
-        dry = ev.evaluate(root, prune=False)
+        dry = _evaluate(root, prune=False)
         assert len(dry.orphans) == 1
         assert dry.orphans[0].record_path.name == orphan_name
         assert not dry.orphans[0].removed
@@ -2761,7 +3181,7 @@ def test_evaluate_prune_removes_stale_run_orphan_keeps_history():
         assert (eval_dir / orphan_name).exists()  # still there after dry run
 
         # Prune: deletes only the orphan; history and the live record survive.
-        wet = ev.evaluate(root, prune=True)
+        wet = _evaluate(root, prune=True)
         assert len(wet.pruned) == 1
         assert wet.pruned[0].record_path.name == orphan_name
         assert not (eval_dir / orphan_name).exists()
@@ -2799,20 +3219,20 @@ def test_evaluate_mode_all_default_is_full_sweep():
         _write_pose_run(vdir, "20260101-000001", "sh_match", _scanner_frames_for_pck())
 
         # Default == explicit 'all', and neither skips anything.
-        s_default = ev.evaluate(root)
+        s_default = _evaluate(root)
         assert len(s_default.written) == 1 and not s_default.analyzed_skipped
         rec_path = s_default.written[0].record_path
 
         # A full sweep always rewrites, even when the record already exists: stamp a
         # sentinel and confirm mode='all' clobbers it.
         _stamp_sentinel(rec_path)
-        s_all = ev.evaluate(root, mode=ev.EVAL_MODE_ALL)
+        s_all = _evaluate(root, mode=ev.EVAL_MODE_ALL)
         assert len(s_all.written) == 1 and not s_all.analyzed_skipped
         assert not _has_sentinel(rec_path)  # rewritten in place
 
         # An unknown mode is rejected rather than silently treated as 'all'.
         try:
-            ev.evaluate(root, mode="nope")
+            _evaluate(root, mode="nope")
         except ValueError as e:
             assert "unknown evaluate mode" in str(e)
         else:
@@ -2836,26 +3256,26 @@ def test_evaluate_mode_unanalyzed_skips_analyzed_processes_new():
 
         # A fresh corpus has nothing analyzed yet, so un-analyzed processes it in full —
         # equivalent to a full sweep on the first pass.
-        first = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        first = _evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
         assert len(first.written) == 1 and not first.analyzed_skipped
         rec_path = first.written[0].record_path
 
         # Second un-analyzed pass: the matched run already has a current-truth record, so
         # the bundle is skipped and its record is left byte-for-byte untouched.
         _stamp_sentinel(rec_path)
-        second = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        second = _evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
         assert not second.written
         assert second.analyzed_skipped == ["routeU/vidU"]
         assert _has_sentinel(rec_path)  # never rewritten
 
         # A full sweep still rewrites the same bundle (clobbers the sentinel).
-        third = ev.evaluate(root, mode=ev.EVAL_MODE_ALL)
+        third = _evaluate(root, mode=ev.EVAL_MODE_ALL)
         assert len(third.written) == 1 and not _has_sentinel(rec_path)
 
         # A NEW run makes the bundle un-analyzed again -> un-analyzed reprocesses it and
         # scores both runs.
         _write_pose_run(vdir, "20260101-000002", "sh_match", _scanner_frames_for_pck())
-        fourth = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        fourth = _evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
         assert not fourth.analyzed_skipped
         assert {p.run_ts for p in fourth.written} == {"20260101-000001", "20260101-000002"}
 
@@ -2864,7 +3284,7 @@ def test_evaluate_mode_unanalyzed_skips_analyzed_processes_new():
         revised = _ground_truth_doc(setup_hash=None)
         revised["groundTruthHash"] = "0000face0000face"
         (vdir / "ground-truth.json").write_text(json.dumps(revised), encoding="utf-8")
-        fifth = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        fifth = _evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
         assert not fifth.analyzed_skipped and len(fifth.written) == 2
 
 
@@ -2890,7 +3310,7 @@ def test_evaluate_mode_unanalyzed_preserves_loose_fallback():
 
         # Driven entirely via un-analyzed from scratch: still writes the n=0 matched record
         # AND recovers the loose pairing.
-        summary = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        summary = _evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
         assert len(summary.written) == 2 and len(summary.loose) == 1
         loose = summary.loose[0]
         assert loose.run_ts == "20260101-000002"
@@ -2898,7 +3318,7 @@ def test_evaluate_mode_unanalyzed_preserves_loose_fallback():
         # Re-run: the matched run now has a current-truth record, so the whole bundle is
         # skipped and the loose record is left in place, untouched.
         _stamp_sentinel(loose.record_path)
-        again = ev.evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
+        again = _evaluate(root, mode=ev.EVAL_MODE_UNANALYZED)
         assert not again.written
         assert again.analyzed_skipped == ["routeUL/vidUL"]
         assert _has_sentinel(loose.record_path)
@@ -2923,7 +3343,7 @@ def test_evaluate_mode_unanalyzed_prune_interaction():
         _write_pose_run(vdir, "20260101-000002", "sh_STALE", _scanner_frames_for_pck())
 
         # Analyze the live run once (full sweep) -> current-truth record on disk.
-        first = ev.evaluate(root)
+        first = _evaluate(root)
         assert len(first.written) == 1
         eval_dir = vdir / "evaluations"
         live_name = "20260101-000001_vs_abcdef12.json"
@@ -2936,7 +3356,7 @@ def test_evaluate_mode_unanalyzed_prune_interaction():
         history_name = "20260101-000001_vs_99998888.json"
         (eval_dir / history_name).write_text(json.dumps({"old": True}), encoding="utf-8")
 
-        result = ev.evaluate(root, prune=True, mode=ev.EVAL_MODE_UNANALYZED)
+        result = _evaluate(root, prune=True, mode=ev.EVAL_MODE_UNANALYZED)
         # The bundle is skipped for scoring...
         assert not result.written
         assert result.analyzed_skipped == ["routeUP/vidUP"]
@@ -2949,7 +3369,16 @@ def test_evaluate_mode_unanalyzed_prune_interaction():
 
 
 def _run_all():
-    fns = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
+    """Every ``test_*`` in this module, discovered rather than listed.
+
+    A hand-maintained list silently drops a test the moment someone forgets to add it:
+    ``test_evaluate_detection_annotations_override_and_ignore_stale`` was absent from it
+    and had been failing unnoticed. Discovery makes that impossible.
+    """
+
+    fns = [fn for name, fn in sorted(globals().items())
+           if name.startswith("test_") and callable(fn)]
+    _legacy_order = [test_discovery_dedup_prune_and_stats, test_cliffs_delta_bounds,
            test_crossmatch_reducers, test_pipeline_end_to_end_renders_report,
            test_evaluate_pck_exact_and_edge_cases,
            test_evaluate_conformance_gate_and_pooled_quarantine,
@@ -2967,7 +3396,7 @@ def _run_all():
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
            test_hallucination_split_by_truth_presence,
-           test_hallucination_split_reads_pre_v12_frames_as_unknown,
+           test_hallucination_split_reads_old_frames_as_unknown_and_unconfirmed,
            test_attempt_funnel_pools_and_distributes_over_runs,
            test_evidence_generation_dedup_prefers_attempt_backed_record,
            test_evidence_generation_dedup_is_scoped_to_one_truth_revision,
@@ -2984,6 +3413,7 @@ def _run_all():
            test_low_confidence_visible_measurement_and_worklist,
            test_version_regression_delta_isolated_to_injected_joint,
            test_version_regression_never_deltas_across_truth_revisions]
+    assert set(_legacy_order) <= set(fns), "a listed test vanished from the module"
     for fn in fns:
         fn()
         print(f"PASS {fn.__name__}")

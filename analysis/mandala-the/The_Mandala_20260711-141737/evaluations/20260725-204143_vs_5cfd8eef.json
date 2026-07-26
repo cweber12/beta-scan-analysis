@@ -24,6 +24,7 @@
       "scoreable": 0,
       "torsoUndefined": 0,
       "truthFrames": 0,
+      "unconfirmedAbsent": 0,
       "unmatchedAbsent": 0,
       "unmatchedPresent": 0,
       "verifiedFrames": 0
@@ -277,28 +278,29 @@
   "agreement": {
     "aggregate": {
       "coverage": {
-        "emitted": 769,
-        "frames": 884,
-        "rate": 0.86991
+        "emitted": 756,
+        "frames": 858,
+        "rate": 0.881119
       },
       "normDist": {
-        "median": 0.065972,
-        "n": 687,
-        "p90": 0.18085
+        "median": 0.065584,
+        "n": 675,
+        "p90": 0.18235
       },
       "pck": {
-        "correct": 678,
-        "total": 766,
-        "value": 0.885117
+        "correct": 666,
+        "total": 744,
+        "value": 0.895161
       }
     },
     "frames": {
       "lowVisibility": 0,
-      "matchedAbsent": 18,
-      "matchedPresent": 68,
-      "scoreable": 64,
+      "matchedAbsent": 17,
+      "matchedPresent": 66,
+      "scoreable": 62,
       "torsoUndefined": 4,
-      "truthFrames": 86,
+      "truthFrames": 83,
+      "unconfirmedAbsent": 17,
       "unmatchedAbsent": 0,
       "unmatchedPresent": 0,
       "verifiedFrames": 0
@@ -306,14 +308,99 @@
     "perJoint": {
       "left_ankle": {
         "coverage": {
-          "emitted": 62,
-          "frames": 68,
-          "rate": 0.911765
+          "emitted": 61,
+          "frames": 66,
+          "rate": 0.924242
         },
         "normDist": {
-          "median": 0.085233,
-          "n": 55,
-          "p90": 0.282312
+          "median": 0.081466,
+          "n": 54,
+          "p90": 0.285014
+        },
+        "pck": {
+          "correct": 52,
+          "total": 57,
+          "value": 0.912281
+        }
+      },
+      "left_elbow": {
+        "coverage": {
+          "emitted": 58,
+          "frames": 66,
+          "rate": 0.878788
+        },
+        "normDist": {
+          "median": 0.07285,
+          "n": 53,
+          "p90": 0.14249
+        },
+        "pck": {
+          "correct": 52,
+          "total": 59,
+          "value": 0.881356
+        }
+      },
+      "left_hip": {
+        "coverage": {
+          "emitted": 66,
+          "frames": 66,
+          "rate": 1.0
+        },
+        "normDist": {
+          "median": 0.067843,
+          "n": 62,
+          "p90": 0.10691
+        },
+        "pck": {
+          "correct": 62,
+          "total": 62,
+          "value": 1.0
+        }
+      },
+      "left_knee": {
+        "coverage": {
+          "emitted": 61,
+          "frames": 66,
+          "rate": 0.924242
+        },
+        "normDist": {
+          "median": 0.055427,
+          "n": 52,
+          "p90": 0.151337
+        },
+        "pck": {
+          "correct": 51,
+          "total": 57,
+          "value": 0.894737
+        }
+      },
+      "left_shoulder": {
+        "coverage": {
+          "emitted": 66,
+          "frames": 66,
+          "rate": 1.0
+        },
+        "normDist": {
+          "median": 0.038733,
+          "n": 62,
+          "p90": 0.160244
+        },
+        "pck": {
+          "correct": 62,
+          "total": 62,
+          "value": 1.0
+        }
+      },
+      "left_wrist": {
+        "coverage": {
+          "emitted": 58,
+          "frames": 66,
+          "rate": 0.878788
+        },
+        "normDist": {
+          "median": 0.065129,
+          "n": 54,
+          "p90": 0.218668
         },
         "pck": {
           "correct": 53,
@@ -321,96 +408,11 @@
           "value": 0.898305
         }
       },
-      "left_elbow": {
-        "coverage": {
-          "emitted": 59,
-          "frames": 68,
-          "rate": 0.867647
-        },
-        "normDist": {
-          "median": 0.072652,
-          "n": 54,
-          "p90": 0.142146
-        },
-        "pck": {
-          "correct": 53,
-          "total": 61,
-          "value": 0.868852
-        }
-      },
-      "left_hip": {
-        "coverage": {
-          "emitted": 67,
-          "frames": 68,
-          "rate": 0.985294
-        },
-        "normDist": {
-          "median": 0.068564,
-          "n": 63,
-          "p90": 0.106824
-        },
-        "pck": {
-          "correct": 63,
-          "total": 64,
-          "value": 0.984375
-        }
-      },
-      "left_knee": {
-        "coverage": {
-          "emitted": 62,
-          "frames": 68,
-          "rate": 0.911765
-        },
-        "normDist": {
-          "median": 0.055858,
-          "n": 53,
-          "p90": 0.149914
-        },
-        "pck": {
-          "correct": 52,
-          "total": 58,
-          "value": 0.896552
-        }
-      },
-      "left_shoulder": {
-        "coverage": {
-          "emitted": 67,
-          "frames": 68,
-          "rate": 0.985294
-        },
-        "normDist": {
-          "median": 0.039222,
-          "n": 63,
-          "p90": 0.159926
-        },
-        "pck": {
-          "correct": 63,
-          "total": 64,
-          "value": 0.984375
-        }
-      },
-      "left_wrist": {
-        "coverage": {
-          "emitted": 59,
-          "frames": 68,
-          "rate": 0.867647
-        },
-        "normDist": {
-          "median": 0.063236,
-          "n": 55,
-          "p90": 0.216689
-        },
-        "pck": {
-          "correct": 54,
-          "total": 61,
-          "value": 0.885246
-        }
-      },
       "nose": {
         "coverage": {
-          "emitted": 67,
-          "frames": 68,
-          "rate": 0.985294
+          "emitted": 66,
+          "frames": 66,
+          "rate": 1.0
         },
         "normDist": {
           "median": 0.111847,
@@ -425,112 +427,112 @@
       },
       "right_ankle": {
         "coverage": {
-          "emitted": 47,
-          "frames": 68,
-          "rate": 0.691176
+          "emitted": 46,
+          "frames": 66,
+          "rate": 0.69697
         },
         "normDist": {
-          "median": 0.089974,
-          "n": 43,
-          "p90": 0.323962
+          "median": 0.081731,
+          "n": 42,
+          "p90": 0.334881
         },
         "pck": {
-          "correct": 42,
-          "total": 55,
-          "value": 0.763636
+          "correct": 41,
+          "total": 54,
+          "value": 0.759259
         }
       },
       "right_elbow": {
         "coverage": {
-          "emitted": 51,
-          "frames": 68,
-          "rate": 0.75
+          "emitted": 50,
+          "frames": 66,
+          "rate": 0.757576
         },
         "normDist": {
-          "median": 0.062983,
-          "n": 48,
-          "p90": 0.148292
+          "median": 0.060138,
+          "n": 47,
+          "p90": 0.148987
         },
         "pck": {
-          "correct": 47,
-          "total": 60,
-          "value": 0.783333
+          "correct": 46,
+          "total": 58,
+          "value": 0.793103
         }
       },
       "right_hip": {
         "coverage": {
-          "emitted": 67,
-          "frames": 68,
-          "rate": 0.985294
+          "emitted": 66,
+          "frames": 66,
+          "rate": 1.0
         },
         "normDist": {
-          "median": 0.076014,
-          "n": 63,
-          "p90": 0.16294
+          "median": 0.075972,
+          "n": 62,
+          "p90": 0.162944
         },
         "pck": {
-          "correct": 63,
-          "total": 64,
-          "value": 0.984375
+          "correct": 62,
+          "total": 62,
+          "value": 1.0
         }
       },
       "right_knee": {
         "coverage": {
-          "emitted": 46,
-          "frames": 68,
-          "rate": 0.676471
+          "emitted": 45,
+          "frames": 66,
+          "rate": 0.681818
         },
         "normDist": {
-          "median": 0.068204,
-          "n": 40,
-          "p90": 0.235126
+          "median": 0.070823,
+          "n": 39,
+          "p90": 0.235619
         },
         "pck": {
-          "correct": 39,
-          "total": 53,
-          "value": 0.735849
+          "correct": 38,
+          "total": 51,
+          "value": 0.745098
         }
       },
       "right_shoulder": {
         "coverage": {
-          "emitted": 67,
-          "frames": 68,
-          "rate": 0.985294
+          "emitted": 66,
+          "frames": 66,
+          "rate": 1.0
         },
         "normDist": {
-          "median": 0.062641,
-          "n": 63,
-          "p90": 0.142418
+          "median": 0.061378,
+          "n": 62,
+          "p90": 0.142858
         },
         "pck": {
-          "correct": 63,
-          "total": 64,
-          "value": 0.984375
+          "correct": 62,
+          "total": 62,
+          "value": 1.0
         }
       },
       "right_wrist": {
         "coverage": {
-          "emitted": 48,
-          "frames": 68,
-          "rate": 0.705882
+          "emitted": 47,
+          "frames": 66,
+          "rate": 0.712121
         },
         "normDist": {
-          "median": 0.046319,
-          "n": 43,
-          "p90": 0.171342
+          "median": 0.046223,
+          "n": 42,
+          "p90": 0.152842
         },
         "pck": {
-          "correct": 42,
-          "total": 59,
-          "value": 0.711864
+          "correct": 41,
+          "total": 57,
+          "value": 0.719298
         }
       }
     },
     "presence": {
-      "absentDetected": 8,
-      "absentUndetected": 10,
-      "presentDetected": 67,
-      "presentUndetected": 1
+      "absentDetected": 0,
+      "absentUndetected": 0,
+      "presentDetected": 66,
+      "presentUndetected": 0
     },
     "visibleJoints": [
       0,
@@ -543,47 +545,64 @@
       0,
       0,
       0,
-      7,
+      6,
       14,
-      22,
+      21,
       25
     ]
+  },
+  "climbWindow": {
+    "end": null,
+    "start": 2.87
   },
   "conformance": {
     "cause": null,
     "causeEvidence": {
-      "acceptedAttempts": 67,
-      "acceptedShare": 0.985294,
-      "fitFrames": 67,
-      "presentAttempts": 68
+      "acceptedAttempts": 66,
+      "acceptedShare": 1.0,
+      "fitFrames": 66,
+      "presentAttempts": 66,
+      "samplingRatio": 1.0,
+      "scaffoldStepSec": 1.0,
+      "truthStepSec": 1.0
     },
     "conforms": true,
-    "n": 729,
+    "n": 717,
     "reasons": [],
     "thresholds": {
       "minAcceptedShare": 0.5,
       "minFitFrames": 20,
+      "minFitFramesGate": 20,
       "minPoints": 20,
       "r2Min": 0.9,
       "r2MinX": 0.75,
+      "rateMismatchMinRatio": 2.0,
       "slopeMax": 1.15,
       "slopeMin": 0.85
     },
     "x": {
-      "intercept": 0.005748,
+      "intercept": 0.005722,
       "r2": 0.995975,
-      "slope": 0.989522
+      "slope": 0.989572
     },
     "y": {
-      "intercept": 0.001587,
-      "r2": 0.998518,
-      "slope": 0.996526
+      "intercept": 0.001708,
+      "r2": 0.998459,
+      "slope": 0.996186
     }
   },
   "counts": {
+    "absenceReasons": {
+      "confirmed-absent": 0,
+      "not-sampled": 0,
+      "out-of-scope": 1,
+      "unknown": 0,
+      "untracked": 17
+    },
     "agreementSkipped": {
       "flaggedAbsent": 0,
-      "flaggedWrong": 0
+      "flaggedWrong": 0,
+      "outOfScope": 3
     },
     "review": {
       "auto": 86,
@@ -591,80 +610,23 @@
       "flaggedWrong": 0
     },
     "truthFramesAbsent": 18,
+    "truthFramesOutOfScope": 3,
     "truthFramesPresent": 68,
     "truthFramesTotal": 86,
     "truthFramesVerified": 0
   },
   "cropQuality": {
     "cropContainedTruth": {
-      "contained": 67,
-      "rate": 0.985294,
-      "scored": 68
+      "contained": 66,
+      "rate": 1.0,
+      "scored": 66
     },
     "detectionRegionIou": {
-      "median": 0.312753,
-      "n": 67,
-      "p90": 0.482845
+      "median": 0.312724,
+      "n": 66,
+      "p90": 0.488007
     },
     "frames": [
-      {
-        "bestUnselectedCandidateScore": null,
-        "cropContainedTruth": null,
-        "detectionRegionIou": null,
-        "firedSearchFlags": [],
-        "initialCropContainment": null,
-        "initialSearchRegionIou": null,
-        "missCause": "climber-absent",
-        "missReason": "no-candidates",
-        "reacquireAttempted": true,
-        "searchFlagsFired": false,
-        "status": "missing",
-        "t": 0.0,
-        "truthBbox": null,
-        "truthPresent": false
-      },
-      {
-        "bestUnselectedCandidateScore": null,
-        "cropContainedTruth": false,
-        "detectionRegionIou": null,
-        "firedSearchFlags": [],
-        "initialCropContainment": 0.457825,
-        "initialSearchRegionIou": 0.257564,
-        "missCause": "no-candidates",
-        "missReason": "no-candidates",
-        "reacquireAttempted": true,
-        "searchFlagsFired": false,
-        "status": "missing",
-        "t": 1.0,
-        "truthBbox": {
-          "h": 0.133481,
-          "w": 0.070357,
-          "x": 0.498318,
-          "y": 0.872423
-        },
-        "truthPresent": true
-      },
-      {
-        "bestUnselectedCandidateScore": null,
-        "cropContainedTruth": true,
-        "detectionRegionIou": 0.370112,
-        "firedSearchFlags": [],
-        "initialCropContainment": 0.929993,
-        "initialSearchRegionIou": 0.370112,
-        "missCause": null,
-        "missReason": null,
-        "reacquireAttempted": false,
-        "searchFlagsFired": false,
-        "status": "accepted",
-        "t": 2.0,
-        "truthBbox": {
-          "h": 0.265747,
-          "w": 0.109378,
-          "x": 0.482774,
-          "y": 0.752857
-        },
-        "truthPresent": true
-      },
       {
         "bestUnselectedCandidateScore": null,
         "cropContainedTruth": true,
@@ -2350,19 +2312,19 @@
     ],
     "initialSearchRegionIou": {
       "median": 0.312724,
-      "n": 68,
-      "p90": 0.477683
+      "n": 66,
+      "p90": 0.488007
     },
-    "matchedAttempts": 86,
+    "matchedAttempts": 83,
     "missCauseCounts": {
       "adverse-conditions": 0,
-      "climber-absent": 9,
+      "climber-absent": 8,
       "crop-misplaced": 0,
       "identity-gated": 0,
-      "no-candidates": 1,
+      "no-candidates": 0,
       "unexplained": 0
     },
-    "missingAttempts": 10,
+    "missingAttempts": 8,
     "thresholds": {
       "cropContainmentMin": 0.5,
       "reacquireSearchesFullFrame": true,
@@ -2374,14 +2336,14 @@
       "distorted": 1,
       "flipped-rotated": 0,
       "hallucination-fp": 8,
-      "ok": 67,
+      "ok": 66,
       "wrong-subject": 0
     },
-    "detectedFrames": 76,
+    "detectedFrames": 75,
     "detectorAttemptStatusCounts": {
-      "accepted": 75,
+      "accepted": 74,
       "flipRejected": 0,
-      "missing": 10,
+      "missing": 8,
       "qualityRejected": 1,
       "unknown": 0
     },
@@ -2389,433 +2351,7 @@
     "flaggedCount": 9,
     "frames": [
       {
-        "acceptedKeypoints": [
-          {
-            "name": "nose",
-            "score": 0.9997175335884094,
-            "x": 0.5318038611207158,
-            "y": 0.8057951485117276
-          },
-          {
-            "name": "left_eye_inner",
-            "score": 0.9997783303260803,
-            "x": 0.5304363007191568,
-            "y": 0.8017575542132059
-          },
-          {
-            "name": "left_eye",
-            "score": 0.9997468590736389,
-            "x": 0.5295881908852607,
-            "y": 0.8018770789106687
-          },
-          {
-            "name": "left_eye_outer",
-            "score": 0.9997407793998718,
-            "x": 0.5286271244753152,
-            "y": 0.8020288040240605
-          },
-          {
-            "name": "right_eye_inner",
-            "score": 0.9998058676719666,
-            "x": 0.5327568019274622,
-            "y": 0.8016106327374776
-          },
-          {
-            "name": "right_eye",
-            "score": 0.9997851252555847,
-            "x": 0.533609215123579,
-            "y": 0.8016762604316076
-          },
-          {
-            "name": "right_eye_outer",
-            "score": 0.9997748732566833,
-            "x": 0.5345213140826672,
-            "y": 0.8018150279919306
-          },
-          {
-            "name": "left_ear",
-            "score": 0.999555766582489,
-            "x": 0.527614016784355,
-            "y": 0.8048039570450782
-          },
-          {
-            "name": "right_ear",
-            "score": 0.9997063279151917,
-            "x": 0.5374438783852383,
-            "y": 0.80420224716266
-          },
-          {
-            "name": "mouth_left",
-            "score": 0.9990378618240356,
-            "x": 0.5309927842579782,
-            "y": 0.8093385815620422
-          },
-          {
-            "name": "mouth_right",
-            "score": 0.9988969564437866,
-            "x": 0.5336248716106639,
-            "y": 0.8088427215814591
-          },
-          {
-            "name": "left_shoulder",
-            "score": 0.9996387958526611,
-            "x": 0.5200393508654088,
-            "y": 0.8258623401323955
-          },
-          {
-            "name": "right_shoulder",
-            "score": 0.9986904263496399,
-            "x": 0.5504143658094108,
-            "y": 0.8246572121977807
-          },
-          {
-            "name": "left_elbow",
-            "score": 0.9868786931037903,
-            "x": 0.5055183900985867,
-            "y": 0.8095615496238072
-          },
-          {
-            "name": "right_elbow",
-            "score": 0.9834704995155334,
-            "x": 0.5668667209800333,
-            "y": 0.8377348750829696
-          },
-          {
-            "name": "left_wrist",
-            "score": 0.9280183911323547,
-            "x": 0.5123163726413622,
-            "y": 0.7785382702946663
-          },
-          {
-            "name": "right_wrist",
-            "score": 0.6955448985099792,
-            "x": 0.5603710362687707,
-            "y": 0.8249231015642484
-          },
-          {
-            "name": "left_pinky",
-            "score": 0.8910549879074097,
-            "x": 0.5121045590145513,
-            "y": 0.7709296196699142
-          },
-          {
-            "name": "right_pinky",
-            "score": 0.5901297926902771,
-            "x": 0.55850302958861,
-            "y": 0.8264664093653361
-          },
-          {
-            "name": "left_index",
-            "score": 0.8860265612602234,
-            "x": 0.5146161589073017,
-            "y": 0.7700106620788574
-          },
-          {
-            "name": "right_index",
-            "score": 0.5840932130813599,
-            "x": 0.5560885760933161,
-            "y": 0.8242265363534291
-          },
-          {
-            "name": "left_thumb",
-            "score": 0.8540345430374146,
-            "x": 0.5153344328282401,
-            "y": 0.7729853029052417
-          },
-          {
-            "name": "right_thumb",
-            "score": 0.563978374004364,
-            "x": 0.5562775899190455,
-            "y": 0.8245636781056722
-          },
-          {
-            "name": "left_hip",
-            "score": 0.9998601675033569,
-            "x": 0.5360619712155312,
-            "y": 0.9050590932369232
-          },
-          {
-            "name": "right_hip",
-            "score": 0.999484658241272,
-            "x": 0.5492316094227135,
-            "y": 0.9006810446580251
-          },
-          {
-            "name": "left_knee",
-            "score": 0.9237300753593445,
-            "x": 0.5358929773792624,
-            "y": 0.9460425595442454
-          },
-          {
-            "name": "right_knee",
-            "score": 0.796609103679657,
-            "x": 0.5477286802139133,
-            "y": 0.9353458682696024
-          },
-          {
-            "name": "left_ankle",
-            "score": 0.9551520943641663,
-            "x": 0.53908939990215,
-            "y": 0.9875070691108704
-          },
-          {
-            "name": "right_ankle",
-            "score": 0.8745065331459045,
-            "x": 0.5496384776197374,
-            "y": 0.9736707051595052
-          },
-          {
-            "name": "left_heel",
-            "score": 0.9619649052619934,
-            "x": 0.540385132911615,
-            "y": 0.9925776908795039
-          },
-          {
-            "name": "right_heel",
-            "score": 0.9199306964874268,
-            "x": 0.5490119508467615,
-            "y": 0.9800330619017283
-          },
-          {
-            "name": "left_foot_index",
-            "score": 0.9110215306282043,
-            "x": 0.5364477636292577,
-            "y": 0.9952501744031906
-          },
-          {
-            "name": "right_foot_index",
-            "score": 0.8104788661003113,
-            "x": 0.5492488629650325,
-            "y": 0.9792624036471049
-          }
-        ],
-        "annotationSetupHash": null,
-        "autoClass": "ok",
-        "candidateCount": 1,
-        "centroidDist": 0.024258,
-        "class": "ok",
-        "crop": null,
-        "detectorAttemptStatus": "accepted",
-        "detectorEvidence": "attempts",
-        "detectorStatusKnown": true,
-        "distractor": null,
-        "failureClass": "ok",
-        "frozenStale": false,
-        "heldPose": false,
-        "rawKeypoints": [
-          {
-            "name": "nose",
-            "score": 0.9997175335884094,
-            "x": 0.5318038611207158,
-            "y": 0.8057951485117276
-          },
-          {
-            "name": "left_eye_inner",
-            "score": 0.9997783303260803,
-            "x": 0.5304363007191568,
-            "y": 0.8017575542132059
-          },
-          {
-            "name": "left_eye",
-            "score": 0.9997468590736389,
-            "x": 0.5295881908852607,
-            "y": 0.8018770789106687
-          },
-          {
-            "name": "left_eye_outer",
-            "score": 0.9997407793998718,
-            "x": 0.5286271244753152,
-            "y": 0.8020288040240605
-          },
-          {
-            "name": "right_eye_inner",
-            "score": 0.9998058676719666,
-            "x": 0.5327568019274622,
-            "y": 0.8016106327374776
-          },
-          {
-            "name": "right_eye",
-            "score": 0.9997851252555847,
-            "x": 0.533609215123579,
-            "y": 0.8016762604316076
-          },
-          {
-            "name": "right_eye_outer",
-            "score": 0.9997748732566833,
-            "x": 0.5345213140826672,
-            "y": 0.8018150279919306
-          },
-          {
-            "name": "left_ear",
-            "score": 0.999555766582489,
-            "x": 0.527614016784355,
-            "y": 0.8048039570450782
-          },
-          {
-            "name": "right_ear",
-            "score": 0.9997063279151917,
-            "x": 0.5374438783852383,
-            "y": 0.80420224716266
-          },
-          {
-            "name": "mouth_left",
-            "score": 0.9990378618240356,
-            "x": 0.5309927842579782,
-            "y": 0.8093385815620422
-          },
-          {
-            "name": "mouth_right",
-            "score": 0.9988969564437866,
-            "x": 0.5336248716106639,
-            "y": 0.8088427215814591
-          },
-          {
-            "name": "left_shoulder",
-            "score": 0.9996387958526611,
-            "x": 0.5200393508654088,
-            "y": 0.8258623401323955
-          },
-          {
-            "name": "right_shoulder",
-            "score": 0.9986904263496399,
-            "x": 0.5504143658094108,
-            "y": 0.8246572121977807
-          },
-          {
-            "name": "left_elbow",
-            "score": 0.9868786931037903,
-            "x": 0.5055183900985867,
-            "y": 0.8095615496238072
-          },
-          {
-            "name": "right_elbow",
-            "score": 0.9834704995155334,
-            "x": 0.5668667209800333,
-            "y": 0.8377348750829696
-          },
-          {
-            "name": "left_wrist",
-            "score": 0.9280183911323547,
-            "x": 0.5123163726413622,
-            "y": 0.7785382702946663
-          },
-          {
-            "name": "right_wrist",
-            "score": 0.6955448985099792,
-            "x": 0.5603710362687707,
-            "y": 0.8249231015642484
-          },
-          {
-            "name": "left_pinky",
-            "score": 0.8910549879074097,
-            "x": 0.5121045590145513,
-            "y": 0.7709296196699142
-          },
-          {
-            "name": "right_pinky",
-            "score": 0.5901297926902771,
-            "x": 0.55850302958861,
-            "y": 0.8264664093653361
-          },
-          {
-            "name": "left_index",
-            "score": 0.8860265612602234,
-            "x": 0.5146161589073017,
-            "y": 0.7700106620788574
-          },
-          {
-            "name": "right_index",
-            "score": 0.5840932130813599,
-            "x": 0.5560885760933161,
-            "y": 0.8242265363534291
-          },
-          {
-            "name": "left_thumb",
-            "score": 0.8540345430374146,
-            "x": 0.5153344328282401,
-            "y": 0.7729853029052417
-          },
-          {
-            "name": "right_thumb",
-            "score": 0.563978374004364,
-            "x": 0.5562775899190455,
-            "y": 0.8245636781056722
-          },
-          {
-            "name": "left_hip",
-            "score": 0.9998601675033569,
-            "x": 0.5360619712155312,
-            "y": 0.9050590932369232
-          },
-          {
-            "name": "right_hip",
-            "score": 0.999484658241272,
-            "x": 0.5492316094227135,
-            "y": 0.9006810446580251
-          },
-          {
-            "name": "left_knee",
-            "score": 0.9237300753593445,
-            "x": 0.5358929773792624,
-            "y": 0.9460425595442454
-          },
-          {
-            "name": "right_knee",
-            "score": 0.796609103679657,
-            "x": 0.5477286802139133,
-            "y": 0.9353458682696024
-          },
-          {
-            "name": "left_ankle",
-            "score": 0.9551520943641663,
-            "x": 0.53908939990215,
-            "y": 0.9875070691108704
-          },
-          {
-            "name": "right_ankle",
-            "score": 0.8745065331459045,
-            "x": 0.5496384776197374,
-            "y": 0.9736707051595052
-          },
-          {
-            "name": "left_heel",
-            "score": 0.9619649052619934,
-            "x": 0.540385132911615,
-            "y": 0.9925776908795039
-          },
-          {
-            "name": "right_heel",
-            "score": 0.9199306964874268,
-            "x": 0.5490119508467615,
-            "y": 0.9800330619017283
-          },
-          {
-            "name": "left_foot_index",
-            "score": 0.9110215306282043,
-            "x": 0.5364477636292577,
-            "y": 0.9952501744031906
-          },
-          {
-            "name": "right_foot_index",
-            "score": 0.8104788661003113,
-            "x": 0.5492488629650325,
-            "y": 0.9792624036471049
-          }
-        ],
-        "rejectedCandidateCount": 0,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": 0.061012,
-        "selectionMethod": "tracked",
-        "source": null,
-        "t": 2.0,
-        "truthPresent": true
-      },
-      {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -3243,6 +2779,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -3670,6 +3207,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -4049,6 +3587,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -4428,6 +3967,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -4855,6 +4395,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -5186,6 +4727,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -5601,6 +5143,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -5956,6 +5499,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -6335,6 +5879,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -6678,6 +6223,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -7009,6 +6555,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -7328,6 +6875,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -7695,6 +7243,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -8074,6 +7623,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -8453,6 +8003,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -8820,6 +8371,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -9175,6 +8727,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -9554,6 +9107,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -9909,6 +9463,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -10276,6 +9831,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -10679,6 +10235,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -11070,6 +10627,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -11449,6 +11007,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -11876,6 +11435,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -12255,6 +11815,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -12682,6 +12243,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -13109,6 +12671,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -13536,6 +13099,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -13963,6 +13527,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -14390,6 +13955,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -14673,6 +14239,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -15004,6 +14571,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -15383,6 +14951,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -15750,6 +15319,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -16129,6 +15699,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -16496,6 +16067,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -16851,6 +16423,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -17278,6 +16851,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -17621,6 +17195,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -17988,6 +17563,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -18331,6 +17907,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -18758,6 +18335,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -19149,6 +18727,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -19528,6 +19107,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -19955,6 +19535,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -20382,6 +19963,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -20761,6 +20343,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -21128,6 +20711,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -21555,6 +21139,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -21898,6 +21483,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -22325,6 +21911,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -22728,6 +22315,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -23155,6 +22743,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -23582,6 +23171,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -23985,6 +23575,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -24364,6 +23955,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -24743,6 +24335,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -25170,6 +24763,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -25597,6 +25191,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -25976,6 +25571,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -26379,6 +25975,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -26758,6 +26355,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -27089,6 +26687,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -27492,6 +27091,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -27859,6 +27459,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -28262,6 +27863,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -28593,6 +28195,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -28948,6 +28551,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -29375,6 +28979,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -29742,6 +29347,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": "untracked",
         "acceptedKeypoints": [],
         "annotationSetupHash": null,
         "autoClass": "distorted",
@@ -29880,6 +29486,7 @@
         "truthPresent": false
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -30307,6 +29914,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -30734,6 +30342,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -31089,6 +30698,7 @@
         "truthPresent": true
       },
       {
+        "absenceReason": null,
         "acceptedKeypoints": [
           {
             "name": "nose",
@@ -31459,10 +31069,11 @@
     "frozenStaleCount": 0,
     "hallucinationSplit": {
       "total": 8,
-      "truth-absent": 8,
+      "truth-absent": 0,
       "truth-present": 0,
-      "truthAbsentShare": 1.0,
-      "truthPresentShare": 0.0
+      "truthAbsentShare": null,
+      "truthPresentShare": null,
+      "unconfirmedAbsent": 8
     },
     "heldPoseCount": 0,
     "rejectionCorrectness": {
@@ -31547,7 +31158,7 @@
   "routeFolder": "mandala-the",
   "runTs": "20260725-204143",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "setupHash": "fbb181c0a8683a438702b227e45869b05194889c8ad7ee42d93c837e92b9955c",
   "truthHash": "5cfd8eefb1cfeff5b6abd155c53d6f13fbae28785d998311f4fe70a4000e3900",
   "truthSetupHashSource": "truth",
