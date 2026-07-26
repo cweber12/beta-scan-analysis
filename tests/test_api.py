@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -40,6 +41,7 @@ from app import (
     homepage,
     list_route_folders,
     push_detections,
+    start_vitpose_job,
 )
 
 
@@ -222,6 +224,9 @@ def test_contract_advertises_endpoints_and_versions():
     }
     # The decoupled-seed capability the scanner gates on (additive; no apiVersion bump).
     assert contract["capabilities"]["decoupledSeed"] is True
+    # ...and the tap split (issue #101), advertised the same additive way.
+    assert contract["capabilities"]["splitTaps"] is True
+    assert contract["apiVersion"] == 1  # both capabilities are additive
 
 
 def test_contract_reports_suggestion_fit_state():
@@ -304,6 +309,122 @@ def test_vitpose_null_seed_tap_leaves_seed_tap_none_for_fallback():
     req = _to_vitpose_request(_vitpose_payload())
     assert req.seed_tap is None
     assert req.seed_region is None
+
+
+# --------------------------------------------------------------------------- #
+# Climb window + seed idempotence on the request contract (issue #101)
+# --------------------------------------------------------------------------- #
+
+def test_vitpose_accepts_climb_window_fields():
+    # snake_case and camelCase both bind; absent means "no window recorded".
+    windowed = _to_vitpose_request(_vitpose_payload(climb_start=3.5, climbEnd=58.0))
+    assert (windowed.climb_start, windowed.climb_end) == (3.5, 58.0)
+    plain = _to_vitpose_request(_vitpose_payload())
+    assert (plain.climb_start, plain.climb_end) == (None, None)
+    assert plain.force is False
+
+
+def test_vitpose_rejects_an_inverted_or_negative_climb_window():
+    for bad in ({"climb_start": 9.0, "climb_end": 4.0},
+                {"climb_start": 5.0, "climb_end": 5.0},
+                {"climb_start": -1.0}):
+        try:
+            _vitpose_payload(**bad)
+        except ValidationError:
+            continue
+        raise AssertionError(f"expected the climb window {bad} to be rejected")
+
+
+def test_vitpose_endpoint_reports_a_skip_when_the_seed_is_unchanged():
+    # Issue #101: identical seed inputs produce an identical scaffold. The scanner
+    # polls for an artifact that is already on disk, so the skip is reported
+    # synchronously — a 202 would make it wait for a job that never runs.
+    import vitpose_job
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        bundle = root / "r" / "k"
+        bundle.mkdir(parents=True)
+        (bundle / "k.mp4").write_bytes(b"\x00" * 64)
+        (bundle / "setup.json").write_text('{"setupHash": "sh"}', encoding="utf-8")
+
+        payload = _vitpose_payload(seed_tap={"x": 0.4, "y": 0.5, "t": 1.2})
+        request = _to_vitpose_request(payload)
+        current = vitpose_job.seed_hash(request, bundle / "k.mp4")
+
+        with patch.object(app_module, "ANALYSIS_DIR", root):
+            # No scaffold yet -> the job is accepted and runs.
+            with patch.object(app_module.threading, "Thread") as thread:
+                accepted = start_vitpose_job(payload)
+            assert accepted.status_code == 202
+            assert thread.called
+
+            # A scaffold stamped with the current seed hash -> reported as skipped,
+            # and no job thread is started.
+            (bundle / "vitpose.json").write_text(
+                json.dumps({"version": 1, "seedHash": current, "frames": []}),
+                encoding="utf-8")
+            with patch.object(app_module.threading, "Thread") as thread:
+                skipped = start_vitpose_job(payload)
+            assert skipped.status_code == 200
+            body = json.loads(skipped.body)
+            assert body["status"] == "skipped"
+            assert body["reason"] == "unchanged-seed"
+            assert body["seedHash"] == current
+            assert not thread.called
+
+            # A moved seed tap is not unchanged: the job runs again.
+            moved = _vitpose_payload(seed_tap={"x": 0.9, "y": 0.1, "t": 4.0})
+            with patch.object(app_module.threading, "Thread") as thread:
+                assert start_vitpose_job(moved).status_code == 202
+            assert thread.called
+
+            # ...as does an unchanged seed with force set.
+            forced = _vitpose_payload(seed_tap={"x": 0.4, "y": 0.5, "t": 1.2}, force=True)
+            with patch.object(app_module.threading, "Thread") as thread:
+                assert start_vitpose_job(forced).status_code == 202
+            assert thread.called
+
+
+def test_vitpose_endpoint_skip_uses_the_bundle_climb_window():
+    # The window is part of the seed hash, so an unchanged tap under a *changed*
+    # window must not read as unchanged — the scaffold would be bounded differently.
+    import vitpose_job
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        bundle = root / "r" / "k"
+        bundle.mkdir(parents=True)
+        (bundle / "k.mp4").write_bytes(b"\x00" * 64)
+        (bundle / "setup.json").write_text(json.dumps({
+            "setupHash": "sh",
+            "climberPoint": {"x": 0.5, "y": 0.9, "t": 2.0},  # setup tap -> climb start
+            "climbEnd": 30.0,
+        }), encoding="utf-8")
+
+        payload = _vitpose_payload(seed_tap={"x": 0.4, "y": 0.5, "t": 1.2})
+        windowed = replace(_to_vitpose_request(payload), climb_start=2.0, climb_end=30.0)
+        (bundle / "vitpose.json").write_text(
+            json.dumps({"version": 1,
+                        "seedHash": vitpose_job.seed_hash(windowed, bundle / "k.mp4"),
+                        "frames": []}),
+            encoding="utf-8")
+
+        with patch.object(app_module, "ANALYSIS_DIR", root):
+            # The endpoint resolves the window from setup.json before hashing.
+            with patch.object(app_module.threading, "Thread") as thread:
+                assert start_vitpose_job(payload).status_code == 200
+            assert not thread.called
+
+            # Move the end marker: the same tap now hashes differently and re-runs.
+            (bundle / "setup.json").write_text(json.dumps({
+                "setupHash": "sh",
+                "climberPoint": {"x": 0.5, "y": 0.9, "t": 2.0},
+                "climbEnd": 44.0,
+            }), encoding="utf-8")
+            with patch.object(app_module.threading, "Thread") as thread:
+                assert start_vitpose_job(payload).status_code == 202
+            assert thread.called
 
 
 # --------------------------------------------------------------------------- #
@@ -463,6 +584,10 @@ def _run_all():
         test_vitpose_legacy_only_aliases_still_seed,
         test_vitpose_new_and_legacy_input_paths_produce_identical_request,
         test_vitpose_null_seed_tap_leaves_seed_tap_none_for_fallback,
+        test_vitpose_accepts_climb_window_fields,
+        test_vitpose_rejects_an_inverted_or_negative_climb_window,
+        test_vitpose_endpoint_reports_a_skip_when_the_seed_is_unchanged,
+        test_vitpose_endpoint_skip_uses_the_bundle_climb_window,
         test_video_stats_missing_bundle_maps_404,
         test_video_stats_requires_wall_crop,
         test_video_stats_computes_writes_and_stamps_hash,
