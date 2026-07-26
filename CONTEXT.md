@@ -95,17 +95,34 @@ not a spec — it carries no implementation detail.
   rejections, and over Climber-present ones only. Climber-absent rejections are
   correct by construction, so including them measures how much of the scanner's
   rejecting is aimed at empty frames rather than how well the gate judges a pose.
+- **Absence reason** — why one truth frame is *absent*, derived by the harness from
+  evidence already on disk and never authored into Ground Truth: `out-of-scope`
+  (outside the **climb window**), `not-sampled` (the ViTPose scaffold's grid never
+  reached it), `untracked` (the scaffold's tracker lost or never acquired the
+  Climber), `confirmed-absent` (the residual — the Climber really is not there), or
+  `unknown` (nothing to derive from). **Only `confirmed-absent` enters the presence
+  2×2 and the hallucination split**; the rest are counted and held out, never dropped
+  and never promoted. One label used to flatten all four, and the difference between
+  them is the difference between four different fixes — only `confirmed-absent`
+  implies presence gating. See `docs/adr/0008`.
+- **Truth sufficiency** — the conformance gate's floor on truth-present **frames**,
+  distinct from its floor on joint-*pairs*. A bundle whose near-perfect fit rests on
+  eleven frames is not a conforming bundle, and counting joint-pairs let exactly that
+  pass. Measured in the unit the gate is trying to measure.
 - **Non-conformance cause** — why a bundle failed the conformance gate (the
   near-identity fit of scanner coordinates onto Ground Truth that quarantines a
   bundle from pooled metrics), which the gate's own pass/fail verdict cannot
-  say: `sparse-match` (the detector supplied too little
+  say: `rate-mismatch` (the scaffold sampled far coarser than the truth grid, so
+  most truth frames were never looked at — a *data* defect, fixed by regenerating
+  the scaffold), `sparse-match` (the detector supplied too little
   to fit — too few matched-present frames, or too small a share of present
   Detector Attempts accepted) or `suspected-mistrack` (ample accepted detections
   and the fit still misses identity — the appearance-stitch signature the gate was
   built for). The verdict is unchanged by the split; the cause only routes the
   record. Only `suspected-mistrack` reaches the **truth-repair worklist**,
   because re-seeding Ground Truth for a run whose detector found almost nothing
-  repairs nothing.
+  repairs nothing — and `rate-mismatch` must not be read as either of the others,
+  because neither worklist can fix it.
 - **Evidence generation** — which detector evidence an evaluation record was
   scored from: `attempts` (the canonical **Detector Attempt** stream) or
   `legacy-frames` (the dense playback `frames[]` fallback used before the scanner

@@ -107,9 +107,17 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 #    each ``cropQuality`` frame carries the effective ``missReason`` plus
 #    ``bestUnselectedCandidateScore``. Retro-derived from ``candidateCount`` on streams
 #    predating the field (the two agree by construction); ``adverse-conditions`` /
-#    ``unexplained`` survive only when neither signal exists. (#101's absence-provenance
-#    bump moves to v14.)
-SCHEMA_VERSION = 13
+#    ``unexplained`` survive only when neither signal exists.
+# v14 gives every *absent* truth frame an **absence reason** (issue #101):
+#    ``out-of-scope`` / ``not-sampled`` / ``untracked`` / ``confirmed-absent``, derived by
+#    the harness from evidence already on disk (the climb window, the scaffold's sampling
+#    step, its seed-found flag and tracking-gap structure) rather than authored into
+#    Ground Truth, which stays pure keypoints. Only ``confirmed-absent`` enters the
+#    presence 2×2 and the hallucination split. The same bump scopes scoring to the climb
+#    window, makes the truth-sufficiency floor a *gate* input rather than a failure-branch
+#    label, and adds the ``rate-mismatch`` non-conformance cause. Additive and fail-open:
+#    a frame written before this reads as ``unknown``, never as confirmed.
+SCHEMA_VERSION = 14
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -217,7 +225,34 @@ NONCONFORMANCE_MIN_ACCEPTED_SHARE = 0.5
 
 NONCONFORMANCE_SPARSE_MATCH = "sparse-match"
 NONCONFORMANCE_SUSPECTED_MISTRACK = "suspected-mistrack"
-NONCONFORMANCE_CAUSES = [NONCONFORMANCE_SPARSE_MATCH, NONCONFORMANCE_SUSPECTED_MISTRACK]
+# ``rate-mismatch`` (issue #101): the ViTPose scaffold sampled on a coarser grid than the
+# truth was exported onto — measured, a scaffold at 1 Hz against truth on the 0.1 s grid,
+# so nine of every ten truth frames were never sampled and read as absent. That is a data
+# defect, not a detector failure and not a truth mis-track: it routes to *regenerating the
+# scaffold*, so it must not be conflated with either of the other two causes. It is
+# checked first, because a rate-mismatched Bundle would otherwise be labelled sparse-match
+# and land on a worklist that cannot fix it.
+NONCONFORMANCE_RATE_MISMATCH = "rate-mismatch"
+NONCONFORMANCE_CAUSES = [NONCONFORMANCE_RATE_MISMATCH, NONCONFORMANCE_SPARSE_MATCH,
+                         NONCONFORMANCE_SUSPECTED_MISTRACK]
+
+# Truth sufficiency (issue #101). ``NONCONFORMANCE_MIN_FIT_FRAMES`` already existed but was
+# read only on the *failure* branch, to label a cause; from v14 it is also a **gate input**.
+# The motivating Bundle: ``Planet_X__V6._Joshua_Tree`` has 11 truth-present frames out of
+# 633 and *passed* the #15 gate, because ``CONFORMANCE_MIN_POINTS`` counts joint-pairs and
+# 11 frames × 11 joints clears 20 comfortably. A near-perfect fit over eleven frames is not
+# evidence a Bundle conforms; the floor has to be counted in the unit it is trying to
+# measure, which is frames.
+#
+# It gets its own name because the two roles are now genuinely different — one decides
+# the verdict, the other explains a failure — even though the corpus fit puts them at the
+# same value. Both are echoed into every record's ``conformance.thresholds``.
+#
+# A scaffold/truth sampling-rate mismatch this large is its own cause. The ratio floor is
+# deliberately generous — an exact-multiple grid (scaffold 1 Hz, truth 0.1 s) sits at 10,
+# while ordinary jitter between two nominally-equal grids sits near 1.
+CONFORMANCE_MIN_FIT_FRAMES = 20
+RATE_MISMATCH_MIN_RATIO = 2.0
 
 # Best-overlap pairing fallback (issue #44 deliverable 4). A *trusted* pairing needs a
 # setupHash-matching pose Run that actually overlaps the truth timeline; a matching Run
@@ -378,6 +413,36 @@ MISS_CAUSES = [MISS_CLIMBER_ABSENT, MISS_CROP_MISPLACED, MISS_IDENTITY_GATED,
                MISS_NO_CANDIDATES, MISS_ADVERSE_CONDITIONS, MISS_UNEXPLAINED]
 
 
+# Absence reason (issue #101). "Absent" was one label flattening four different
+# situations, and the difference between them is the difference between four different
+# fixes. The corpus audit that motivated this found 44% of every pooled truth-absent
+# frame coming from just 5 videos where "absent" meant something other than a departed
+# Climber — which is the entire evidence base under the headline
+# ``hallucination on truth-absent frames 46.5% → presence gating`` recommendation.
+#
+# - ``out-of-scope``     — outside the climb window. Post-topout footage, not a Climber
+#                          who vanished. Implies nothing about the detector.
+# - ``not-sampled``      — the ViTPose scaffold never sampled this frame (its step is
+#                          coarser than the truth grid). A scaffold artifact; the fix is
+#                          regenerating truth, and 2,665 pooled "absent" frames were this.
+# - ``untracked``        — the scaffold's tracker lost or never acquired the Climber. A
+#                          truth-repair problem; reading it as a scanner hallucination
+#                          blames the wrong program.
+# - ``confirmed-absent`` — the residual once the others are excluded: the Climber really
+#                          is not in the frame. **Only this enters the presence 2×2 and
+#                          the hallucination split.**
+# - ``unknown``          — no evidence to derive from (a Bundle with no scaffold on disk,
+#                          or a record written before v14). Fail-open in the established
+#                          tradition: never silently promoted to confirmed.
+ABSENCE_OUT_OF_SCOPE = "out-of-scope"
+ABSENCE_NOT_SAMPLED = "not-sampled"
+ABSENCE_UNTRACKED = "untracked"
+ABSENCE_CONFIRMED = "confirmed-absent"
+ABSENCE_UNKNOWN = "unknown"
+ABSENCE_REASONS = [ABSENCE_OUT_OF_SCOPE, ABSENCE_NOT_SAMPLED, ABSENCE_UNTRACKED,
+                   ABSENCE_CONFIRMED, ABSENCE_UNKNOWN]
+
+
 @dataclass
 class TruthFrame:
     """One truth frame reduced to what scoring needs."""
@@ -387,6 +452,13 @@ class TruthFrame:
     present: bool  # a Climber is present in this frame (scorable)
     joints: dict[str, tuple[float, float]]  # name -> (x, y), present+non-occluded only
     review: str = REVIEW_AUTO  # normalized provenance (ADR 0004)
+    # Why this frame is absent (issue #101). ``None`` on a present frame — the question
+    # does not arise. Derived by the harness from on-disk evidence, never authored into
+    # the truth artifact, so it can be recomputed whenever the inputs improve.
+    absence_reason: str | None = None
+    # Outside the Bundle's climb window: excluded from scoring and from the conformance
+    # fit, and counted so the exclusion is visible rather than silent.
+    out_of_scope: bool = False
 
     @property
     def flagged_wrong(self) -> bool:
@@ -399,11 +471,20 @@ class TruthFrame:
         return self.review == REVIEW_FLAGGED_ABSENT
 
     @property
+    def confirmed_absent(self) -> bool:
+        """An absence the harness is willing to *claim*: the Climber really is not in
+        the frame. Every other absence — out of scope, never sampled, lost by the
+        tracker, or underived — is not confirmed, and only confirmed absences may
+        enter the presence 2×2 and the hallucination split (issue #101)."""
+        return not self.present and self.absence_reason == ABSENCE_CONFIRMED
+
+    @property
     def excluded(self) -> bool:
-        """Not scored in any tier — a known-bad seed or a deprecated manual absent
-        flag. Excluded frames still count in ``truthFramesTotal`` and surface in
-        ``counts.agreementSkipped`` so the frame math reconciles."""
-        return self.flagged_wrong or self.flagged_absent
+        """Not scored in any tier — a known-bad seed, a deprecated manual absent flag,
+        or a frame outside the climb window (issue #101). Excluded frames still count
+        in ``truthFramesTotal`` and surface in ``counts.agreementSkipped`` so the frame
+        math reconciles."""
+        return self.flagged_wrong or self.flagged_absent or self.out_of_scope
 
     @property
     def verified(self) -> bool:
@@ -578,16 +659,218 @@ def _truth_from_vitpose(doc: dict[str, Any]) -> TruthDoc:
     return TruthDoc("vitpose", doc.get("setupHash") or "", truth_hash, frames)
 
 
-def load_truth(video_dir: Path) -> TruthDoc | None:
-    """Load the bundle truth, preferring ``ground-truth.json`` over ``vitpose.json``."""
+def load_truth(video_dir: Path, evidence: "AbsenceEvidence | None" = None) -> TruthDoc | None:
+    """Load the bundle truth, preferring ``ground-truth.json`` over ``vitpose.json``.
+
+    ``evidence`` (issue #101) is the on-disk material the absence reason and the climb
+    window are derived from — pass ``load_absence_evidence(video_dir)`` to annotate the
+    frames. Omitted, every absent frame reads ``unknown`` and no frame is out of scope,
+    which is exactly the pre-v14 behaviour.
+    """
 
     gt = video_dir / "ground-truth.json"
     if gt.exists():
-        return _truth_from_ground_truth(_load_json(gt))
-    vit = video_dir / "vitpose.json"
-    if vit.exists():
-        return _truth_from_vitpose(_load_json(vit))
-    return None
+        doc = _truth_from_ground_truth(_load_json(gt))
+    else:
+        vit = video_dir / "vitpose.json"
+        if not vit.exists():
+            return None
+        doc = _truth_from_vitpose(_load_json(vit))
+    annotate_absence(doc, evidence)
+    return doc
+
+
+# --------------------------------------------------------------------------- #
+# Absence provenance (issue #101)
+# --------------------------------------------------------------------------- #
+
+@dataclass
+class AbsenceEvidence:
+    """What a Bundle's own artifacts say about *why* a truth frame might be absent.
+
+    Everything here is read off disk — the calibration's climb window, and the ViTPose
+    scaffold's sampling grid, seed-found flag and tracking-gap structure. Nothing is
+    hand-authored, so the reason can be recomputed whenever the inputs improve, and
+    Ground Truth stays pure keypoints (the precedent set by the review-provenance and
+    camera-angle decisions).
+    """
+
+    climb_start: float | None = None
+    climb_end: float | None = None
+    # Timestamps the scaffold actually sampled, and the subset it posed a Climber on.
+    scaffold_samples: list[float] = field(default_factory=list)
+    scaffold_posed: list[float] = field(default_factory=list)
+    # False only when the status sidecar explicitly says seeding failed; ``None`` when
+    # there is no sidecar to ask, which must never be read as a failure.
+    seed_found: bool | None = None
+    has_scaffold: bool = False
+
+    @property
+    def scaffold_step(self) -> float | None:
+        return _median_step(self.scaffold_samples)
+
+
+def _median_step(timestamps: list[float]) -> float | None:
+    """Median gap between consecutive sampled timestamps, or ``None`` under two samples."""
+
+    ordered = sorted(timestamps)
+    steps = [b - a for a, b in zip(ordered, ordered[1:]) if b > a]
+    if not steps:
+        return None
+    steps.sort()
+    return _percentile(steps, 0.5)
+
+
+def load_absence_evidence(video_dir: Path) -> AbsenceEvidence:
+    """Gather one Bundle's absence evidence. Missing artifacts degrade to *unknown*."""
+
+    evidence = AbsenceEvidence()
+
+    setup_path = video_dir / "setup.json"
+    if setup_path.exists():
+        try:
+            setup = _load_json(setup_path)
+        except ValueError:
+            setup = {}
+        evidence.climb_start, evidence.climb_end = _climb_window_from_setup(setup)
+
+    # The scaffold is the sampling authority: Ground Truth is authored *from* it, so its
+    # grid is what decides whether a truth frame was ever looked at.
+    scaffold_path = video_dir / "vitpose.json"
+    if scaffold_path.exists():
+        try:
+            scaffold = _load_json(scaffold_path)
+        except ValueError:
+            scaffold = {}
+        frames = scaffold.get("frames") if isinstance(scaffold, dict) else None
+        if isinstance(frames, list):
+            evidence.has_scaffold = True
+            for fr in frames:
+                if not isinstance(fr, dict):
+                    continue
+                ts = fr.get("timestamp")
+                if not isinstance(ts, (int, float)) or isinstance(ts, bool):
+                    continue
+                evidence.scaffold_samples.append(float(ts))
+                if fr.get("keypoints"):
+                    evidence.scaffold_posed.append(float(ts))
+
+    status_path = video_dir / "vitpose.status.json"
+    if status_path.exists():
+        try:
+            status = _load_json(status_path)
+        except ValueError:
+            status = {}
+        seed_debug = status.get("seedDebug") if isinstance(status, dict) else None
+        found = seed_debug.get("seedFound") if isinstance(seed_debug, dict) else None
+        if isinstance(found, bool):
+            evidence.seed_found = found
+
+    return evidence
+
+
+def _climb_window_from_setup(setup: dict[str, Any]) -> tuple[float | None, float | None]:
+    """The climb window off a Bundle's calibration (ADR 0007).
+
+    The start is the frozen **setup tap**'s timestamp — never the ViTPose seed tap,
+    which moves on every re-seed — unless an explicit ``climbStart`` overrides it. The
+    end comes from an explicit ``climbEnd`` marker only. Either may be absent, and an
+    absent bound is open: a Bundle with no end marked behaves exactly as it did before
+    the window existed.
+    """
+
+    def _num(value: Any) -> float | None:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+        return None
+
+    start = _num(setup.get("climbStart"))
+    if start is None:
+        setup_tap = setup.get("climberPoint")
+        start = _num(setup_tap.get("t")) if isinstance(setup_tap, dict) else None
+    return start, _num(setup.get("climbEnd"))
+
+
+def derive_absence_reason(
+    timestamp: float,
+    evidence: AbsenceEvidence | None,
+    truth_step: float | None,
+) -> str:
+    """Why one absent truth frame is absent (issue #101), most-decisive first.
+
+    Ordering is the argument. Out-of-scope is checked first because a post-topout frame
+    is not evidence at all, whatever the tracker did. ``not-sampled`` comes next because
+    a frame the scaffold never looked at cannot tell us anything about tracking. Only
+    then can a tracking loss be claimed, and only what survives all three is an absence
+    the harness is willing to call **confirmed**.
+
+    Fail-open throughout: with no scaffold on disk there is nothing to derive from, so
+    the reason is ``unknown`` and the frame stays out of the presence 2×2 rather than
+    being counted as a departed Climber.
+    """
+
+    if evidence is None:
+        return ABSENCE_UNKNOWN
+    if not in_climb_window(timestamp, evidence.climb_start, evidence.climb_end):
+        return ABSENCE_OUT_OF_SCOPE
+    if not evidence.has_scaffold:
+        return ABSENCE_UNKNOWN
+
+    scaffold_step = evidence.scaffold_step
+    # A frame the scaffold's grid never reached. Only meaningful when the scaffold is
+    # genuinely coarser than the truth grid — two nominally-equal grids differ by jitter,
+    # and calling that "never sampled" would fabricate the very artifact this detects.
+    if (
+        scaffold_step is not None
+        and truth_step is not None
+        and truth_step > 0
+        and scaffold_step / truth_step >= RATE_MISMATCH_MIN_RATIO
+        and _nearest_within(sorted(evidence.scaffold_samples), timestamp,
+                            truth_step / 2) is None
+    ):
+        return ABSENCE_NOT_SAMPLED
+
+    # The tracker never acquired the Climber at all: every absence is a tracking
+    # failure, not a departure.
+    if evidence.seed_found is False:
+        return ABSENCE_UNTRACKED
+    # ...or lost them mid-trajectory. An absent frame *between* two posed frames is a
+    # gap in a trajectory the scaffold demonstrably held on both sides, so "the Climber
+    # left and came back" is the weaker reading. A leading or trailing run of absences
+    # is not a gap — that is exactly what arriving late or topping out looks like — and
+    # falls through to confirmed.
+    posed = evidence.scaffold_posed
+    if posed and min(posed) < timestamp < max(posed):
+        return ABSENCE_UNTRACKED
+
+    return ABSENCE_CONFIRMED
+
+
+def annotate_absence(truth: TruthDoc, evidence: AbsenceEvidence | None) -> None:
+    """Stamp the climb-window scope and absence reason onto a loaded truth doc."""
+
+    truth_step = _median_step([tf.timestamp for tf in truth.frames])
+    for tf in truth.frames:
+        if evidence is not None:
+            tf.out_of_scope = not in_climb_window(
+                tf.timestamp, evidence.climb_start, evidence.climb_end)
+        if not tf.present:
+            tf.absence_reason = derive_absence_reason(tf.timestamp, evidence, truth_step)
+
+
+def in_climb_window(t: float, climb_start: float | None, climb_end: float | None) -> bool:
+    """Is timestamp ``t`` inside the climb window? Inclusive; an absent bound is open.
+
+    Mirrors ``vitpose_job.in_climb_window`` deliberately rather than importing it: the
+    ``analysis_pipeline`` import graph is kept clear of the ViTPose scaffold module and
+    its heavyweight dependencies (ADR 0003).
+    """
+
+    if climb_start is not None and t < climb_start:
+        return False
+    if climb_end is not None and t > climb_end:
+        return False
+    return True
 
 
 # --------------------------------------------------------------------------- #
@@ -938,7 +1221,10 @@ def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
     frames = {"truthFrames": 0, "verifiedFrames": 0,
               "matchedPresent": 0, "matchedAbsent": 0,
               "unmatchedPresent": 0, "unmatchedAbsent": 0,
-              "lowVisibility": 0, "torsoUndefined": 0, "scoreable": 0}
+              "lowVisibility": 0, "torsoUndefined": 0, "scoreable": 0,
+              # Matched absences held out of the presence 2×2 because the harness
+              # cannot confirm them (issue #101). Counted, never silently dropped.
+              "unconfirmedAbsent": 0}
     presence = {"presentDetected": 0, "presentUndetected": 0,
                 "absentDetected": 0, "absentUndetected": 0}
     cov = {j: 0 for j in COCO_CORE_JOINTS}
@@ -958,9 +1244,16 @@ def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
             continue
         frames["matchedPresent" if tf.present else "matchedAbsent"] += 1
         detected = bool(p.scanner)
-        key = ("present" if tf.present else "absent") + \
-              ("Detected" if detected else "Undetected")
-        presence[key] += 1
+        # Only a *confirmed* absence enters the presence 2×2 (issue #101). An absence
+        # that is out of scope, never sampled or a tracking loss says nothing about
+        # whether the scanner should have detected anything, and counting it here is
+        # what put a scaffold artifact underneath the hallucination headline.
+        if tf.present or tf.confirmed_absent:
+            key = ("present" if tf.present else "absent") + \
+                  ("Detected" if detected else "Undetected")
+            presence[key] += 1
+        else:
+            frames["unconfirmedAbsent"] += 1
         if not tf.present:
             continue
         visible = len(tf.joints)
@@ -1031,7 +1324,9 @@ def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
     }
 
 
-def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
+def _conformance(pairs: list[_FramePair],
+                 evidence: AbsenceEvidence | None = None,
+                 truth_step: float | None = None) -> dict[str, Any]:
     """Per-axis identity fit of scanner onto truth over the bundle's matched joints.
 
     Pools every core-joint point on a matched, climber-present, non-excluded frame
@@ -1078,12 +1373,17 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
     reasons: list[str] = []
     if n < CONFORMANCE_MIN_POINTS:
         reasons.append("insufficient-points")
+    # Truth sufficiency (issue #101): the same floor, now counted in the unit the gate is
+    # trying to measure. ``minPoints`` counts joint-pairs, so 11 frames × 11 joints clears
+    # it — which is how a Bundle with 11 truth-present frames out of 633 passed.
+    if fit_frames < CONFORMANCE_MIN_FIT_FRAMES:
+        reasons.append("insufficient-frames")
     for axis, fit in (("x", fit_x), ("y", fit_y)):
         if not _axis_conforms(fit, axis):
             reasons.append(f"{axis}-nonconforming")
     conforms = not reasons
 
-    evidence = _nonconformance_evidence(pairs, fit_frames)
+    cause_evidence = _nonconformance_evidence(pairs, fit_frames, evidence, truth_step)
     return {
         "x": _axis_block(fit_x),
         "y": _axis_block(fit_y),
@@ -1092,21 +1392,27 @@ def _conformance(pairs: list[_FramePair]) -> dict[str, Any]:
         "reasons": reasons,
         # None exactly when the bundle conforms — a conforming record has nothing to
         # explain, and a reader must never find a cause on one.
-        "cause": None if conforms else _nonconformance_cause(evidence),
-        "causeEvidence": evidence,
+        "cause": None if conforms else _nonconformance_cause(cause_evidence),
+        "causeEvidence": cause_evidence,
         "thresholds": {
             "slopeMin": CONFORMANCE_SLOPE_MIN,
             "slopeMax": CONFORMANCE_SLOPE_MAX,
             "r2Min": CONFORMANCE_R2_MIN,  # y-axis floor
             "r2MinX": CONFORMANCE_R2_MIN_X,  # x-axis floor (issue #16)
             "minPoints": CONFORMANCE_MIN_POINTS,
-            "minFitFrames": NONCONFORMANCE_MIN_FIT_FRAMES,  # cause split (issue #88)
+            # The gate's own truth-sufficiency floor (issue #101), beside the
+            # cause-split floor it was previously conflated with.
+            "minFitFramesGate": CONFORMANCE_MIN_FIT_FRAMES,
+            "minFitFrames": NONCONFORMANCE_MIN_FIT_FRAMES,
             "minAcceptedShare": NONCONFORMANCE_MIN_ACCEPTED_SHARE,
+            "rateMismatchMinRatio": RATE_MISMATCH_MIN_RATIO,
         },
     }
 
 
-def _nonconformance_evidence(pairs: list[_FramePair], fit_frames: int) -> dict[str, Any]:
+def _nonconformance_evidence(pairs: list[_FramePair], fit_frames: int,
+                             evidence: AbsenceEvidence | None = None,
+                             truth_step: float | None = None) -> dict[str, Any]:
     """How much matched-present evidence the conformance fit actually had (issue #88).
 
     Computed for every record, conforming or not, so a reader can see the volume behind a
@@ -1125,25 +1431,45 @@ def _nonconformance_evidence(pairs: list[_FramePair], fit_frames: int) -> dict[s
         present_attempts += 1
         accepted_attempts += p.detector_attempt.get("status") == "accepted"
 
+    scaffold_step = evidence.scaffold_step if evidence is not None else None
+    sampling_ratio = (
+        _round6(scaffold_step / truth_step)
+        if scaffold_step is not None and truth_step is not None and truth_step > 0
+        else None
+    )
     return {
         "fitFrames": fit_frames,
         "presentAttempts": present_attempts,
         "acceptedAttempts": accepted_attempts,
         "acceptedShare": (_round6(accepted_attempts / present_attempts)
                           if present_attempts else None),
+        # Scaffold-vs-truth sampling grids (issue #101). ``None`` when there is no
+        # scaffold to compare against — unknown, never "in agreement".
+        "scaffoldStepSec": _round6(scaffold_step),
+        "truthStepSec": _round6(truth_step),
+        "samplingRatio": sampling_ratio,
     }
 
 
 def _nonconformance_cause(evidence: dict[str, Any]) -> str:
     """Why one bundle failed the #15 gate (issue #88).
 
-    Sparse first: when the detector supplied too little to fit — too few matched-present
+    Rate mismatch first (issue #101): when the scaffold sampled on a much coarser grid
+    than the truth was exported onto, most truth frames were never looked at, and both
+    the thin fit *and* the apparent sparseness are that one artifact. Routing it to
+    sparse-match would put it on a detector worklist that cannot fix it; the fix is
+    regenerating the scaffold.
+
+    Then sparse: when the detector supplied too little to fit — too few matched-present
     frames, or too small a share of the present attempts accepted — the fit is a remnant
     and cannot indict the truth. Everything else is a mis-track suspect, which is the
     fail-open direction: a run with unknown attempt evidence (legacy frames-only) keeps
     the place it had before this split existed.
     """
 
+    ratio = evidence.get("samplingRatio")
+    if isinstance(ratio, (int, float)) and ratio >= RATE_MISMATCH_MIN_RATIO:
+        return NONCONFORMANCE_RATE_MISMATCH
     if evidence["fitFrames"] < NONCONFORMANCE_MIN_FIT_FRAMES:
         return NONCONFORMANCE_SPARSE_MATCH
     share = evidence["acceptedShare"]
@@ -1511,15 +1837,27 @@ def _hallucination_split(entries: list[dict[str, Any]]) -> dict[str, Any]:
     denominator is not a 0% split."""
 
     halluc = [e for e in entries if e["class"] == FQ_HALLUCINATION]
-    absent = sum(1 for e in halluc if not e["truthPresent"])
-    present = len(halluc) - absent
+    # Only a *confirmed* absence counts as a real false positive (issue #101). A pose on
+    # a frame that is merely unsampled, untracked or out of scope is not evidence the
+    # scanner hallucinated; counting it as one is precisely what put a scaffold artifact
+    # underneath the "presence gating" recommendation. Those frames are reported in
+    # ``unconfirmedAbsent`` — held out, never dropped.
+    absent = sum(1 for e in halluc
+                 if not e["truthPresent"] and e.get("absenceReason") == ABSENCE_CONFIRMED)
+    unconfirmed = sum(1 for e in halluc
+                      if not e["truthPresent"] and e.get("absenceReason") != ABSENCE_CONFIRMED)
+    present = sum(1 for e in halluc if e["truthPresent"])
     total = len(halluc)
+    scored = absent + present
     return {
         "total": total,
         HALLUCINATION_TRUTH_ABSENT: absent,
         HALLUCINATION_TRUTH_PRESENT: present,
-        "truthAbsentShare": _round6(absent / total) if total else None,
-        "truthPresentShare": _round6(present / total) if total else None,
+        "unconfirmedAbsent": unconfirmed,
+        # Shares are over the *scored* population — the frames whose presence the
+        # harness can actually claim — so the split means what it says.
+        "truthAbsentShare": _round6(absent / scored) if scored else None,
+        "truthPresentShare": _round6(present / scored) if scored else None,
     }
 
 
@@ -1607,6 +1945,10 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             # pair, and the axis ``hallucination-fp`` splits on: a pose on an absent frame
             # is a real false positive, a pose on a present frame is a tracking miss.
             "truthPresent": tf.present,
+            # ...and *why* it is absent (issue #101): the axis that decides whether an
+            # absence is one the harness can claim. ``None`` on a present frame — the
+            # question does not arise; ``unknown`` when there was nothing to derive from.
+            "absenceReason": tf.absence_reason,
             "source": p.scanner_source,
             "distractor": ann.distractor if ann is not None else None,
             "annotationSetupHash": ann.setup_hash if ann is not None else None,
@@ -1723,7 +2065,8 @@ def record_trusted(record: dict[str, Any]) -> bool:
 
 def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
                   setup_hash: str = "",
-                  detector_attempts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+                  detector_attempts: list[dict[str, Any]] | None = None,
+                  evidence: AbsenceEvidence | None = None) -> dict[str, Any]:
     """Compute the full metric set for one pose Run against one truth doc.
 
     Returns the record body (counts + agreement/accuracy tiers); provenance is
@@ -1755,10 +2098,21 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
     n_present = sum(1 for p in pairs if p.truth.present)
     n_wrong = sum(1 for p in pairs if p.truth.flagged_wrong)
     n_absent_flag = sum(1 for p in pairs if p.truth.flagged_absent)
-    # Both flag classes are excluded from scoring (ADR 0005); accuracy has no
-    # trustworthy attestation source yet, so it stays empty.
+    n_out_of_scope = sum(1 for p in pairs if p.truth.out_of_scope)
+    # Absence provenance (issue #101): the split of every absent truth frame by *why*
+    # it is absent, so a reader can see how much of the absent population is a
+    # departed Climber and how much is scaffold gap, tracking loss or out-of-scope
+    # footage. Only ``confirmed-absent`` reaches the presence 2×2.
+    absence_reasons = {reason: 0 for reason in ABSENCE_REASONS}
+    for p in pairs:
+        if p.truth.present:
+            continue
+        absence_reasons[p.truth.absence_reason or ABSENCE_UNKNOWN] += 1
+    # Flag classes and out-of-scope frames are all excluded from scoring (ADR 0005,
+    # issue #101); accuracy has no trustworthy attestation source yet, so it stays empty.
     agreement_pairs = [p for p in pairs if not p.truth.excluded]
     accuracy_pairs = [p for p in pairs if p.truth.verified]
+    truth_step = _median_step([tf.timestamp for tf in truth.frames])
     return {
         "joinToleranceSec": tol,
         "scannerFrameIntervalSec": interval,
@@ -1767,13 +2121,20 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
             "truthFramesPresent": n_present,
             "truthFramesAbsent": len(pairs) - n_present,
             "truthFramesVerified": sum(1 for p in pairs if p.truth.verified),
+            "truthFramesOutOfScope": n_out_of_scope,
+            "absenceReasons": absence_reasons,
             "review": {"auto": len(pairs) - n_wrong - n_absent_flag,
                        "flaggedWrong": n_wrong, "flaggedAbsent": n_absent_flag},
-            "agreementSkipped": {"flaggedWrong": n_wrong, "flaggedAbsent": n_absent_flag},
+            "agreementSkipped": {"flaggedWrong": n_wrong, "flaggedAbsent": n_absent_flag,
+                                 "outOfScope": n_out_of_scope},
+        },
+        "climbWindow": {
+            "start": evidence.climb_start if evidence else None,
+            "end": evidence.climb_end if evidence else None,
         },
         # Whole-bundle truth↔scanner conformance (issue #15), fit over the same
         # non-excluded pairs the agreement tier scores. Gates pooled metrics.
-        "conformance": _conformance(agreement_pairs),
+        "conformance": _conformance(agreement_pairs, evidence, truth_step),
         # Per-frame detection-quality classes (issue #44), over the same pairs.
         "frameQuality": _frame_quality(agreement_pairs, truth, setup_hash),
         # Crop placement + miss causation (issue #86). Its own block, not part of
@@ -1971,7 +2332,12 @@ def evaluate(analysis_root: Path, prune: bool = False,
         route_folder = metadata.get("route_folder", video_dir.parent.name)
         video_key = metadata.get("video_key", video_dir.name)
 
-        truth = load_truth(video_dir)
+        # Absence provenance + the climb window (issue #101) are derived from the
+        # Bundle's own artifacts, once per Bundle: every Run scored against this truth
+        # sees the same reasons, because they are a property of the truth and the
+        # scaffold it was authored from, not of any detection Run.
+        evidence = load_absence_evidence(video_dir)
+        truth = load_truth(video_dir, evidence)
         if truth is None:
             summary.truthless_videos.append(f"{route_folder}/{video_key}")
             continue
@@ -2010,7 +2376,8 @@ def evaluate(analysis_root: Path, prune: bool = False,
                 ))
                 continue
 
-            body = evaluate_pair(pose_frames, truth, effective_setup_hash, detector_attempts)
+            body = evaluate_pair(pose_frames, truth, effective_setup_hash,
+                                 detector_attempts, evidence)
             if export_crops:
                 _export_crops(video_dir, run_ts, pose_frames, body)
             record_path = _write_eval_record(
@@ -2040,7 +2407,8 @@ def evaluate(analysis_root: Path, prune: bool = False,
                         run_ts, pose_setup_hash, pose_frames, detector_attempts)
             if candidate is not None and best_overlap > 0:
                 run_ts, pose_setup_hash, pose_frames, detector_attempts = candidate
-                body = evaluate_pair(pose_frames, truth, effective_setup_hash, detector_attempts)
+                body = evaluate_pair(pose_frames, truth, effective_setup_hash,
+                                     detector_attempts, evidence)
                 if export_crops:
                     _export_crops(video_dir, run_ts, pose_frames, body)
                 reason = (
