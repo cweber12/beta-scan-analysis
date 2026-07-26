@@ -54,7 +54,7 @@ just the truth-matched ones. Either way read the run-unit columns, which the poo
 percentages alone will mislead you on (pooled missing is 26% while the median run misses
 9% — a handful of collapsed runs carry the pool).
 
-## Reading the evidence (schema v11)
+## Reading the evidence (schema v12)
 
 Per run×truth pairing: `analysis/<route>/<video>/evaluations/<run_ts>_vs_<truthhash>.json`.
 
@@ -74,6 +74,14 @@ Per run×truth pairing: `analysis/<route>/<video>/evaluations/<run_ts>_vs_<truth
   identity — the only class worth re-seeding truth for). Read the annotation;
   don't re-derive it from `miss%`. `conformance.causeEvidence` carries the
   matched-present frame count and accepted share it was decided from.
+- `frameQuality.hallucinationSplit` (#69) — `hallucination-fp` split by whether the
+  Climber was in the frame at all (`truthPresent` on each `frameQuality.frames[]` entry).
+  `truth-absent` is a real false positive → **presence gating**; `truth-present` is a
+  tracking miss → **tracking robustness**. Never pitch one fix for the whole class
+  without reading the split. Today it runs 100% truth-absent, because the auto
+  classifier only sets the class in the `not truth.present` branch — the truth-present
+  side needs human detection annotations (#45), which the corpus has none of yet. A
+  pre-v12 record carries no `truthPresent`; that is **unknown**, never absent.
 - `frameQuality.rejectionCorrectness` (#85) — the scanner's flip / quality gates
   second-guessed against truth. Verdicts are `goodPoseRejected` (the gate threw away a
   pose that agreed with truth), `badPoseRejected`, `truthUnknown`, split by gate under
@@ -123,7 +131,7 @@ Per run×truth pairing: `analysis/<route>/<video>/evaluations/<run_ts>_vs_<truth
 
 ## Baseline reference (2026-07-24 batch, 68 attempt-backed runs / 14 routes)
 
-Re-derived 2026-07-25 from the full schema-v11 regen (`evaluate --mode all --prune`),
+Re-derived 2026-07-25 from the full schema-v12 regen (`evaluate --mode all --prune`),
 so every row below comes off the current record fields. Corpus scale for orientation:
 281 evaluation records on disk, 68 of them attempt-backed; after the #89
 evidence-generation dedup 85 records pool and 59 of those pass the #15 gate (the
@@ -135,6 +143,7 @@ report's trusted pool). Use these to judge whether a new batch improved or regre
 | pooled PCK@0.5-torso | 0.60 (conforming runs: median 0.87, 83% within 0.75–0.95) |
 | detect rate on truth-present | 74.1% |
 | hallucination on truth-absent frames | 46.5% |
+| `hallucination-fp` frames | 16.7% of detected (5264/31535), **100% truth-absent** — all real FPs, no tracking-miss half yet (#69) |
 | accepted / missing / flipRejected / qualityRejected | 66.8% / 26.1% / 7.0% / 0.1% (truth-matched; all-stream 67.9 / 25.0 / 7.0 / 0.1) |
 | per-run missing share | median 9.2%, p90 64.3%, 12 runs > 50% |
 | flip-gate over-rejection | 76.7% of truth-present checkable rejections (1337 good poses of 1744); 46.5% counting Climber-absent ones |
