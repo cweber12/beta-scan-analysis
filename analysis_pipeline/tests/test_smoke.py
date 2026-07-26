@@ -386,7 +386,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 12
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 13
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -1392,7 +1392,11 @@ def test_crop_quality_iou_and_miss_causes():
         cq = rec["cropQuality"]
         assert cq["matchedAttempts"] == 5
         assert cq["missingAttempts"] == 4
+        # No attempt here carries missReason or candidateCount, so the fail-open
+        # fallbacks (adverse-conditions / unexplained) still classify — the pre-evidence
+        # behavior, retained by design.
         assert cq["missCauseCounts"] == {"climber-absent": 1, "crop-misplaced": 1,
+                                        "identity-gated": 0, "no-candidates": 0,
                                         "adverse-conditions": 1, "unexplained": 1}
         assert cq["thresholds"]["truthBboxPad"] == ev.TRUTH_BBOX_PAD
         assert cq["thresholds"]["reacquireSearchesFullFrame"] is True
@@ -1468,6 +1472,132 @@ def test_crop_quality_iou_and_miss_causes():
         assert "Missing-attempt causes" in html
         assert "crop-misplaced" in html
         assert "attempts whose crop excluded Climber" in html
+
+
+def test_miss_reason_splits_the_residual_and_retro_derives():
+    """Reply handoff 2026-07-25: the scanner's ``missReason`` — or its ``candidateCount``
+    retro-derivation on older streams — splits the old ``unexplained`` residual into
+    ``identity-gated`` (a gate rejection) vs ``no-candidates`` (a detector failure).
+    Fail-open when neither signal exists, and never outranking ``climber-absent`` or
+    ``crop-misplaced``: candidates found inside a crop that excluded the Climber were
+    not the Climber, so the crop still owns that miss."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+    from analysis_pipeline.detector_attempts import miss_reason, parse_detector_attempts
+
+    # Parser + helper seam first: the absent/empty reacquireSteps distinction, the
+    # authored-field-wins rule, and the retro-derivation.
+    parsed = parse_detector_attempts({"detectorAttempts": [
+        {"timestamp": 1.0, "status": "missing", "missReason": "identity-gated",
+         "reacquireSteps": [], "bestUnselectedCandidateScore": 0.5, "candidateCount": 0},
+        {"timestamp": 2.0, "status": "missing",
+         "reacquireSteps": [{"region": {"x": 0, "y": 0, "w": 1, "h": 1}, "found": False}]},
+    ]})
+    assert parsed is not None
+    assert parsed[0]["reacquireSteps"] == []          # ran no reacquire — not legacy
+    assert parsed[0]["bestUnselectedCandidateScore"] == 0.5
+    assert parsed[1]["reacquireSteps"] == [
+        {"region": {"x": 0, "y": 0, "w": 1, "h": 1}, "found": False}]
+    assert miss_reason(parsed[0]) == "identity-gated"  # authored wins over derivation
+    assert miss_reason({"missReason": "bogus", "candidateCount": 2}) == "identity-gated"
+    assert miss_reason({"missReason": None, "candidateCount": 0}) == "no-candidates"
+    assert miss_reason({}) is None                     # neither signal: fail open
+    legacy = parse_detector_attempts({"detectorAttempts": [
+        {"timestamp": 1.0, "status": "missing"}]})
+    assert legacy is not None and legacy[0]["reacquireSteps"] is None  # legacy payload
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    doc = {
+        "version": 1,
+        "jointSet": list(_TRUTH_JOINTS),
+        "groundTruthHash": "reason13reason13",
+        "setupHash": "sh_reason",
+        "frames": [
+            {"frameIndex": i, "timestamp": float(i), "state": "present",
+             "review": "auto", "joints": present}
+            for i in (1, 2, 3, 4, 5, 7)
+        ] + [
+            {"frameIndex": 6, "timestamp": 6.0, "state": "absent",
+             "review": "auto", "joints": {}},
+        ],
+    }
+    on_truth = {"x": 0.225, "y": 0.125, "w": 0.55, "h": 0.90}
+    elsewhere = {"x": 0.0, "y": 0.0, "w": 0.15, "h": 0.15}
+    full_frame = {"x": 0, "y": 0, "w": 1, "h": 1}
+    clean = {"mean": 120, "stdDev": 40, "sharpness": 200,
+             "flags": {"isBlurry": False, "isUnderexposed": False}}
+    adverse = {"mean": 20, "stdDev": 5, "sharpness": 10,
+               "flags": {"isBlurry": True, "isUnderexposed": True}}
+    miss = {"status": "missing", "reacquireAttempted": True, "reacquired": False,
+            "rawKeypoints": [], "acceptedKeypoints": [], "initialSearchRegion": on_truth,
+            "searchConditions": clean}
+    attempts = [
+        # t1 authored identity-gated, with the gate-tuning score.
+        {**miss, "timestamp": 1.0, "missReason": "identity-gated", "candidateCount": 3,
+         "bestUnselectedCandidateScore": 0.91},
+        # t2 authored no-candidates, with today's one-rung reacquire trace.
+        {**miss, "timestamp": 2.0, "missReason": "no-candidates", "candidateCount": 0,
+         "reacquireSteps": [{"region": full_frame, "found": False}]},
+        # t3 no missReason, candidateCount > 0, adverse flags — the derivation outranks
+        # the adverse-conditions fallback.
+        {**miss, "timestamp": 3.0, "candidateCount": 2, "searchConditions": adverse},
+        # t4 no missReason, candidateCount == 0 -> no-candidates by derivation.
+        {**miss, "timestamp": 4.0, "candidateCount": 0},
+        # t5 neither signal -> unexplained, the pre-evidence residual, retained.
+        {**miss, "timestamp": 5.0},
+        # t6 Climber absent outranks an authored reason: the miss is correct.
+        {**miss, "timestamp": 6.0, "missReason": "no-candidates", "candidateCount": 0,
+         "initialSearchRegion": full_frame},
+        # t7 crop excluded the Climber and nothing else was searched: crop-misplaced
+        # outranks the gated reading — the gated candidates were not the Climber.
+        {**miss, "timestamp": 7.0, "reacquireAttempted": False,
+         "initialSearchRegion": elsewhere, "candidateCount": 2},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeMR" / "vidMR"
+        _write_bundle_meta(vdir, setup_hash="sh_reason")
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000101", "sh_reason", [],
+                        detector_attempts=attempts)
+
+        summary = ev.evaluate(root)
+        rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
+        assert rec["schemaVersion"] >= 13
+
+        cq = rec["cropQuality"]
+        assert cq["missCauseCounts"] == {"climber-absent": 1, "crop-misplaced": 1,
+                                         "identity-gated": 2, "no-candidates": 2,
+                                         "adverse-conditions": 0, "unexplained": 1}
+        by_t = {e["t"]: e for e in cq["frames"]}
+        assert by_t[1.0]["missCause"] == "identity-gated"
+        assert by_t[1.0]["missReason"] == "identity-gated"
+        assert by_t[1.0]["bestUnselectedCandidateScore"] == 0.91
+        assert by_t[2.0]["missCause"] == "no-candidates"
+        assert by_t[3.0]["missCause"] == "identity-gated"   # derived
+        assert by_t[3.0]["missReason"] == "identity-gated"
+        assert by_t[4.0]["missCause"] == "no-candidates"    # derived
+        assert by_t[5.0]["missCause"] == "unexplained"
+        assert by_t[5.0]["missReason"] is None
+        assert by_t[6.0]["missCause"] == "climber-absent"
+        assert by_t[7.0]["missCause"] == "crop-misplaced"
+        assert by_t[7.0]["missReason"] == "identity-gated"  # still recorded, not the cause
+
+        ctx = trends.build_trend_context(root)
+        causes = ctx["crop_quality_miss_causes"].set_index("miss_cause")
+        assert int(causes.loc["identity-gated", "n"]) == 2
+        assert int(causes.loc["no-candidates", "n"]) == 2
+        assert causes.loc["identity-gated",
+                          "median_best_unselected_candidate_score"] == 0.91
+        runs = ctx["detection_error_attempt_runs"].set_index("run_ts")
+        row = runs.loc["20260101-000101"]
+        assert row["miss_identity_gated_count"] == 2
+        assert row["miss_no_candidates_count"] == 2
+        attempts_rows = ctx["crop_quality_attempts"]
+        assert "miss_reason" in attempts_rows.columns
+        assert "best_unselected_candidate_score" in attempts_rows.columns
 
 
 def test_crop_export_selection_and_writes():
@@ -2755,6 +2885,7 @@ def _run_all():
            test_evaluate_prefers_detector_attempts_over_dense_frames,
            test_rejection_correctness_verdicts_and_pooled_rate,
            test_crop_quality_iou_and_miss_causes,
+           test_miss_reason_splits_the_residual_and_retro_derives,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
            test_hallucination_split_by_truth_presence,
