@@ -20,6 +20,8 @@ collaborators — needs none of it. The two seams:
 
 from __future__ import annotations
 
+import hashlib
+import inspect
 import json
 import math
 import sys
@@ -45,6 +47,21 @@ ARTIFACT_NAME = "vitpose.json"
 STATUS_NAME = "vitpose.status.json"
 SETUP_NAME = "setup.json"
 ARTIFACT_VERSION = 1
+
+# Why seeding found no Climber (issue #101). The distinction the corpus audit needed:
+# 15 Bundles carried no usable truth, and only 5 of them were genuinely hard videos —
+# the rest were harness failures being read as data properties. A reason is stamped
+# into the status sidecar so diagnosis never requires re-running the job.
+SEED_FAIL_NO_DETECTIONS = "no-detections"        # the tracker found nobody, anywhere
+SEED_FAIL_EMPTY_WINDOW = "no-frames-in-window"   # no tracked frame near the seed tap's t
+SEED_FAIL_NO_CANDIDATES = "no-candidates"        # frames in window, but no boxes on them
+SEED_FAIL_REGION_GATED = "region-gated"          # candidates existed; the gate refused all
+SEED_FAIL_REASONS = (
+    SEED_FAIL_NO_DETECTIONS,
+    SEED_FAIL_EMPTY_WINDOW,
+    SEED_FAIL_NO_CANDIDATES,
+    SEED_FAIL_REGION_GATED,
+)
 
 # COCO-17 keypoint order emitted by ViTPose. The first 13 are the joints beta-scanner
 # scores (it must see these exact names); eyes/ears are drawn faintly as context and
@@ -174,6 +191,13 @@ class VitPoseRequest:
     # into these fields (preferring the new names when both are present).
     seed_tap: Point | None = None
     seed_region: Box | None = None
+    # Climb window (issue #101). ``climb_start`` comes from the frozen **setup tap** —
+    # the calibration gesture that already told us where the climb begins — and
+    # ``climb_end`` from an explicit end marker. Frames outside the window are never
+    # tracked, never posed, and (downstream) never scored. Both ``None`` means "no
+    # window recorded", and the job behaves exactly as it did before the field existed.
+    climb_start: float | None = None
+    climb_end: float | None = None
     panning: bool = False
     # Hash of the setup.json (Climber selection) this job runs under. Stamped into the
     # artifact as the provenance anchor: downstream pairing treats a pose run and a
@@ -181,6 +205,8 @@ class VitPoseRequest:
     # omits it, the job falls back to the bundle's current setup.json (see
     # run_vitpose_job) so new artifacts always carry the field.
     setup_hash: str | None = None
+    # Re-run the job even when the seed hash is unchanged (issue #101 idempotence).
+    force: bool = False
 
 
 # --------------------------------------------------------------------------- #
@@ -304,6 +330,18 @@ def _point_to_box_dist(point: Point, box: Box) -> float:
 
 
 def _seed_box_passes_region_gate(seed_box: Box, seed_region: Box | None) -> bool:
+    """Does a candidate box **overlap** the expanded seed region (issue #101)?
+
+    Was a *centre*-containment test, which a tight or slightly misplaced seed region
+    rejects outright: measured on the worst Bundle, 182 candidate boxes in the seed
+    window, zero passing, on a video where a person is visible in 98% of sampled
+    frames. A person whose box straddles the region's edge is plainly a candidate for
+    "which track is the climber", so overlap is the question the gate meant to ask.
+
+    Still a real gate: a box entirely outside the expanded region is refused, which is
+    what keeps the genuinely truthless Bundles failing honestly.
+    """
+
     if seed_region is None:
         return True
     pad_x = seed_region.w * _CROP_GATE_EXPAND
@@ -312,7 +350,9 @@ def _seed_box_passes_region_gate(seed_box: Box, seed_region: Box | None) -> bool
     max_x = seed_region.x + seed_region.w + pad_x
     min_y = seed_region.y - pad_y
     max_y = seed_region.y + seed_region.h + pad_y
-    return min_x <= seed_box.cx <= max_x and min_y <= seed_box.cy <= max_y
+    overlap_w = min(seed_box.x + seed_box.w, max_x) - max(seed_box.x, min_x)
+    overlap_h = min(seed_box.y + seed_box.h, max_y) - max(seed_box.y, min_y)
+    return overlap_w > 0.0 and overlap_h > 0.0
 
 
 def _bhattacharyya(p: Sequence[float], q: Sequence[float]) -> float:
@@ -426,6 +466,36 @@ def _seed_climber(
         if track_id in frame.boxes:
             return i, frame.boxes[track_id]
     return None, None
+
+
+def seed_failure_reason(
+    history: Sequence[FrameTracks],
+    seed_tap: Point | None,
+    seed_region: Box | None,
+) -> str:
+    """Why seeding found no Climber — the repairable/hard split (issue #101).
+
+    Called only when seeding failed. ``no-detections`` and ``no-candidates`` say the
+    person detector found nobody to choose between (the video is hard, and no amount
+    of gate-loosening helps); ``no-frames-in-window`` and ``region-gated`` say
+    candidates existed and the harness refused them (repairable — re-tap, or widen
+    the seed region). Only the latter two are worth spending repair effort on.
+    """
+
+    if not any(frame.boxes for frame in history):
+        return SEED_FAIL_NO_DETECTIONS
+
+    in_window = list(history)
+    if seed_tap is not None and seed_tap.t is not None:
+        in_window = [
+            frame for frame in history
+            if abs(frame.timestamp - seed_tap.t) <= _SEED_WINDOW_S
+        ]
+        if not in_window:
+            return SEED_FAIL_EMPTY_WINDOW
+    if not any(frame.boxes for frame in in_window):
+        return SEED_FAIL_NO_CANDIDATES
+    return SEED_FAIL_REGION_GATED
 
 
 @dataclass
@@ -734,6 +804,103 @@ def _clamp01(v: float) -> float:
 
 
 # --------------------------------------------------------------------------- #
+# Climb window + seed identity (issue #101)
+# --------------------------------------------------------------------------- #
+
+def in_climb_window(t: float, climb_start: float | None, climb_end: float | None) -> bool:
+    """Is timestamp ``t`` inside the climb window? Inclusive; either bound may be
+    ``None`` (open on that side), so a Bundle with no window recorded admits
+    everything and behaves exactly as it did before the window existed."""
+
+    if climb_start is not None and t < climb_start:
+        return False
+    if climb_end is not None and t > climb_end:
+        return False
+    return True
+
+
+def window_history(
+    history: Sequence[FrameTracks],
+    climb_start: float | None,
+    climb_end: float | None,
+) -> list[FrameTracks]:
+    """The tracked frames inside the climb window, in order.
+
+    Bounding here bounds *everything* downstream — stitching, the nearest-frame
+    mapping, and which frames are posed — because every one of them reads this
+    history. Frame indices are re-based to the filtered list, which is consistent
+    because stitching and artifact assembly are handed the same list.
+    """
+
+    if climb_start is None and climb_end is None:
+        return list(history)
+    return [f for f in history if in_climb_window(f.timestamp, climb_start, climb_end)]
+
+
+def _video_identity(video_path: Path) -> str:
+    """Cheap, stable identity for the video binary: name + byte size.
+
+    Not a content hash — the binaries run to hundreds of MB and are immutable once
+    downloaded; a re-download that changed the bytes would change the size in
+    practice, and the setupHash already covers the calibration side.
+    """
+
+    try:
+        size = video_path.stat().st_size
+    except OSError:
+        size = -1
+    return f"{video_path.name}:{size}"
+
+
+def seed_hash(request: VitPoseRequest, video_path: Path) -> str:
+    """Identity of everything the ViTPose scaffold is a function of (issue #101).
+
+    Covers the seed tap, the seed region, the climb window and the video binary.
+    Stamped into the artifact so a scaffold *records which seed it was built from*,
+    and compared on each request so an unchanged seed skips the job. This is one
+    change wearing two hats: it is the correctness fix for silent staleness (before
+    it, a re-calibration that moved the seed left a stale scaffold behind and the
+    setupHash matched either way) and the largest re-run saving.
+    """
+
+    tap = request.seed_tap
+    region = request.seed_region
+    payload = {
+        "seedTap": None if tap is None else [tap.x, tap.y, tap.t],
+        "seedRegion": None if region is None else [region.x, region.y, region.w, region.h],
+        "climbStart": request.climb_start,
+        "climbEnd": request.climb_end,
+        "video": _video_identity(video_path),
+    }
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
+def artifact_seed_hash(bundle_dir: Path) -> str | None:
+    """The seed hash the bundle's existing scaffold was built from, or ``None``.
+
+    ``None`` covers both "no scaffold" and "a scaffold written before this field
+    existed" — neither can be claimed as current, so both re-run.
+    """
+
+    try:
+        artifact = json.loads((bundle_dir / ARTIFACT_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    value = artifact.get("seedHash") if isinstance(artifact, dict) else None
+    return value if isinstance(value, str) and value else None
+
+
+def seed_is_unchanged(bundle_dir: Path, request: VitPoseRequest, video_path: Path) -> bool:
+    """Would re-running produce the same scaffold? ``force`` always answers no."""
+
+    if request.force:
+        return False
+    existing = artifact_seed_hash(bundle_dir)
+    return existing is not None and existing == seed_hash(request, video_path)
+
+
+# --------------------------------------------------------------------------- #
 # Orchestration
 # --------------------------------------------------------------------------- #
 
@@ -749,6 +916,12 @@ def build_artifact(
     A requested frame gets non-empty ``keypoints`` only when the stitched Climber
     trajectory has a box on the nearest decoded frame; otherwise ``keypoints: []``
     (seeded ``absent``). Pass ``stitch`` to reuse an already-computed trajectory.
+
+    A requested timestamp outside the climb window is echoed with empty keypoints and
+    never posed (issue #101): footage before the climb starts or after the topout can
+    contribute no evidence, so paying ViTPose for it is waste. ``history`` is expected
+    to be already window-bounded by the caller; the timestamp check is what stops a
+    just-outside request from being mapped onto the nearest in-window frame.
     """
     if stitch is None:
         stitch = stitch_climber_track(history, request.seed_tap, request.seed_region)
@@ -759,6 +932,8 @@ def build_artifact(
     ts_to_index: dict[float, int] = {}
     targets: dict[int, PoseTarget] = {}
     for ts in request.frames:
+        if not in_climb_window(ts, request.climb_start, request.climb_end):
+            continue
         idx = _nearest_frame_index(history, ts)
         if idx is None:
             continue
@@ -794,8 +969,61 @@ def build_artifact(
     # consumers' `artifact.get("setupHash", <fallback>)` reaches the legacy fallback.
     if request.setup_hash:
         artifact["setupHash"] = request.setup_hash
+    # Which seed this scaffold was actually built from (issue #101). Every other key
+    # is omitted-when-absent in the same tradition; the seed provenance block is
+    # stamped by ``run_vitpose_job``, which is the only caller that knows the video
+    # binary the hash covers.
+    if request.climb_start is not None or request.climb_end is not None:
+        artifact["climbWindow"] = {"start": request.climb_start, "end": request.climb_end}
+    if request.seed_tap is not None:
+        artifact["seedTap"] = {
+            "x": request.seed_tap.x, "y": request.seed_tap.y, "t": request.seed_tap.t,
+        }
     artifact["frames"] = frames_out
     return artifact
+
+
+def _read_setup(bundle_dir: Path) -> dict:
+    try:
+        setup = json.loads((bundle_dir / SETUP_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return setup if isinstance(setup, dict) else {}
+
+
+def resolve_climb_window(
+    request: VitPoseRequest, bundle_dir: Path
+) -> tuple[float | None, float | None]:
+    """The climb window for one job: the request's, else the Bundle's calibration.
+
+    **The tap split (issue #101) is what makes the climb start trustworthy.**
+    ``setup.json.climberPoint`` is the **setup tap** — frozen at initial calibration,
+    it seeds MediaPipe and marks where the climb starts. It used to double as the
+    ViTPose **seed tap**, so every re-seed wrote back over it and dragged the setup
+    tap into the middle of the climb (27 Bundles, hips already risen 5–47% of frame
+    height before the tap). Adopting ``climberPoint.t`` as the climb start is only
+    safe once re-seeding stops touching it — which is exactly what the split does:
+    a re-seed moves ``seedTap`` and leaves ``climberPoint`` alone.
+
+    So the start is read from the setup tap, never from the seed tap, and an explicit
+    ``climbStart`` on the calibration wins over both. The end comes from an explicit
+    ``climbEnd`` marker only; there is no gesture to infer a topout from.
+    """
+
+    if request.climb_start is not None or request.climb_end is not None:
+        return request.climb_start, request.climb_end
+
+    setup = _read_setup(bundle_dir)
+    start = setup.get("climbStart")
+    if not isinstance(start, (int, float)) or isinstance(start, bool):
+        setup_tap = setup.get("climberPoint")
+        tap_t = setup_tap.get("t") if isinstance(setup_tap, dict) else None
+        start = tap_t if isinstance(tap_t, (int, float)) and not isinstance(tap_t, bool) else None
+    end = setup.get("climbEnd")
+    if not isinstance(end, (int, float)) or isinstance(end, bool):
+        end = None
+    return (float(start) if start is not None else None,
+            float(end) if end is not None else None)
 
 
 def _read_setup_hash(bundle_dir: Path) -> str | None:
@@ -830,6 +1058,8 @@ def _write_status(
     device: str | None = None,
     warnings: list[str] | None = None,
     seed_debug: dict | None = None,
+    skip_reason: str | None = None,
+    seed_hash: str | None = None,
 ) -> None:
     # Extra keys are contract-safe: beta-scanner's sidecar reader only inspects
     # `status` and `error` (app/api/dev/corpus/vitpose/route.ts).
@@ -848,6 +1078,10 @@ def _write_status(
         payload["warnings"] = warnings
     if seed_debug is not None:
         payload["seedDebug"] = seed_debug
+    if skip_reason is not None:
+        payload["skipReason"] = skip_reason
+    if seed_hash is not None:
+        payload["seedHash"] = seed_hash
     (bundle_dir / STATUS_NAME).write_text(
         json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
@@ -911,8 +1145,15 @@ def _seed_debug(
             "w": request.seed_region.w,
             "h": request.seed_region.h,
         }
+    if request.climb_start is not None or request.climb_end is not None:
+        debug["climbWindow"] = {"start": request.climb_start, "end": request.climb_end}
     if seed_idx is None or seed_box is None:
         debug["seedFound"] = False
+        # Why (issue #101): a repairable seeding failure must be distinguishable from
+        # a video with no detectable Climber, without re-running the job.
+        debug["seedFailureReason"] = seed_failure_reason(
+            history, request.seed_tap, request.seed_region
+        )
         return debug
 
     debug["seedFound"] = True
@@ -961,6 +1202,30 @@ def _request_warnings(request: VitPoseRequest, history: Sequence[FrameTracks]) -
     return warnings
 
 
+def _track_in_window(
+    tracker: Tracker, video_path: Path, request: VitPoseRequest
+) -> list[FrameTracks]:
+    """Track the video, letting a window-aware tracker skip out-of-climb footage.
+
+    The ``Tracker`` seam is ``track(video_path)``; a tracker that also accepts
+    ``climb_start`` / ``climb_end`` gets them, so the real ultralytics backend can
+    avoid decoding footage that can never contribute. Every existing stub — and any
+    tracker that predates the window — keeps the one-argument call unchanged, and
+    ``window_history`` bounds its output afterwards either way.
+    """
+
+    if request.climb_start is None and request.climb_end is None:
+        return list(tracker.track(video_path))
+    try:
+        params = inspect.signature(tracker.track).parameters
+    except (TypeError, ValueError):
+        params = {}
+    if "climb_start" in params and "climb_end" in params:
+        return list(tracker.track(video_path, climb_start=request.climb_start,
+                                  climb_end=request.climb_end))
+    return list(tracker.track(video_path))
+
+
 def run_vitpose_job(
     analysis_root: Path,
     request: VitPoseRequest,
@@ -981,6 +1246,28 @@ def run_vitpose_job(
             f"No bundle at route={request.route_folder!r} video_key={request.video_key!r}."
         )
 
+    # The climb window is resolved before anything else: it is part of the seed hash,
+    # so an unchanged seed under a *changed* window must not be read as unchanged.
+    start, end = resolve_climb_window(request, bundle_dir)
+    request = replace(request, climb_start=start, climb_end=end)
+
+    # Idempotence (issue #101): identical seed inputs produce an identical scaffold, so
+    # skip the job and say so. The status sidecar is the scanner's only channel, so the
+    # skip is reported there rather than silently returning.
+    artifact_path = bundle_dir / ARTIFACT_NAME
+    try:
+        video_path_for_hash = resolve_video_path(analysis_root, request.video_path)
+    except ValueError:
+        video_path_for_hash = None
+    if video_path_for_hash is not None and seed_is_unchanged(
+        bundle_dir, request, video_path_for_hash
+    ):
+        _write_status(bundle_dir, job_id, "skipped",
+                      skip_reason="unchanged-seed",
+                      seed_hash=artifact_seed_hash(bundle_dir))
+        _log(f"job {job_id[:8]} skipped: seed unchanged -> {artifact_path}")
+        return artifact_path
+
     _write_status(bundle_dir, job_id, "running")
     _log(
         f"job {job_id[:8]} started: {request.route_folder}/{request.video_key} "
@@ -997,17 +1284,22 @@ def run_vitpose_job(
             request = replace(request, setup_hash=_read_setup_hash(bundle_dir))
 
         started = time.perf_counter()
-        history = tracker.track(video_path)
+        history = _track_in_window(tracker, video_path, request)
         track_s = time.perf_counter() - started
+        # Everything downstream reads the window-bounded history, so the window bounds
+        # stitching, the nearest-frame mapping and which frames are posed at once. A
+        # tracker that can bound its own decode has already done so in _track_in_window;
+        # this trims the rest (and is what bounds a stub or legacy tracker).
+        history = window_history(history, request.climb_start, request.climb_end)
         warnings = _request_warnings(request, history)
         stitch = stitch_climber_track(history, request.seed_tap, request.seed_region)
         seed_debug = _seed_debug(request, history, stitch)
 
         posed_at = time.perf_counter()
         artifact = build_artifact(request, history, pose_backend, video_path, stitch=stitch)
+        artifact["seedHash"] = seed_hash(request, video_path)
         pose_s = time.perf_counter() - posed_at
 
-        artifact_path = bundle_dir / ARTIFACT_NAME
         artifact_path.write_text(
             json.dumps(artifact, indent=2, ensure_ascii=False), encoding="utf-8"
         )
@@ -1094,6 +1386,52 @@ def _box_appearance(frame_bgr, box: Box) -> Appearance | None:
     return Appearance(shirt=shirt, pants=pants)
 
 
+def frame_tracks_from_result(
+    result: object,
+    timestamp: float,
+    frame_number: int,
+    appearance=lambda frame_bgr, box: None,
+) -> FrameTracks:
+    """Convert one ultralytics result into a ``FrameTracks`` entry.
+
+    **Id-less detections are kept** (issue #101). The adapter used to drop every
+    detection in a frame when ByteTrack assigned no ids to it — an all-or-nothing
+    guard that, measured on the worst Bundle, discarded 82 raw detections across the
+    whole seed window on a video where a person is visible in 79% of sampled frames,
+    leaving the Bundle "truthless". Id-less boxes now enter under synthetic negative
+    ids, which no real ByteTrack id collides with. Per-frame stitching is unaffected:
+    it associates on geometry and appearance, not on id, and the id only labels
+    provenance in ``seedDebug``.
+
+    Pure: it takes a results-like object and a frame-to-appearance callable, so the
+    guard is testable without ultralytics. ``appearance`` defaults to featureless,
+    which reduces stitching to motion-only association exactly as a stub history does.
+    """
+
+    boxes: dict[int, Box] = {}
+    features: dict[int, Appearance] = {}
+    b = getattr(result, "boxes", None)
+    xywhn = getattr(b, "xywhn", None) if b is not None else None
+    if xywhn is None:
+        return FrameTracks(timestamp=timestamp, boxes={}, frame_number=frame_number)
+    rows = xywhn.tolist()
+    ids = b.id.int().tolist() if getattr(b, "id", None) is not None else [None] * len(rows)
+    frame_bgr = getattr(result, "orig_img", None)
+    for slot, (track_id, row) in enumerate(zip(ids, rows)):
+        cx, cy, w, h = row
+        box = Box(x=cx - w / 2.0, y=cy - h / 2.0, w=w, h=h)
+        key = int(track_id) if track_id is not None else -(slot + 1)
+        boxes[key] = box
+        if frame_bgr is not None:
+            app = appearance(frame_bgr, box)
+            if app is not None:
+                features[key] = app
+    return FrameTracks(
+        timestamp=timestamp, boxes=boxes,
+        frame_number=frame_number, features=features or None,
+    )
+
+
 class UltralyticsTracker:
     """Person detect + ByteTrack via ultralytics YOLO (lazy-loaded).
 
@@ -1128,7 +1466,8 @@ class UltralyticsTracker:
         """Load the model now so the first real request doesn't pay for it."""
         self._ensure_model()
 
-    def track(self, video_path: Path) -> list[FrameTracks]:
+    def track(self, video_path: Path, climb_start: float | None = None,
+              climb_end: float | None = None) -> list[FrameTracks]:
         import cv2  # lazy
 
         model = self._ensure_model()
@@ -1150,28 +1489,18 @@ class UltralyticsTracker:
             vid_stride=stride, **fp16,
         )
         for idx, result in enumerate(results):
-            boxes: dict[int, Box] = {}
-            features: dict[int, Appearance] = {}
-            b = getattr(result, "boxes", None)
-            if b is not None and b.id is not None:
-                ids = b.id.int().tolist()
-                # xywhn is center-based, normalized; convert to top-left corner.
-                xywhn = b.xywhn.tolist()
-                frame_bgr = getattr(result, "orig_img", None)
-                for track_id, (cx, cy, w, h) in zip(ids, xywhn):
-                    box = Box(x=cx - w / 2.0, y=cy - h / 2.0, w=w, h=h)
-                    boxes[int(track_id)] = box
-                    if frame_bgr is not None:
-                        app = _box_appearance(frame_bgr, box)
-                        if app is not None:
-                            features[int(track_id)] = app
             frame_no = idx * stride
-            history.append(
-                FrameTracks(
-                    timestamp=frame_no / fps, boxes=boxes,
-                    frame_number=frame_no, features=features or None,
-                )
-            )
+            timestamp = frame_no / fps
+            # Out-of-climb frames still stream through the model (ultralytics owns the
+            # decode loop), but detection conversion and appearance histograms — the
+            # per-frame cost this side controls — are skipped, and the entry is dropped.
+            if not in_climb_window(timestamp, climb_start, climb_end):
+                if climb_end is not None and timestamp > climb_end:
+                    break
+                continue
+            history.append(frame_tracks_from_result(
+                result, timestamp, frame_no, appearance=_box_appearance,
+            ))
         return history
 
 
