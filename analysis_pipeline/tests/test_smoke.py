@@ -386,7 +386,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 11
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 12
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -1602,6 +1602,149 @@ def test_frame_quality_aggregation_pools_all_records():
         assert set(wl["class"]) == {"hallucination-fp", "wrong-subject"}
 
 
+def test_hallucination_split_by_truth_presence():
+    """Issue #69: ``hallucination-fp`` conflates a real false positive (a pose on a
+    truth-*absent* frame) with a tracking miss (a pose on a truth-*present* frame that
+    reads as a false detection). Every frameQuality frame carries ``truthPresent``, the
+    record pools ``hallucinationSplit``, and both sub-cases survive into the pooled class
+    table, the report, and the CSV."""
+
+    from analysis_pipeline import cli
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    setup_hash = "sh_hs"
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    doc = {
+        "version": 1, "jointSet": list(_TRUTH_JOINTS), "setupHash": setup_hash,
+        "groundTruthHash": "hs00hs00hs00hs00",
+        "frames": [
+            {"frameIndex": 1, "timestamp": 1.0, "state": "present", "review": "auto",
+             "joints": present},
+            {"frameIndex": 2, "timestamp": 2.0, "state": "present", "review": "auto",
+             "joints": present},
+            {"frameIndex": 3, "timestamp": 3.0, "state": "absent", "review": "auto",
+             "joints": {}},
+            {"frameIndex": 4, "timestamp": 4.0, "state": "absent", "review": "auto",
+             "joints": {}},
+        ],
+        # The tracking-miss half: a human called frame 2 a hallucination even though the
+        # Climber is in it (the scanner locked onto a spectator). The auto classifier
+        # cannot produce this — it only sets hallucination-fp on absent frames — so the
+        # annotation is what makes the truth-present sub-case reachable at all.
+        "detectionAnnotations": [
+            {"startFrame": 2, "endFrame": 2, "failureClass": "hallucination-fp",
+             "distractor": "spectator", "setupHash": setup_hash},
+        ],
+    }
+    # Each pose is distinct enough that no run of >= FQ_FROZEN_MIN_RUN near-identical
+    # poses forms — the split is being tested, not the held-pose flag.
+    scanner = [
+        {"timestamp": 1.0, "keypoints": _kp_list(_TRUTH_JOINTS)},
+        {"timestamp": 2.0, "keypoints": _kp_list(
+            {n: (x + 0.05, y) for n, (x, y) in _TRUTH_JOINTS.items()})},
+        {"timestamp": 3.0, "keypoints": _kp_list(
+            {n: (x + 0.15, y) for n, (x, y) in _TRUTH_JOINTS.items()})},
+        {"timestamp": 4.0, "keypoints": _kp_list(
+            {n: (x + 0.25, y) for n, (x, y) in _TRUTH_JOINTS.items()})},
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeHS" / "vidHS"
+        _write_bundle_meta(vdir, setup_hash=setup_hash)
+        (vdir / "ground-truth.json").write_text(json.dumps(doc), encoding="utf-8")
+        _write_pose_run(vdir, "20260101-000069", setup_hash, scanner)
+
+        rec = json.loads(ev.evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION >= 12
+        fq = rec["frameQuality"]
+        assert fq["classCounts"]["hallucination-fp"] == 3
+        assert fq["classCounts"]["ok"] == 1
+
+        by_t = {e["t"]: e for e in fq["frames"]}
+        # Presence is recorded on every frame, not just the hallucinations.
+        assert by_t[1.0]["class"] == "ok" and by_t[1.0]["truthPresent"] is True
+        assert by_t[2.0]["class"] == "hallucination-fp"
+        assert by_t[2.0]["autoClass"] == "ok"       # human override, present frame
+        assert by_t[2.0]["truthPresent"] is True    # ...so: a tracking miss
+        assert by_t[3.0]["class"] == "hallucination-fp"
+        assert by_t[3.0]["truthPresent"] is False   # ...a real false positive
+        assert by_t[4.0]["truthPresent"] is False
+
+        split = fq["hallucinationSplit"]
+        assert split["total"] == 3
+        assert split[ev.HALLUCINATION_TRUTH_ABSENT] == 2
+        assert split[ev.HALLUCINATION_TRUTH_PRESENT] == 1
+        assert split["truthAbsentShare"] == round(2 / 3, 6)
+        assert split["truthPresentShare"] == round(1 / 3, 6)
+
+        ctx = trends.build_trend_context(root)
+        classes = ctx["frame_quality_classes"].set_index("class")
+        assert classes.loc["hallucination-fp", "n"] == 3
+        assert classes.loc["hallucination-fp", "truth_absent"] == 2
+        assert classes.loc["hallucination-fp", "truth_present"] == 1
+        assert classes.loc["hallucination-fp", "truth_unknown"] == 0
+        assert classes.loc["hallucination-fp", "truth_absent_share"] == 2 / 3
+        # A non-hallucination class is split too — the axis is per-frame, not per-class.
+        assert classes.loc["ok", "truth_present"] == 1
+
+        pooled = ctx["frame_quality_hallucination"]
+        assert (pooled["total"], pooled["truth_absent"], pooled["truth_present"]) == (3, 2, 1)
+
+        # The worklist carries presence so a flagged frame can be triaged without a join.
+        wl = ctx["frame_quality_worklist"].set_index("t")
+        assert bool(wl.loc[2.0, "truth_present"]) is True
+        assert bool(wl.loc[3.0, "truth_present"]) is False
+
+        out = Path(tmp) / "reports"
+        cli.main(["analysis", str(root), "-o", str(out), "--no-decode"])
+
+        html = (out / "report.html").read_text(encoding="utf-8")
+        assert "real false positives" in html and "tracking misses" in html
+        assert "66.7%" in html  # the truth-absent share, stated in the split callout
+
+        csv_text = (out / "eval_frame_quality_classes.csv").read_text(encoding="utf-8")
+        header = csv_text.splitlines()[0]
+        assert {"truth_absent", "truth_present", "truth_unknown",
+                "truth_absent_share"}.issubset(set(header.split(",")))
+
+
+def test_hallucination_split_reads_pre_v12_frames_as_unknown():
+    """Issue #69 fail-open: a record written before schema v12 recorded no presence, and
+    must read as *unknown* rather than being counted on either side of the split."""
+
+    import pandas as pd
+
+    from analysis_pipeline import trends
+
+    df = pd.DataFrame([
+        {"class": "hallucination-fp", "truth_present": None,   # pre-v12 frame
+         "held_pose": 0, "frozen_stale": 0},
+        {"class": "hallucination-fp", "truth_present": False,
+         "held_pose": 0, "frozen_stale": 0},
+        {"class": "ok", "truth_present": True, "held_pose": 0, "frozen_stale": 0},
+    ])
+    classes = trends._frame_quality_classes(df).set_index("class")
+    assert classes.loc["hallucination-fp", "truth_unknown"] == 1
+    assert classes.loc["hallucination-fp", "truth_absent"] == 1
+    assert classes.loc["hallucination-fp", "truth_present"] == 0
+    # Shares are over the *known* frames only — the unknown one is not a real FP.
+    assert classes.loc["hallucination-fp", "truth_absent_share"] == 1.0
+
+    pooled = trends._hallucination_split_totals(df)
+    assert pooled == {"total": 2, "truth_present": 0, "truth_absent": 1,
+                      "truth_unknown": 1, "truth_present_share": 0.0,
+                      "truth_absent_share": 1.0}
+
+    # An all-unknown pool reports no split at all rather than a fabricated 0%.
+    legacy = trends._hallucination_split_totals(
+        df[df["truth_present"].isna()].copy())
+    assert legacy["truth_unknown"] == 1
+    assert legacy["truth_absent_share"] is None
+    assert trends._hallucination_split_totals(pd.DataFrame())["total"] == 0
+
+
 def test_attempt_funnel_pools_and_distributes_over_runs():
     """Issue #87: the attempt funnel reports each status pooled over attempts *and*
     distributed over runs, plus reacquire effectiveness and condition-flag rates by
@@ -2556,6 +2699,8 @@ def _run_all():
            test_crop_quality_iou_and_miss_causes,
            test_crop_export_selection_and_writes,
            test_frame_quality_aggregation_pools_all_records,
+           test_hallucination_split_by_truth_presence,
+           test_hallucination_split_reads_pre_v12_frames_as_unknown,
            test_attempt_funnel_pools_and_distributes_over_runs,
            test_evidence_generation_dedup_prefers_attempt_backed_record,
            test_evidence_generation_dedup_is_scoped_to_one_truth_revision,

@@ -695,6 +695,37 @@ def _low_confidence_html(ctx: dict[str, Any]) -> str:
         + "<h3>Re-review worklist (fewest visible joints first)</h3>" + table)
 
 
+def _hallucination_split_html(ctx: dict[str, Any]) -> str:
+    """The truth-presence split of ``hallucination-fp`` (issue #69).
+
+    The class is the corpus's largest detection failure and its most actionable
+    suggestion, but it conflates two scanner behaviors with different fixes — so the
+    split is stated in words above the class table, not left to be read off two columns.
+    Frames from pre-schema-v12 records recorded no presence and are named as unknown
+    rather than folded into either side."""
+
+    split = ctx.get("frame_quality_hallucination")
+    if not isinstance(split, dict) or not split.get("total"):
+        return ("<p class='sub'>No <code>hallucination-fp</code> frames pooled — "
+                "nothing to split by truth presence.</p>")
+
+    total = int(split["total"])
+    absent, present = int(split["truth_absent"]), int(split["truth_present"])
+    unknown = int(split["truth_unknown"])
+    parts = [
+        f"<strong>{absent}</strong> ({_pct(split['truth_absent_share'])}) on "
+        "<em>truth-absent</em> frames — real false positives, fixed by presence gating",
+        f"<strong>{present}</strong> ({_pct(split['truth_present_share'])}) on "
+        "<em>truth-present</em> frames — tracking misses, fixed by tracking robustness",
+    ]
+    tail = ("" if not unknown else
+            f" {unknown} more come from pre-schema-v12 records that never recorded "
+            "presence and are excluded from those shares — re-run <code>evaluate</code> "
+            "to place them.")
+    return (f"<p class='sub'>Of {total} pooled <code>hallucination-fp</code> frames: "
+            f"{'; '.join(parts)}.{tail}</p>")
+
+
 def _frame_quality_html(ctx: dict[str, Any]) -> str:
     """Detection-quality per-frame classes (issue #44): top classes, the conditions the
     flagged-rate correlates with worst, the human distractor labels, and a worst-first
@@ -725,14 +756,20 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
     if isinstance(classes, pd.DataFrame) and not classes.empty:
         rows = "".join(
             f"<tr><td>{_esc(r['class'])}</td><td>{int(r['n'])}</td>"
-            f"<td>{_fmt(r['share'])}</td><td>{int(r['held_pose'])}</td>"
+            f"<td>{_fmt(r['share'])}</td>"
+            f"<td>{int(r.get('truth_absent', 0))}</td>"
+            f"<td>{int(r.get('truth_present', 0))}</td>"
+            f"<td>{int(r.get('truth_unknown', 0))}</td>"
+            f"<td>{int(r['held_pose'])}</td>"
             f"<td>{int(r['frozen_stale'])}</td></tr>"
             for _, r in classes.iterrows()
         )
         class_tbl = ("<div class='tablewrap'><table><thead><tr><th>failure class</th>"
-                     "<th>frames</th><th>share</th><th>held-pose repeats</th>"
-                     "<th>raw frozen-stale</th>"
+                     "<th>frames</th><th>share</th><th>truth-absent</th>"
+                     "<th>truth-present</th><th>presence unknown</th>"
+                     "<th>held-pose repeats</th><th>raw frozen-stale</th>"
                      f"</tr></thead><tbody>{rows}</tbody></table></div>")
+    class_tbl = _hallucination_split_html(ctx) + class_tbl
 
     distractors = ctx.get("frame_quality_distractors")
     distractor_tbl = "<p class='muted'>(no annotated distractors yet)</p>"
@@ -1390,7 +1427,11 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "<p class='sub'>Each scanner-detected frame auto-classified from the "
         "scanner↔truth geometry (<code>ok</code> / <code>wrong-subject</code> / "
         "<code>hallucination-fp</code> / <code>flipped-rotated</code> / "
-        "<code>distorted</code>), plus a cross-cutting frozen-stale flag. Pooled across "
+        "<code>distorted</code>), plus a cross-cutting frozen-stale flag. Each class is "
+        "split by whether the Climber was in the frame at all, because "
+        "<code>hallucination-fp</code> otherwise conflates a real false positive "
+        "(truth-absent → presence gating) with a tracking miss (truth-present → "
+        "tracking robustness). Pooled across "
         "<em>all</em> records — quarantined and loose-paired included, since those hold "
         "the frames most worth fixing — an independent pool from the trusted metrics. "
         "Classes are provisional (thresholds not yet fit against verified labels).</p>",

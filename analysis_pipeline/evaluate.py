@@ -95,7 +95,11 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 #    The ``conforms`` verdict itself is untouched, so every existing consumer of the gate
 #    reads exactly what it read before. Additive and fail-open — a pre-v11 non-conforming
 #    record carries no cause and reads as ``suspected-mistrack``, its pre-#88 place.
-SCHEMA_VERSION = 11
+# v12 carries truth presence on every ``frameQuality`` frame (issue #69): ``truthPresent``,
+#    plus the pooled ``frameQuality.hallucinationSplit`` it enables. Additive and
+#    fail-open — a pre-v12 frame carries no flag and reads as *unknown* presence
+#    downstream (never as absent, which would silently inflate the real-FP side).
+SCHEMA_VERSION = 12
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -261,6 +265,30 @@ FQ_HALLUCINATION = "hallucination-fp"
 FQ_FLIPPED = "flipped-rotated"
 FQ_DISTORTED = "distorted"
 FQ_CLASSES = [FQ_OK, FQ_WRONG_SUBJECT, FQ_HALLUCINATION, FQ_FLIPPED, FQ_DISTORTED]
+
+# Hallucination sub-class (issue #69). ``hallucination-fp`` is the corpus's largest and
+# most actionable detection failure, but the single class conflates two scanner behaviors
+# that call for different fixes:
+#
+# - ``truth-absent`` — a pose emitted on a frame where the Climber is not there at all.
+#   A real false positive; the fix is presence gating (don't emit without a match).
+# - ``truth-present`` — a pose emitted on a frame the Climber *is* in, but read as a
+#   false detection anyway. The fix is tracking robustness, not presence gating.
+#
+# The auto classifier can only produce the first (``_classify_detection`` never returns
+# ``hallucination-fp``; it is set in the ``not tf.present`` branch alone), so today's
+# truth-present hallucinations arrive from human detection annotations (issue #45)
+# overriding the auto class. Carrying ``truthPresent`` on *every* frame rather than only
+# on the hallucinations keeps the split derivable for any class, and keeps the record
+# honest about which behavior a suggestion is aimed at.
+HALLUCINATION_TRUTH_ABSENT = "truth-absent"
+HALLUCINATION_TRUTH_PRESENT = "truth-present"
+# Presence is always known for a matched pair, so a record written from v12 on never
+# needs this. It exists for *readers*, which must not read a pre-v12 frame's missing
+# flag as "absent" — see ``SCHEMA_VERSION``.
+HALLUCINATION_TRUTH_UNKNOWN = "truth-unknown"
+HALLUCINATION_SUBCLASSES = [HALLUCINATION_TRUTH_ABSENT, HALLUCINATION_TRUTH_PRESENT,
+                            HALLUCINATION_TRUTH_UNKNOWN]
 
 # Evidence generation (issue #73, named in #89): which detector evidence a record was
 # scored from. ``attempts`` is the canonical ``detectorAttempts[]`` stream; ``legacy-frames``
@@ -1440,6 +1468,31 @@ def _crop_quality(pairs: list[_FramePair]) -> dict[str, Any]:
     }
 
 
+def _hallucination_split(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Split one Run's ``hallucination-fp`` frames by truth presence (issue #69).
+
+    Two counts and their shares *within the class*, not within the Run: the question this
+    answers is "of the poses we called hallucinations, how many were emitted on a frame
+    with no Climber in it?" — real false positives (presence gating) versus tracking
+    misses (tracking robustness). The class share of all detected frames is already
+    derivable from ``classCounts`` / ``detectedFrames``, so it is not repeated here.
+
+    Shares are ``None`` on a Run with no hallucinations, rather than 0.0 — an empty
+    denominator is not a 0% split."""
+
+    halluc = [e for e in entries if e["class"] == FQ_HALLUCINATION]
+    absent = sum(1 for e in halluc if not e["truthPresent"])
+    present = len(halluc) - absent
+    total = len(halluc)
+    return {
+        "total": total,
+        HALLUCINATION_TRUTH_ABSENT: absent,
+        HALLUCINATION_TRUTH_PRESENT: present,
+        "truthAbsentShare": _round6(absent / total) if total else None,
+        "truthPresentShare": _round6(present / total) if total else None,
+    }
+
+
 def _status_driven_class(status: str | None, geometric_class: str) -> str:
     if status == "flipRejected":
         return FQ_FLIPPED
@@ -1465,6 +1518,11 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
     Flip/quality-rejected attempt frames additionally carry a rejection verdict (issue
     #85) scoring the discarded raw pose against truth, pooled into
     ``rejectionCorrectness``.
+
+    Every entry carries ``truthPresent`` (issue #69) — whether the Climber was in the
+    frame at all — which splits ``hallucination-fp`` into real false positives
+    (truth-absent) and tracking misses (truth-present), pooled into
+    ``hallucinationSplit``.
 
     Iterated in timestamp order so ``frozenStale`` compares against the true temporal
     predecessor regardless of truth-file frame order. Scored over the same non-excluded
@@ -1515,6 +1573,10 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
             "class": effective_cls,
             "autoClass": auto_cls,
             "failureClass": effective_cls,
+            # Was the Climber actually in this frame (issue #69)? Known for every matched
+            # pair, and the axis ``hallucination-fp`` splits on: a pose on an absent frame
+            # is a real false positive, a pose on a present frame is a tracking miss.
+            "truthPresent": tf.present,
             "source": p.scanner_source,
             "distractor": ann.distractor if ann is not None else None,
             "annotationSetupHash": ann.setup_hash if ann is not None else None,
@@ -1563,6 +1625,9 @@ def _frame_quality(pairs: list[_FramePair], truth: TruthDoc,
         # frameQuality entry but is still a rejection that must be counted.
         "rejectionCorrectness": _rejection_correctness(pairs),
         "classCounts": counts,
+        # Real false positive vs tracking miss (issue #69) — the two scanner behaviors
+        # ``hallucination-fp`` conflates.
+        "hallucinationSplit": _hallucination_split(entries),
         "heldPoseCount": held_count,
         "frozenStaleCount": frozen_count,
         "flaggedCount": sum(v for c, v in counts.items() if c != FQ_OK),
