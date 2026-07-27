@@ -20,8 +20,14 @@ The seed inputs, per ADR 0006/0007:
 - ``seed_tap``    — ``setup.json.seedTap`` when present, else the setup tap
   (``climberPoint``). The two are separate values now; a bundle that has never been
   re-seeded has only the setup tap, and seeding from it is correct.
-- ``seed_region`` — ``setup.json.seedRegion`` when present, else ``climberCrop`` via the
-  ADR 0006 legacy alias. No bundle writes ``seedRegion`` today.
+- ``seed_region`` — ``setup.json.seedRegion`` **only**. No bundle writes one today, so
+  in practice the seed gate is left open and the tap alone anchors identity. Falling
+  back to ``climberCrop`` is wrong and was actively breaking seeding: ADR 0006 decoupled
+  the seed gate from the Climber Crop because the crop is a Video Stats input, and ADR
+  0007 made it worse by letting the seed tap move mid-climb. The crop is drawn around
+  the Climber at *setup* time; a re-seed tap is where they are *now*, often well above
+  it. Measured: 7 of the 16 re-tapped bundles have a seed tap outside their own Climber
+  Crop, and gating on it rejected every candidate (``seedFailureReason: region-gated``).
 - the **climb window** is deliberately *not* sent: the service resolves it from the
   bundle's calibration (``resolve_climb_window``), which is the single source of truth
   and avoids this script disagreeing with it.
@@ -146,8 +152,8 @@ def _plan(bundle: Path) -> dict[str, Any] | None:
     tap = tap or (setup.get("climberPoint") if isinstance(setup.get("climberPoint"), dict) else None)
     if tap is None:
         return {"bundle": bundle, "skip": "no seed tap or setup tap"}
+    # Deliberately NOT falling back to climberCrop — see the module docstring.
     region = setup.get("seedRegion") if isinstance(setup.get("seedRegion"), dict) else None
-    region = region or (setup.get("climberCrop") if isinstance(setup.get("climberCrop"), dict) else None)
 
     frames = _frames_for(bundle, setup)
     if not frames:
@@ -177,17 +183,28 @@ def _plan(bundle: Path) -> dict[str, Any] | None:
     }
 
 
-def _await_terminal(bundle: Path, job_id: str, timeout_sec: float) -> tuple[str, str]:
+def _await_terminal(bundle: Path, job_id: str, timeout_sec: float,
+                    stall_sec: float) -> tuple[str, str]:
     """Poll the status sidecar until **this** job reaches a terminal state.
 
     Matching on ``jobId`` is the whole point. The service returns 202 and writes
     ``running`` from a background thread a moment later, so a poller that accepts any
     terminal status races that write and reads the *previous* run's ``done`` — reporting
     success instantly while the real job is still posing frames. Ask for this job.
+
+    Returns ``wedged`` when the sidecar stops changing for ``stall_sec``. That is a
+    *fatal* condition for the whole run, not a per-bundle one: the service runs scaffold
+    jobs under a single process-wide lock, so a thread stuck inside one holds the lock
+    forever and every later job queues behind it. Observed on the real corpus — a
+    38-second video sat 21 minutes with the GPU at 0% while the service itself stayed
+    responsive. Without this the run would have burned the full per-job timeout on each
+    of the remaining bundles and finished nothing.
     """
 
     sidecar = bundle / "vitpose.status.json"
     deadline = time.monotonic() + timeout_sec
+    last_seen = time.monotonic()
+    last_mtime = sidecar.stat().st_mtime if sidecar.exists() else 0.0
     last = ""
     while time.monotonic() < deadline:
         status = _load(sidecar)
@@ -196,6 +213,12 @@ def _await_terminal(bundle: Path, job_id: str, timeout_sec: float) -> tuple[str,
             if state in TERMINAL:
                 return state, str(status.get("error") or status.get("skipReason") or "")
             last = state
+        mtime = sidecar.stat().st_mtime if sidecar.exists() else 0.0
+        if mtime != last_mtime:
+            last_mtime, last_seen = mtime, time.monotonic()
+        elif time.monotonic() - last_seen > stall_sec:
+            return "wedged", (f"no sidecar activity for {stall_sec/60:.0f} min "
+                              f"(last status {last or 'unwritten'!r})")
         time.sleep(POLL_INTERVAL_SEC)
     return "timeout", f"last status {last!r} for job {job_id[:8]}"
 
@@ -207,16 +230,44 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true",
                         help="re-seed even when the seed is unchanged")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    parser.add_argument("--job-timeout", type=float, default=1800.0,
-                        help="seconds to wait for one scaffold job (default 1800)")
+    parser.add_argument("--job-timeout", type=float, default=900.0,
+                        help="hard ceiling for one scaffold job (default 900). A job "
+                             "costs roughly its climb-window length, so this is already "
+                             "generous")
+    parser.add_argument("--stall-timeout", type=float, default=300.0,
+                        help="abort the run when a job's status sidecar stops changing "
+                             "for this long (default 300). The service serializes jobs "
+                             "under one lock, so a wedged job stops everything")
+    parser.add_argument("--skip", default="",
+                        help="comma-separated video_keys to leave alone (e.g. one that "
+                             "wedged the service last run)")
     parser.add_argument("--limit", type=int, default=0,
                         help="process at most N bundles (0 = all); useful for a trial run")
+    parser.add_argument("--retry-empty", action="store_true",
+                        help="only bundles whose current scaffold posed no frames, and "
+                             "force them (implies --force); the repair pass after a run "
+                             "whose seeding failed")
     args = parser.parse_args(argv)
 
-    bundles = sorted(p.parent for p in ANALYSIS_DIR.glob("*/*/metadata.json"))
+    skip = {k.strip() for k in args.skip.split(",") if k.strip()}
+    bundles = [p.parent for p in sorted(ANALYSIS_DIR.glob("*/*/metadata.json"))
+               if p.parent.name not in skip]
+    if skip:
+        print(f"skipping {len(skip)} bundle(s) by request: {', '.join(sorted(skip))}")
     plans = [_plan(b) for b in bundles]
     todo = [p for p in plans if p and "payload" in p]
     skipped = [p for p in plans if p and "skip" in p]
+
+    if args.retry_empty:
+        args.force = True
+        empty = []
+        for plan in todo:
+            scaffold = _load(plan["bundle"] / "vitpose.json")
+            frames = scaffold.get("frames") or []
+            if frames and not any(f.get("keypoints") for f in frames):
+                empty.append(plan)
+        print(f"--retry-empty: {len(empty)} of {len(todo)} scaffold(s) pose nothing today")
+        todo = empty
 
     already = [p for p in todo if p["current_seed_hash"]]
     total_frames = sum(p["frames"] for p in todo)
@@ -241,7 +292,8 @@ def main(argv: list[str] | None = None) -> int:
         todo = todo[: args.limit]
 
     url = args.base_url.rstrip("/") + "/api/vitpose"
-    counts = {"done": 0, "skipped": 0, "error": 0, "timeout": 0, "rejected": 0}
+    counts = {"done": 0, "skipped": 0, "error": 0, "timeout": 0,
+              "rejected": 0, "wedged": 0}
     started = time.monotonic()
     for i, plan in enumerate(todo, 1):
         bundle = plan["bundle"]
@@ -261,8 +313,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{label}: HTTP {code} {str(body)[:160]}")
             continue
 
-        state, detail = _await_terminal(bundle, job_id, args.job_timeout)
+        state, detail = _await_terminal(bundle, job_id, args.job_timeout,
+                                        args.stall_timeout)
         counts[state] = counts.get(state, 0) + 1
+        if state == "wedged":
+            print(f"{label}: WEDGED — {detail}")
+            print(
+                "\nAborting: scaffold jobs run under one process-wide lock, so a "
+                "wedged job blocks every bundle after it.\n"
+                "  1. restart the harness service (kills the stuck thread)\n"
+                "  2. re-run this script - it resumes, skipping what is already done\n"
+                f"  3. if it wedges here again: --skip {bundle.name}")
+            break
         elapsed = time.monotonic() - started
         rate = elapsed / i
         # Posed coverage is how you tell the reset actually did something. A bundle that
@@ -287,7 +349,8 @@ def main(argv: list[str] | None = None) -> int:
               "genuinely hard video, 'region-gated'/'no-frames-in-window' means a "
               "repairable seed.")
     print("Re-run this script to retry anything that errored — unchanged seeds skip.")
-    return 1 if counts["error"] or counts["timeout"] or counts["rejected"] else 0
+    return 1 if any(counts[k] for k in
+                    ("error", "timeout", "rejected", "wedged")) else 0
 
 
 if __name__ == "__main__":
