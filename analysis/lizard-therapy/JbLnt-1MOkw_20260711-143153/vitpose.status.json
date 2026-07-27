@@ -1,115 +1,185 @@
 {
-  "jobId": "fc3ef88a0bbe4dfda5a7a65654883b1d",
+  "jobId": "a2d5b586d59a417dabb7639bd3cad71a",
   "status": "done",
-  "updated_at": "2026-07-21T18:16:54",
+  "updated_at": "2026-07-26T22:36:16",
   "timings": {
-    "track_s": 23.36,
-    "pose_s": 18.28,
-    "total_s": 41.78
+    "track_s": 22.18,
+    "pose_s": 17.03,
+    "total_s": 39.32
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 1520,
+    "historyFrames": 1214,
     "tap": {
-      "x": 0.6176120457096548,
-      "y": 0.3133998863499518,
-      "t": 26.01
+      "x": 0.5428015035021821,
+      "y": 0.38600559042803495,
+      "t": 11.76
     },
     "crop": {
-      "x": 0.4071770715497738,
-      "y": 0.17072965219261443,
-      "w": 0.2339114642251131,
-      "h": 0.41244334320176523
+      "x": 0.3928015035021821,
+      "y": 0.23600559042803496,
+      "w": 0.3,
+      "h": 0.3
+    },
+    "climbWindow": {
+      "start": 5.65,
+      "end": 46.1
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 789,
-      "timestamp": 26.3,
-      "sourceFrame": 789,
+      "frameIndex": 199,
+      "timestamp": 12.3,
+      "sourceFrame": 369,
       "box": {
-        "x": 0.5106142684817314,
-        "y": 0.22727080434560776,
-        "w": 0.1676511913537979,
-        "h": 0.12472482025623322,
-        "cx": 0.5944398641586304,
-        "cy": 0.28963321447372437
+        "x": 0.39738232642412186,
+        "y": 0.3029888644814491,
+        "w": 0.17312757670879364,
+        "h": 0.12295643985271454,
+        "cx": 0.4839461147785187,
+        "cy": 0.3644670844078064
       }
     },
     "stitch": {
-      "stitchedFrames": 1391,
+      "stitchedFrames": 1165,
       "idSwitches": [
         {
-          "sourceFrame": 10,
-          "from": 862,
-          "to": 864
+          "sourceFrame": 173,
+          "from": 33,
+          "to": -1
         },
         {
-          "sourceFrame": 104,
-          "from": 864,
-          "to": 869
+          "sourceFrame": 177,
+          "from": -1,
+          "to": 33
         },
         {
           "sourceFrame": 218,
-          "from": 869,
-          "to": 893
+          "from": 33,
+          "to": 57
+        },
+        {
+          "sourceFrame": 253,
+          "from": 57,
+          "to": -1
+        },
+        {
+          "sourceFrame": 256,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 257,
+          "from": -2,
+          "to": -1
         },
         {
           "sourceFrame": 259,
-          "from": 893,
-          "to": 884
+          "from": -1,
+          "to": 48
         },
         {
-          "sourceFrame": 538,
-          "from": 884,
-          "to": 921
+          "sourceFrame": 399,
+          "from": 48,
+          "to": -1
+        },
+        {
+          "sourceFrame": 403,
+          "from": -1,
+          "to": 48
+        },
+        {
+          "sourceFrame": 412,
+          "from": 48,
+          "to": -1
+        },
+        {
+          "sourceFrame": 413,
+          "from": -1,
+          "to": 48
+        },
+        {
+          "sourceFrame": 502,
+          "from": 48,
+          "to": -3
+        },
+        {
+          "sourceFrame": 503,
+          "from": -3,
+          "to": -2
+        },
+        {
+          "sourceFrame": 505,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 506,
+          "from": -1,
+          "to": 48
+        },
+        {
+          "sourceFrame": 541,
+          "from": 48,
+          "to": 85
+        },
+        {
+          "sourceFrame": 546,
+          "from": 85,
+          "to": -1
         },
         {
           "sourceFrame": 547,
-          "from": 921,
-          "to": 884
+          "from": -1,
+          "to": 48
         },
         {
-          "sourceFrame": 706,
-          "from": 884,
-          "to": 926
+          "sourceFrame": 710,
+          "from": 48,
+          "to": 90
         },
         {
-          "sourceFrame": 711,
-          "from": 926,
-          "to": 884
+          "sourceFrame": 713,
+          "from": 90,
+          "to": 48
         },
         {
-          "sourceFrame": 811,
-          "from": 884,
-          "to": 935
+          "sourceFrame": 805,
+          "from": 48,
+          "to": -2
         },
         {
-          "sourceFrame": 822,
-          "from": 935,
-          "to": 884
+          "sourceFrame": 812,
+          "from": -2,
+          "to": 48
+        },
+        {
+          "sourceFrame": 831,
+          "from": 48,
+          "to": -1
+        },
+        {
+          "sourceFrame": 839,
+          "from": -1,
+          "to": 48
         },
         {
           "sourceFrame": 860,
-          "from": 884,
-          "to": 940
+          "from": 48,
+          "to": 104
         },
         {
           "sourceFrame": 888,
-          "from": 940,
-          "to": 946
+          "from": 104,
+          "to": 110
         },
         {
           "sourceFrame": 901,
-          "from": 946,
-          "to": 940
+          "from": 110,
+          "to": 104
         }
       ],
       "jumps": [
-        {
-          "sourceFrame": 811,
-          "dist": 0.1791
-        },
         {
           "sourceFrame": 860,
           "dist": 0.1055
@@ -117,25 +187,7 @@
       ],
       "reseeds": [
         {
-          "frameIndex": 860,
-          "sourceFrame": 860,
-          "timestamp": 28.666666666666668,
-          "reason": "appearance-mismatch-streak",
-          "discarded": 21,
-          "recovered": 21,
-          "restored": 0
-        },
-        {
-          "frameIndex": 860,
-          "sourceFrame": 860,
-          "timestamp": 28.666666666666668,
-          "reason": "appearance-mismatch-streak",
-          "discarded": 27,
-          "recovered": 27,
-          "restored": 0
-        },
-        {
-          "frameIndex": 860,
+          "frameIndex": 690,
           "sourceFrame": 860,
           "timestamp": 28.666666666666668,
           "reason": "appearance-mismatch-streak",
@@ -144,21 +196,12 @@
           "restored": 0
         },
         {
-          "frameIndex": 860,
+          "frameIndex": 690,
           "sourceFrame": 860,
           "timestamp": 28.666666666666668,
           "reason": "appearance-mismatch-streak",
           "discarded": 108,
           "recovered": 108,
-          "restored": 0
-        },
-        {
-          "frameIndex": 860,
-          "sourceFrame": 860,
-          "timestamp": 28.666666666666668,
-          "reason": "appearance-mismatch-streak",
-          "discarded": 256,
-          "recovered": 256,
           "restored": 0
         }
       ]
