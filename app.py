@@ -416,15 +416,22 @@ def start_vitpose_job(payload: VitPoseJobRequest) -> JSONResponse:
     # that is already there, so a 202 would make it wait for a job that never runs.
     start, end = vitpose_job.resolve_climb_window(request, bundle_dir)
     request = replace(request, climb_start=start, climb_end=end)
+    job_id = uuid.uuid4().hex
     if vitpose_job.seed_is_unchanged(bundle_dir, request, video_path):
+        # Stamp the sidecar too, not just the response body. A client written against
+        # the old contract knows only the 202 + poll-the-sidecar flow; if the skip lived
+        # solely in a 200 it has never seen, it would poll a sidecar that never reaches a
+        # terminal state and hang the whole batch on an *unchanged* seed. Writing the
+        # terminal status makes the new response safe for a scanner that hasn't adopted it.
+        vitpose_job.write_skip_status(bundle_dir, job_id, "unchanged-seed")
         return JSONResponse(status_code=200, content={
+            "jobId": job_id,
             "status": "skipped",
             "reason": "unchanged-seed",
             "seedHash": vitpose_job.artifact_seed_hash(bundle_dir),
             "artifactPath": str(bundle_dir / vitpose_job.ARTIFACT_NAME),
         })
 
-    job_id = uuid.uuid4().hex
     thread = threading.Thread(
         target=_run_vitpose_safely, args=(request, job_id), daemon=True
     )

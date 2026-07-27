@@ -373,6 +373,16 @@ def test_vitpose_endpoint_reports_a_skip_when_the_seed_is_unchanged():
             assert body["seedHash"] == current
             assert not thread.called
 
+            # The skip also reaches the status sidecar, which is the only channel a
+            # client written against the old 202 + poll flow watches. Without this it
+            # would poll a sidecar that never reaches a terminal state and hang the
+            # batch on an unchanged seed.
+            sidecar = json.loads((bundle / "vitpose.status.json").read_text())
+            assert sidecar["status"] == "skipped"
+            assert sidecar["skipReason"] == "unchanged-seed"
+            assert sidecar["seedHash"] == current
+            assert sidecar["jobId"] == body["jobId"]
+
             # A moved seed tap is not unchanged: the job runs again.
             moved = _vitpose_payload(seed_tap={"x": 0.9, "y": 0.1, "t": 4.0})
             with patch.object(app_module.threading, "Thread") as thread:

@@ -1087,6 +1087,19 @@ def _write_status(
     )
 
 
+def write_skip_status(bundle_dir: Path, job_id: str, reason: str) -> None:
+    """Record an unchanged-seed skip in the status sidecar.
+
+    The sidecar is the only channel a polling client has. A skip decided at the service
+    layer — before any job starts — must still leave a *terminal* status there, or a
+    client that knows only the 202 + poll flow waits forever on a job that will never
+    run. Mirrors what ``run_vitpose_job`` writes when it makes the same decision.
+    """
+
+    _write_status(bundle_dir, job_id, "skipped",
+                  skip_reason=reason, seed_hash=artifact_seed_hash(bundle_dir))
+
+
 def _seed_mode(request: VitPoseRequest) -> str:
     if request.seed_tap is None:
         return "largest_track"
