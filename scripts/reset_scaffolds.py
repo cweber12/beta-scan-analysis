@@ -20,8 +20,14 @@ The seed inputs, per ADR 0006/0007:
 - ``seed_tap``    — ``setup.json.seedTap`` when present, else the setup tap
   (``climberPoint``). The two are separate values now; a bundle that has never been
   re-seeded has only the setup tap, and seeding from it is correct.
-- ``seed_region`` — ``setup.json.seedRegion`` when present, else ``climberCrop`` via the
-  ADR 0006 legacy alias. No bundle writes ``seedRegion`` today.
+- ``seed_region`` — ``setup.json.seedRegion`` **only**. No bundle writes one today, so
+  in practice the seed gate is left open and the tap alone anchors identity. Falling
+  back to ``climberCrop`` is wrong and was actively breaking seeding: ADR 0006 decoupled
+  the seed gate from the Climber Crop because the crop is a Video Stats input, and ADR
+  0007 made it worse by letting the seed tap move mid-climb. The crop is drawn around
+  the Climber at *setup* time; a re-seed tap is where they are *now*, often well above
+  it. Measured: 7 of the 16 re-tapped bundles have a seed tap outside their own Climber
+  Crop, and gating on it rejected every candidate (``seedFailureReason: region-gated``).
 - the **climb window** is deliberately *not* sent: the service resolves it from the
   bundle's calibration (``resolve_climb_window``), which is the single source of truth
   and avoids this script disagreeing with it.
@@ -146,8 +152,8 @@ def _plan(bundle: Path) -> dict[str, Any] | None:
     tap = tap or (setup.get("climberPoint") if isinstance(setup.get("climberPoint"), dict) else None)
     if tap is None:
         return {"bundle": bundle, "skip": "no seed tap or setup tap"}
+    # Deliberately NOT falling back to climberCrop — see the module docstring.
     region = setup.get("seedRegion") if isinstance(setup.get("seedRegion"), dict) else None
-    region = region or (setup.get("climberCrop") if isinstance(setup.get("climberCrop"), dict) else None)
 
     frames = _frames_for(bundle, setup)
     if not frames:
@@ -211,12 +217,27 @@ def main(argv: list[str] | None = None) -> int:
                         help="seconds to wait for one scaffold job (default 1800)")
     parser.add_argument("--limit", type=int, default=0,
                         help="process at most N bundles (0 = all); useful for a trial run")
+    parser.add_argument("--retry-empty", action="store_true",
+                        help="only bundles whose current scaffold posed no frames, and "
+                             "force them (implies --force); the repair pass after a run "
+                             "whose seeding failed")
     args = parser.parse_args(argv)
 
     bundles = sorted(p.parent for p in ANALYSIS_DIR.glob("*/*/metadata.json"))
     plans = [_plan(b) for b in bundles]
     todo = [p for p in plans if p and "payload" in p]
     skipped = [p for p in plans if p and "skip" in p]
+
+    if args.retry_empty:
+        args.force = True
+        empty = []
+        for plan in todo:
+            scaffold = _load(plan["bundle"] / "vitpose.json")
+            frames = scaffold.get("frames") or []
+            if frames and not any(f.get("keypoints") for f in frames):
+                empty.append(plan)
+        print(f"--retry-empty: {len(empty)} of {len(todo)} scaffold(s) pose nothing today")
+        todo = empty
 
     already = [p for p in todo if p["current_seed_hash"]]
     total_frames = sum(p["frames"] for p in todo)
