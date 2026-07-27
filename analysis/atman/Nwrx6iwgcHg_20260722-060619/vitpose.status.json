@@ -1,11 +1,11 @@
 {
-  "jobId": "7206fe523c144711bf8ac932d38b7ec4",
+  "jobId": "9ec883912b0d4eb9a47857229890e47a",
   "status": "done",
-  "updated_at": "2026-07-22T21:33:12",
+  "updated_at": "2026-07-27T13:00:36",
   "timings": {
-    "track_s": 33.52,
-    "pose_s": 0.19,
-    "total_s": 33.71
+    "track_s": 21.86,
+    "pose_s": 3.8,
+    "total_s": 25.69
   },
   "device": "cuda",
   "seedDebug": {
@@ -17,11 +17,115 @@
       "t": 10.57
     },
     "crop": {
-      "x": 0.25108387019940015,
-      "y": 0.5184689560976018,
-      "w": 0.3,
-      "h": 0.3
+      "x": 0.27308021723906656,
+      "y": 0.636872735437706,
+      "w": 0.24791936499349781,
+      "h": 0.17992259993862617
     },
-    "seedFound": false
+    "climbWindow": {
+      "start": 0.0,
+      "end": 93.2
+    },
+    "seedFound": true,
+    "seed": {
+      "frameIndex": 337,
+      "timestamp": 11.280334728033473,
+      "sourceFrame": 337,
+      "box": {
+        "x": 0.36458333395421505,
+        "y": 0.6296875216066837,
+        "w": 0.06111111119389534,
+        "h": 0.08906250447034836,
+        "cx": 0.3951388895511627,
+        "cy": 0.6742187738418579
+      }
+    },
+    "stitch": {
+      "stitchedFrames": 367,
+      "idSwitches": [
+        {
+          "sourceFrame": 83,
+          "from": -1,
+          "to": 1
+        },
+        {
+          "sourceFrame": 98,
+          "from": 1,
+          "to": -1
+        },
+        {
+          "sourceFrame": 204,
+          "from": -1,
+          "to": 2
+        },
+        {
+          "sourceFrame": 215,
+          "from": 2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 238,
+          "from": -1,
+          "to": 3
+        },
+        {
+          "sourceFrame": 266,
+          "from": 3,
+          "to": -1
+        },
+        {
+          "sourceFrame": 438,
+          "from": -1,
+          "to": 7
+        },
+        {
+          "sourceFrame": 463,
+          "from": 7,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1758,
+          "from": -1,
+          "to": 10
+        },
+        {
+          "sourceFrame": 1834,
+          "from": 10,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2344,
+          "from": -1,
+          "to": 11
+        },
+        {
+          "sourceFrame": 2359,
+          "from": 11,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2688,
+          "from": -1,
+          "to": 12
+        },
+        {
+          "sourceFrame": 2751,
+          "from": 12,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2759,
+          "from": -1,
+          "to": 13
+        }
+      ],
+      "jumps": [
+        {
+          "sourceFrame": 1738,
+          "dist": 0.1545
+        }
+      ],
+      "reseeds": []
+    }
   }
 }
