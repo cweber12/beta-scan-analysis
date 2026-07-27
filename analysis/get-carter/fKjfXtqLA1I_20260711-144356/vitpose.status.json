@@ -1,29 +1,27 @@
 {
-  "jobId": "6132fd9088ed40a4af309cd173352783",
+  "jobId": "8d17dfb6848943438685827848d5c4cd",
   "status": "done",
-  "updated_at": "2026-07-16T00:35:52",
+  "updated_at": "2026-07-27T14:23:39",
   "timings": {
-    "track_s": 97.75,
-    "pose_s": 17.65,
-    "total_s": 115.42
+    "track_s": 78.48,
+    "pose_s": 197.67,
+    "total_s": 276.48
   },
   "device": "cuda",
   "warnings": [
-    "climber_point.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
+    "seed_tap.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
   ],
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 5757,
+    "historyFrames": 5440,
     "tap": {
       "x": 0.6645231542750643,
       "y": 0.9493545907709805,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.571875,
-      "y": 0.7930555555555555,
-      "w": 0.20859375,
-      "h": 0.20694444444444443
+    "climbWindow": {
+      "start": 0.0,
+      "end": 181.5
     },
     "seedFound": true,
     "seed": {
@@ -38,6 +36,228 @@
         "cx": 0.6641175150871277,
         "cy": 0.926234781742096
       }
+    },
+    "stitch": {
+      "stitchedFrames": 5429,
+      "idSwitches": [
+        {
+          "sourceFrame": 1,
+          "from": -4,
+          "to": 1098
+        },
+        {
+          "sourceFrame": 20,
+          "from": 1098,
+          "to": 1096
+        },
+        {
+          "sourceFrame": 81,
+          "from": 1096,
+          "to": 1098
+        },
+        {
+          "sourceFrame": 179,
+          "from": 1098,
+          "to": 1102
+        },
+        {
+          "sourceFrame": 181,
+          "from": 1102,
+          "to": 1098
+        },
+        {
+          "sourceFrame": 334,
+          "from": 1098,
+          "to": 1120
+        },
+        {
+          "sourceFrame": 362,
+          "from": 1120,
+          "to": 1124
+        },
+        {
+          "sourceFrame": 392,
+          "from": 1124,
+          "to": 1127
+        },
+        {
+          "sourceFrame": 414,
+          "from": 1127,
+          "to": 1124
+        },
+        {
+          "sourceFrame": 431,
+          "from": 1124,
+          "to": 1127
+        },
+        {
+          "sourceFrame": 439,
+          "from": 1127,
+          "to": 1124
+        },
+        {
+          "sourceFrame": 529,
+          "from": 1124,
+          "to": 1159
+        },
+        {
+          "sourceFrame": 532,
+          "from": 1159,
+          "to": 1124
+        },
+        {
+          "sourceFrame": 550,
+          "from": 1124,
+          "to": 1159
+        },
+        {
+          "sourceFrame": 557,
+          "from": 1159,
+          "to": 1124
+        },
+        {
+          "sourceFrame": 1216,
+          "from": 1124,
+          "to": 1233
+        },
+        {
+          "sourceFrame": 1234,
+          "from": 1233,
+          "to": 1124
+        },
+        {
+          "sourceFrame": 1364,
+          "from": 1124,
+          "to": 1318
+        },
+        {
+          "sourceFrame": 1375,
+          "from": 1318,
+          "to": 1310
+        },
+        {
+          "sourceFrame": 1377,
+          "from": 1310,
+          "to": 1318
+        },
+        {
+          "sourceFrame": 1379,
+          "from": 1318,
+          "to": 1310
+        },
+        {
+          "sourceFrame": 1384,
+          "from": 1310,
+          "to": 1318
+        },
+        {
+          "sourceFrame": 1392,
+          "from": 1318,
+          "to": 1124
+        },
+        {
+          "sourceFrame": 1394,
+          "from": 1124,
+          "to": 1318
+        },
+        {
+          "sourceFrame": 1422,
+          "from": 1318,
+          "to": 1310
+        },
+        {
+          "sourceFrame": 1437,
+          "from": 1310,
+          "to": 1318
+        },
+        {
+          "sourceFrame": 1441,
+          "from": 1318,
+          "to": 1310
+        },
+        {
+          "sourceFrame": 1823,
+          "from": 1310,
+          "to": 1405
+        },
+        {
+          "sourceFrame": 1828,
+          "from": 1405,
+          "to": 1310
+        },
+        {
+          "sourceFrame": 1956,
+          "from": 1310,
+          "to": 1411
+        },
+        {
+          "sourceFrame": 2163,
+          "from": 1411,
+          "to": 1417
+        },
+        {
+          "sourceFrame": 2184,
+          "from": 1417,
+          "to": 1411
+        },
+        {
+          "sourceFrame": 2536,
+          "from": 1411,
+          "to": 1452
+        },
+        {
+          "sourceFrame": 2560,
+          "from": 1452,
+          "to": 1411
+        },
+        {
+          "sourceFrame": 2750,
+          "from": 1411,
+          "to": 1535
+        },
+        {
+          "sourceFrame": 2751,
+          "from": 1535,
+          "to": 1411
+        },
+        {
+          "sourceFrame": 2759,
+          "from": 1411,
+          "to": 1535
+        },
+        {
+          "sourceFrame": 4437,
+          "from": 1535,
+          "to": 1652
+        },
+        {
+          "sourceFrame": 4470,
+          "from": 1652,
+          "to": 1535
+        },
+        {
+          "sourceFrame": 4873,
+          "from": 1535,
+          "to": 1716
+        },
+        {
+          "sourceFrame": 4874,
+          "from": 1716,
+          "to": 1535
+        },
+        {
+          "sourceFrame": 4875,
+          "from": 1535,
+          "to": 1716
+        },
+        {
+          "sourceFrame": 4929,
+          "from": 1716,
+          "to": 1535
+        }
+      ],
+      "jumps": [],
+      "reseeds": []
     }
   }
 }

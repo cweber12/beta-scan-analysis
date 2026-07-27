@@ -1,40 +1,135 @@
 {
-  "jobId": "4e111f226a394f09ba43325435404007",
+  "jobId": "ec9d77ee253347e48b1b2c2df0b99b3b",
   "status": "done",
-  "updated_at": "2026-07-16T07:28:58",
+  "updated_at": "2026-07-27T14:42:25",
   "timings": {
-    "track_s": 29.23,
-    "pose_s": 4.72,
-    "total_s": 33.95
+    "track_s": 32.64,
+    "pose_s": 47.68,
+    "total_s": 80.46
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2549,
+    "historyFrames": 1982,
     "tap": {
       "x": 0.5397133135148455,
       "y": 0.8457296770485603,
       "t": 2.87
     },
-    "crop": {
-      "x": 0.47421875,
-      "y": 0.5569444444444445,
-      "w": 0.109375,
-      "h": 0.44305555555555554
+    "climbWindow": {
+      "start": 2.87,
+      "end": 69.0
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 84,
-      "timestamp": 2.8024495880737543,
-      "sourceFrame": 84,
+      "frameIndex": 17,
+      "timestamp": 3.469699489996077,
+      "sourceFrame": 104,
       "box": {
-        "x": 0.49223287031054497,
-        "y": 0.705202579498291,
-        "w": 0.080419160425663,
-        "h": 0.28476762771606445,
-        "cx": 0.5324424505233765,
-        "cy": 0.8475863933563232
+        "x": 0.4975319020450115,
+        "y": 0.6861774623394012,
+        "w": 0.07058272510766983,
+        "h": 0.30147606134414673,
+        "cx": 0.5328232645988464,
+        "cy": 0.8369154930114746
       }
+    },
+    "stitch": {
+      "stitchedFrames": 1789,
+      "idSwitches": [
+        {
+          "sourceFrame": 320,
+          "from": 3340,
+          "to": 3345
+        },
+        {
+          "sourceFrame": 370,
+          "from": 3345,
+          "to": -1
+        },
+        {
+          "sourceFrame": 384,
+          "from": -1,
+          "to": 3345
+        },
+        {
+          "sourceFrame": 420,
+          "from": 3345,
+          "to": -1
+        },
+        {
+          "sourceFrame": 455,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 459,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 460,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 461,
+          "from": -2,
+          "to": 3350
+        },
+        {
+          "sourceFrame": 525,
+          "from": 3350,
+          "to": -1
+        },
+        {
+          "sourceFrame": 538,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 546,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 554,
+          "from": -1,
+          "to": 3353
+        },
+        {
+          "sourceFrame": 1748,
+          "from": 3353,
+          "to": 3385
+        },
+        {
+          "sourceFrame": 1796,
+          "from": 3385,
+          "to": 3386
+        },
+        {
+          "sourceFrame": 1953,
+          "from": 3386,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1955,
+          "from": -1,
+          "to": 3386
+        },
+        {
+          "sourceFrame": 1995,
+          "from": 3386,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2041,
+          "from": -1,
+          "to": 3406
+        }
+      ],
+      "jumps": [],
+      "reseeds": []
     }
   }
 }

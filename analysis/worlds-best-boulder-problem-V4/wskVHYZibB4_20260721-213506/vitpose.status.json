@@ -1,29 +1,27 @@
 {
-  "jobId": "fe42db7947cd49a4b2084ef238115cd9",
+  "jobId": "6eebd93586b44933b0b1f0659a8dccab",
   "status": "done",
-  "updated_at": "2026-07-21T21:55:52",
+  "updated_at": "2026-07-27T15:44:51",
   "timings": {
-    "track_s": 56.69,
-    "pose_s": 42.1,
-    "total_s": 98.99
+    "track_s": 25.51,
+    "pose_s": 31.82,
+    "total_s": 57.47
   },
   "device": "cuda",
   "warnings": [
-    "climber_point.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
+    "seed_tap.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
   ],
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2690,
+    "historyFrames": 1885,
     "tap": {
       "x": 0.5027232550513666,
       "y": 0.7505128300863853,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.4289809911901098,
-      "y": 0.4882240330497128,
-      "w": 0.16267019256691098,
-      "h": 0.47335894924677774
+    "climbWindow": {
+      "start": 0.0,
+      "end": 31.4
     },
     "seedFound": true,
     "seed": {
@@ -40,57 +38,247 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 2091,
+      "stitchedFrames": 1708,
       "idSwitches": [
         {
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 7173
+        },
+        {
           "sourceFrame": 25,
-          "from": 1393,
-          "to": 1395
+          "from": 7173,
+          "to": 7175
         },
         {
           "sourceFrame": 36,
-          "from": 1395,
-          "to": 1393
+          "from": 7175,
+          "to": 7173
+        },
+        {
+          "sourceFrame": 42,
+          "from": 7173,
+          "to": -1
+        },
+        {
+          "sourceFrame": 44,
+          "from": -1,
+          "to": 7173
+        },
+        {
+          "sourceFrame": 52,
+          "from": 7173,
+          "to": -1
+        },
+        {
+          "sourceFrame": 64,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 65,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 76,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 78,
+          "from": -2,
+          "to": -1
         },
         {
           "sourceFrame": 112,
-          "from": 1393,
-          "to": 1399
+          "from": -1,
+          "to": 7179
+        },
+        {
+          "sourceFrame": 129,
+          "from": 7179,
+          "to": -2
+        },
+        {
+          "sourceFrame": 140,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 141,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 143,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 144,
+          "from": -1,
+          "to": 7179
+        },
+        {
+          "sourceFrame": 168,
+          "from": 7179,
+          "to": -1
+        },
+        {
+          "sourceFrame": 170,
+          "from": -1,
+          "to": 7179
         },
         {
           "sourceFrame": 714,
-          "from": 1399,
-          "to": 1400
+          "from": 7179,
+          "to": 7180
         },
         {
           "sourceFrame": 724,
-          "from": 1400,
-          "to": 1399
+          "from": 7180,
+          "to": 7179
         },
         {
           "sourceFrame": 781,
-          "from": 1399,
-          "to": 1400
+          "from": 7179,
+          "to": 7180
+        },
+        {
+          "sourceFrame": 932,
+          "from": 7180,
+          "to": -1
+        },
+        {
+          "sourceFrame": 938,
+          "from": -1,
+          "to": 7180
+        },
+        {
+          "sourceFrame": 945,
+          "from": 7180,
+          "to": -1
+        },
+        {
+          "sourceFrame": 995,
+          "from": -1,
+          "to": -2
         },
         {
           "sourceFrame": 1000,
-          "from": 1400,
-          "to": 1407
+          "from": -2,
+          "to": 7187
+        },
+        {
+          "sourceFrame": 1015,
+          "from": 7187,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1018,
+          "from": -1,
+          "to": 7187
+        },
+        {
+          "sourceFrame": 1054,
+          "from": 7187,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1060,
+          "from": -1,
+          "to": 7187
+        },
+        {
+          "sourceFrame": 1082,
+          "from": 7187,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1093,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1096,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1101,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1102,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1106,
+          "from": -1,
+          "to": 7187
+        },
+        {
+          "sourceFrame": 1119,
+          "from": 7187,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1120,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1123,
+          "from": -2,
+          "to": -1
         },
         {
           "sourceFrame": 1200,
-          "from": 1407,
-          "to": 1408
+          "from": -1,
+          "to": 7188
+        },
+        {
+          "sourceFrame": 1213,
+          "from": 7188,
+          "to": -1
         },
         {
           "sourceFrame": 1248,
-          "from": 1408,
-          "to": 1411
+          "from": -1,
+          "to": 7191
         },
         {
-          "sourceFrame": 2463,
-          "from": 1411,
-          "to": 1431
+          "sourceFrame": 1255,
+          "from": 7191,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1276,
+          "from": -1,
+          "to": 7191
+        },
+        {
+          "sourceFrame": 1291,
+          "from": 7191,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1294,
+          "from": -1,
+          "to": 7191
+        },
+        {
+          "sourceFrame": 1622,
+          "from": 7191,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1623,
+          "from": -1,
+          "to": 7191
         }
       ],
       "jumps": [],

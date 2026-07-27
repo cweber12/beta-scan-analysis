@@ -1,30 +1,28 @@
 {
-  "jobId": "9ab5dde99f3b42a2aedc5d9d520968d4",
+  "jobId": "78fb6cf33e6f4812a6156021c698468b",
   "status": "done",
-  "updated_at": "2026-07-22T21:07:40",
+  "updated_at": "2026-07-27T14:11:45",
   "timings": {
-    "track_s": 9.47,
-    "pose_s": 52.37,
-    "total_s": 61.88
+    "track_s": 9.42,
+    "pose_s": 64.11,
+    "total_s": 73.6
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 774,
+    "historyFrames": 555,
     "tap": {
       "x": 0.2867568293391001,
       "y": 0.6210005818597919,
       "t": 4.52
     },
-    "crop": {
-      "x": 0.13675682933910013,
-      "y": 0.4710005818597919,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 4.52,
+      "end": 23.0
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 145,
+      "frameIndex": 9,
       "timestamp": 4.833333333333333,
       "sourceFrame": 145,
       "box": {
@@ -37,22 +35,22 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 683,
+      "stitchedFrames": 543,
       "idSwitches": [
         {
           "sourceFrame": 143,
-          "from": 1394,
-          "to": 1402
+          "from": 893,
+          "to": 901
         },
         {
           "sourceFrame": 177,
-          "from": 1402,
-          "to": 1394
+          "from": 901,
+          "to": 893
         },
         {
           "sourceFrame": 486,
-          "from": 1394,
-          "to": 1419
+          "from": 893,
+          "to": 918
         }
       ],
       "jumps": [],

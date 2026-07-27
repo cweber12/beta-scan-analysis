@@ -1,11 +1,11 @@
 {
-  "jobId": "9fc6b4730d3e4d28a506385d8f33b3b2",
+  "jobId": "2d900e0f4aee445b8a82390b970546fe",
   "status": "done",
-  "updated_at": "2026-07-22T21:10:44",
+  "updated_at": "2026-07-27T14:15:29",
   "timings": {
-    "track_s": 2.88,
-    "pose_s": 15.16,
-    "total_s": 18.05
+    "track_s": 2.45,
+    "pose_s": 15.03,
+    "total_s": 17.52
   },
   "device": "cuda",
   "seedDebug": {
@@ -16,11 +16,9 @@
       "y": 0.6210005818597919,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.2691326031310497,
-      "y": 0.4710005818597919,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 0.0,
+      "end": 7.5
     },
     "seedFound": true,
     "seed": {
@@ -37,35 +35,82 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 209,
+      "stitchedFrames": 216,
       "idSwitches": [
         {
-          "sourceFrame": 202,
-          "from": 1511,
-          "to": 1524
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 1002
+        },
+        {
+          "sourceFrame": 176,
+          "from": 1002,
+          "to": -1
+        },
+        {
+          "sourceFrame": 181,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 182,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 184,
+          "from": -1,
+          "to": 1002
+        },
+        {
+          "sourceFrame": 201,
+          "from": 1002,
+          "to": -2
+        },
+        {
+          "sourceFrame": 203,
+          "from": -2,
+          "to": 1015
+        },
+        {
+          "sourceFrame": 208,
+          "from": 1015,
+          "to": -1
         },
         {
           "sourceFrame": 209,
-          "from": 1524,
-          "to": 1528
+          "from": -1,
+          "to": 1019
         }
       ],
       "jumps": [
         {
-          "sourceFrame": 184,
-          "dist": 0.1404
+          "sourceFrame": 176,
+          "dist": 0.0977
+        },
+        {
+          "sourceFrame": 178,
+          "dist": 0.0897
+        },
+        {
+          "sourceFrame": 182,
+          "dist": 0.1152
+        },
+        {
+          "sourceFrame": 183,
+          "dist": 0.1138
         },
         {
           "sourceFrame": 188,
           "dist": 0.0935
         },
         {
-          "sourceFrame": 202,
-          "dist": 0.1326
+          "sourceFrame": 203,
+          "dist": 0.1362
         },
         {
-          "sourceFrame": 209,
-          "dist": 0.1357
+          "sourceFrame": 208,
+          "dist": 0.1352
         }
       ],
       "reseeds": []

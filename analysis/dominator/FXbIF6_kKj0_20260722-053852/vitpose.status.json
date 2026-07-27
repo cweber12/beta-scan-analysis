@@ -1,26 +1,24 @@
 {
-  "jobId": "31bef53b219742e4ae31ddeb4aac95eb",
+  "jobId": "118816d4d2834b0784f0262834e4f443",
   "status": "done",
-  "updated_at": "2026-07-22T21:35:21",
+  "updated_at": "2026-07-27T14:16:26",
   "timings": {
-    "track_s": 26.45,
-    "pose_s": 26.78,
-    "total_s": 53.34
+    "track_s": 27.29,
+    "pose_s": 29.05,
+    "total_s": 56.46
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2282,
+    "historyFrames": 2143,
     "tap": {
       "x": 0.5546910974336622,
       "y": 0.6665050726994927,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.40469109743366216,
-      "y": 0.5165050726994926,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 0.0,
+      "end": 35.7
     },
     "seedFound": true,
     "seed": {
@@ -37,67 +35,112 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 1947,
+      "stitchedFrames": 1996,
       "idSwitches": [
         {
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 1020
+        },
+        {
           "sourceFrame": 524,
-          "from": 1972,
-          "to": 1973
+          "from": 1020,
+          "to": 1021
         },
         {
           "sourceFrame": 534,
-          "from": 1973,
-          "to": 1972
+          "from": 1021,
+          "to": 1020
         },
         {
           "sourceFrame": 600,
-          "from": 1972,
-          "to": 1973
+          "from": 1020,
+          "to": 1021
         },
         {
           "sourceFrame": 650,
-          "from": 1973,
-          "to": 1972
+          "from": 1021,
+          "to": 1020
         },
         {
           "sourceFrame": 666,
-          "from": 1972,
-          "to": 1973
+          "from": 1020,
+          "to": 1021
         },
         {
           "sourceFrame": 676,
-          "from": 1973,
-          "to": 1972
+          "from": 1021,
+          "to": 1020
         },
         {
           "sourceFrame": 1028,
-          "from": 1972,
-          "to": 1976
+          "from": 1020,
+          "to": 1024
+        },
+        {
+          "sourceFrame": 1090,
+          "from": 1024,
+          "to": -1
         },
         {
           "sourceFrame": 1133,
-          "from": 1976,
-          "to": 1978
+          "from": -1,
+          "to": 1026
+        },
+        {
+          "sourceFrame": 1147,
+          "from": 1026,
+          "to": -1
         },
         {
           "sourceFrame": 1274,
-          "from": 1978,
-          "to": 1983
+          "from": -1,
+          "to": 1031
         },
         {
           "sourceFrame": 1535,
-          "from": 1983,
-          "to": 1988
+          "from": 1031,
+          "to": 1036
+        },
+        {
+          "sourceFrame": 1696,
+          "from": 1036,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1697,
+          "from": -1,
+          "to": 1036
         },
         {
           "sourceFrame": 1952,
-          "from": 1988,
-          "to": 1994
+          "from": 1036,
+          "to": 1042
         },
         {
           "sourceFrame": 1953,
-          "from": 1994,
-          "to": 1988
+          "from": 1042,
+          "to": 1036
+        },
+        {
+          "sourceFrame": 2010,
+          "from": 1036,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2033,
+          "from": -1,
+          "to": 1036
+        },
+        {
+          "sourceFrame": 2045,
+          "from": 1036,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2051,
+          "from": -1,
+          "to": 1036
         }
       ],
       "jumps": [],

@@ -1,26 +1,24 @@
 {
-  "jobId": "8f112d22ea234536ab93ec540769f1e5",
+  "jobId": "036ad03995254152b61af4905c1cc601",
   "status": "done",
-  "updated_at": "2026-07-22T21:10:26",
+  "updated_at": "2026-07-27T14:15:10",
   "timings": {
-    "track_s": 15.83,
-    "pose_s": 58.76,
-    "total_s": 74.65
+    "track_s": 16.88,
+    "pose_s": 65.8,
+    "total_s": 82.76
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 1490,
+    "historyFrames": 1383,
     "tap": {
       "x": 0.6213733257861319,
       "y": 0.9147114100413863,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.4713733257861319,
-      "y": 0.7647114100413863,
-      "w": 0.3,
-      "h": 0.23528858995861368
+    "climbWindow": {
+      "start": 0.0,
+      "end": 55.3
     },
     "seedFound": true,
     "seed": {
@@ -37,51 +35,225 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 1061,
+      "stitchedFrames": 1136,
       "idSwitches": [
         {
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 954
+        },
+        {
+          "sourceFrame": 132,
+          "from": 954,
+          "to": -1
+        },
+        {
+          "sourceFrame": 134,
+          "from": -1,
+          "to": 954
+        },
+        {
+          "sourceFrame": 144,
+          "from": 954,
+          "to": -1
+        },
+        {
           "sourceFrame": 364,
-          "from": 1462,
-          "to": 1468
+          "from": -1,
+          "to": 960
+        },
+        {
+          "sourceFrame": 417,
+          "from": 960,
+          "to": -1
+        },
+        {
+          "sourceFrame": 425,
+          "from": -1,
+          "to": 960
+        },
+        {
+          "sourceFrame": 435,
+          "from": 960,
+          "to": -1
+        },
+        {
+          "sourceFrame": 436,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 437,
+          "from": -2,
+          "to": 960
         },
         {
           "sourceFrame": 534,
-          "from": 1468,
-          "to": 1475
+          "from": 960,
+          "to": 967
         },
         {
-          "sourceFrame": 1008,
-          "from": 1475,
-          "to": 1486
+          "sourceFrame": 577,
+          "from": 967,
+          "to": -1
+        },
+        {
+          "sourceFrame": 583,
+          "from": -1,
+          "to": 967
+        },
+        {
+          "sourceFrame": 748,
+          "from": 967,
+          "to": -1
+        },
+        {
+          "sourceFrame": 751,
+          "from": -1,
+          "to": 967
+        },
+        {
+          "sourceFrame": 760,
+          "from": 967,
+          "to": -1
+        },
+        {
+          "sourceFrame": 762,
+          "from": -1,
+          "to": 967
+        },
+        {
+          "sourceFrame": 823,
+          "from": 967,
+          "to": -1
+        },
+        {
+          "sourceFrame": 827,
+          "from": -1,
+          "to": 967
+        },
+        {
+          "sourceFrame": 894,
+          "from": 967,
+          "to": -1
+        },
+        {
+          "sourceFrame": 895,
+          "from": -1,
+          "to": 967
+        },
+        {
+          "sourceFrame": 981,
+          "from": 967,
+          "to": -1
+        },
+        {
+          "sourceFrame": 992,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 995,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 998,
+          "from": -1,
+          "to": -3
+        },
+        {
+          "sourceFrame": 1003,
+          "from": -3,
+          "to": 978
+        },
+        {
+          "sourceFrame": 1064,
+          "from": 978,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1065,
+          "from": -1,
+          "to": 978
         },
         {
           "sourceFrame": 1159,
-          "from": 1486,
-          "to": 1493
+          "from": 978,
+          "to": 985
+        },
+        {
+          "sourceFrame": 1256,
+          "from": 985,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1260,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1261,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1264,
+          "from": -1,
+          "to": 985
         },
         {
           "sourceFrame": 1356,
-          "from": 1493,
-          "to": 1506
+          "from": 985,
+          "to": 998
+        },
+        {
+          "sourceFrame": 1370,
+          "from": 998,
+          "to": -1
         },
         {
           "sourceFrame": 1375,
-          "from": 1506,
-          "to": 1493
+          "from": -1,
+          "to": 985
         }
       ],
       "jumps": [
+        {
+          "sourceFrame": 435,
+          "dist": 0.1458
+        },
+        {
+          "sourceFrame": 436,
+          "dist": 0.1056
+        },
         {
           "sourceFrame": 534,
           "dist": 0.0818
         },
         {
-          "sourceFrame": 762,
-          "dist": 0.0944
-        },
-        {
           "sourceFrame": 936,
           "dist": 0.101
+        },
+        {
+          "sourceFrame": 983,
+          "dist": 0.1193
+        },
+        {
+          "sourceFrame": 992,
+          "dist": 0.0806
+        },
+        {
+          "sourceFrame": 995,
+          "dist": 0.1521
+        },
+        {
+          "sourceFrame": 1003,
+          "dist": 0.1652
+        },
+        {
+          "sourceFrame": 1006,
+          "dist": 0.0866
         },
         {
           "sourceFrame": 1158,
@@ -96,8 +268,8 @@
           "dist": 0.0894
         },
         {
-          "sourceFrame": 1264,
-          "dist": 0.1568
+          "sourceFrame": 1263,
+          "dist": 0.1349
         },
         {
           "sourceFrame": 1351,
@@ -108,8 +280,8 @@
           "dist": 0.0933
         },
         {
-          "sourceFrame": 1375,
-          "dist": 0.0926
+          "sourceFrame": 1370,
+          "dist": 0.1232
         }
       ],
       "reseeds": []

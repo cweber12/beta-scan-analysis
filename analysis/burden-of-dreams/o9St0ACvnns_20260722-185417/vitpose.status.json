@@ -1,26 +1,24 @@
 {
-  "jobId": "d81bf73c0ada4e7084e34fbd1c1c2e17",
+  "jobId": "58b299b616924b03b7893af2b28faea3",
   "status": "done",
-  "updated_at": "2026-07-22T21:09:08",
+  "updated_at": "2026-07-27T14:13:46",
   "timings": {
-    "track_s": 10.02,
-    "pose_s": 76.85,
-    "total_s": 86.93
+    "track_s": 17.76,
+    "pose_s": 101.48,
+    "total_s": 119.34
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 792,
+    "historyFrames": 710,
     "tap": {
       "x": 0.5257684802606145,
       "y": 0.7678560393470534,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.3757684802606145,
-      "y": 0.6178560393470534,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 0.0,
+      "end": 29.6
     },
     "seedFound": true,
     "seed": {
@@ -37,22 +35,37 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 786,
+      "stitchedFrames": 707,
       "idSwitches": [
         {
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 941
+        },
+        {
+          "sourceFrame": 417,
+          "from": 941,
+          "to": -1
+        },
+        {
           "sourceFrame": 418,
-          "from": 1446,
-          "to": 1451
+          "from": -1,
+          "to": 946
+        },
+        {
+          "sourceFrame": 419,
+          "from": 946,
+          "to": -1
+        },
+        {
+          "sourceFrame": 420,
+          "from": -1,
+          "to": 946
         },
         {
           "sourceFrame": 425,
-          "from": 1451,
-          "to": 1453
-        },
-        {
-          "sourceFrame": 723,
-          "from": 1453,
-          "to": 1460
+          "from": 946,
+          "to": 948
         }
       ],
       "jumps": [
@@ -61,12 +74,8 @@
           "dist": 0.0835
         },
         {
-          "sourceFrame": 418,
-          "dist": 0.0891
-        },
-        {
-          "sourceFrame": 420,
-          "dist": 0.0904
+          "sourceFrame": 419,
+          "dist": 0.0881
         },
         {
           "sourceFrame": 425,
@@ -75,10 +84,6 @@
         {
           "sourceFrame": 428,
           "dist": 0.0808
-        },
-        {
-          "sourceFrame": 723,
-          "dist": 0.0833
         }
       ],
       "reseeds": []

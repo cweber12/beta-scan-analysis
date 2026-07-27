@@ -1,26 +1,24 @@
 {
-  "jobId": "6b2c70fa60f247e2a22c13e43b06e398",
+  "jobId": "502968007a7b4bfb8dd0786650475459",
   "status": "done",
-  "updated_at": "2026-07-17T19:36:21",
+  "updated_at": "2026-07-27T15:07:38",
   "timings": {
-    "track_s": 20.29,
-    "pose_s": 17.94,
-    "total_s": 38.26
+    "track_s": 14.54,
+    "pose_s": 19.45,
+    "total_s": 34.15
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 1485,
+    "historyFrames": 1460,
     "tap": {
       "x": 0.08330829326923077,
       "y": 0.6285350669858418,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.0,
-      "y": 0.3140625,
-      "w": 0.44005791146335715,
-      "h": 0.5062258078781453
+    "climbWindow": {
+      "start": 0.0,
+      "end": 48.7
     },
     "seedFound": true,
     "seed": {
@@ -35,6 +33,68 @@
         "cx": 0.1196451261639595,
         "cy": 0.6194321513175964
       }
+    },
+    "stitch": {
+      "stitchedFrames": 1460,
+      "idSwitches": [
+        {
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 4310
+        },
+        {
+          "sourceFrame": 107,
+          "from": 4310,
+          "to": 4312
+        },
+        {
+          "sourceFrame": 117,
+          "from": 4312,
+          "to": 4316
+        },
+        {
+          "sourceFrame": 883,
+          "from": 4316,
+          "to": 4322
+        },
+        {
+          "sourceFrame": 924,
+          "from": 4322,
+          "to": 4324
+        },
+        {
+          "sourceFrame": 970,
+          "from": 4324,
+          "to": -1
+        },
+        {
+          "sourceFrame": 973,
+          "from": -1,
+          "to": 4324
+        },
+        {
+          "sourceFrame": 1175,
+          "from": 4324,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1176,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1182,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1186,
+          "from": -1,
+          "to": 4324
+        }
+      ],
+      "jumps": [],
+      "reseeds": []
     }
   }
 }

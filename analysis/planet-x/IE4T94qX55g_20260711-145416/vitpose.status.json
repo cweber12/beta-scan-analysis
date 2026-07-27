@@ -1,30 +1,28 @@
 {
-  "jobId": "697926ab9f1b474b8abd2039a06cacfc",
+  "jobId": "df23f7afcc294ac2992b53cb326abf7d",
   "status": "done",
-  "updated_at": "2026-07-21T18:19:24",
+  "updated_at": "2026-07-27T15:12:27",
   "timings": {
-    "track_s": 57.94,
-    "pose_s": 62.51,
-    "total_s": 120.7
+    "track_s": 43.28,
+    "pose_s": 41.84,
+    "total_s": 85.27
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2479,
+    "historyFrames": 1308,
     "tap": {
       "x": 0.4817136046090176,
       "y": 0.3313364605912813,
       "t": 28.06
     },
-    "crop": {
-      "x": 0.410633408220847,
-      "y": 0.16206328577844187,
-      "w": 0.11150491940810087,
-      "h": 0.791632258503153
+    "climbWindow": {
+      "start": 28.06,
+      "end": 71.7
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 845,
+      "frameIndex": 4,
       "timestamp": 28.194833333333335,
       "sourceFrame": 845,
       "box": {
@@ -37,60 +35,9 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 1998,
-      "idSwitches": [
-        {
-          "sourceFrame": 227,
-          "from": 982,
-          "to": 999
-        },
-        {
-          "sourceFrame": 390,
-          "from": 999,
-          "to": 1016
-        },
-        {
-          "sourceFrame": 528,
-          "from": 1016,
-          "to": 1024
-        },
-        {
-          "sourceFrame": 535,
-          "from": 1024,
-          "to": 1016
-        },
-        {
-          "sourceFrame": 555,
-          "from": 1016,
-          "to": 1024
-        },
-        {
-          "sourceFrame": 570,
-          "from": 1024,
-          "to": 1016
-        },
-        {
-          "sourceFrame": 591,
-          "from": 1016,
-          "to": 1047
-        },
-        {
-          "sourceFrame": 2230,
-          "from": 1047,
-          "to": 1130
-        },
-        {
-          "sourceFrame": 2249,
-          "from": 1130,
-          "to": 1133
-        }
-      ],
-      "jumps": [
-        {
-          "sourceFrame": 227,
-          "dist": 0.088
-        }
-      ],
+      "stitchedFrames": 1296,
+      "idSwitches": [],
+      "jumps": [],
       "reseeds": []
     }
   }

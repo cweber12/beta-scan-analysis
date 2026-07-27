@@ -1,27 +1,26 @@
 {
-  "jobId": "264123c03e834461857eef7666f3b452",
+  "jobId": "aa44586fbd5740a68f9fd66ca1b9ce94",
   "status": "done",
-  "updated_at": "2026-07-23T10:41:43",
+  "updated_at": "2026-07-27T14:26:18",
   "timings": {
-    "track_s": 28.82,
-    "pose_s": 0.19,
-    "total_s": 29.01
+    "track_s": 39.23,
+    "pose_s": 0.17,
+    "total_s": 39.4
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 3494,
+    "historyFrames": 3072,
     "tap": {
       "x": 0.20953775654165155,
       "y": 0.8609333833029154,
       "t": 4.13
     },
-    "crop": {
-      "x": 0.059537756541651554,
-      "y": 0.7109333833029153,
-      "w": 0.3,
-      "h": 0.28906661669708467
+    "climbWindow": {
+      "start": 4.13,
+      "end": 106.5
     },
-    "seedFound": false
+    "seedFound": false,
+    "seedFailureReason": "no-candidates"
   }
 }
