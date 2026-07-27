@@ -2691,6 +2691,86 @@ def test_frame_table_sequential_reader_and_memo():
         assert frame_df["wall_luma_mean"].notna().all()
 
 
+def test_sequential_reader_holds_one_video_open_at_a_time():
+    """Regression: the sequential reader must not accumulate open captures.
+
+    Reading forward means holding decoder state between calls, and the first
+    implementation kept a capture per video and released them all at the end. On the
+    real corpus that is 76 live FFmpeg decoders over 632 MB of media — enough memory
+    pressure to hang the run, on a different video each time. Driven here through a
+    stub cv2, so the bound is asserted with no video files and no codec."""
+
+    from analysis_pipeline import frames as frames_mod
+
+    class FakeCap:
+        def __init__(self, path):
+            self.path = path
+            self.released = False
+
+        def isOpened(self):
+            return "broken" not in self.path
+
+        def get(self, prop):
+            return 30.0
+
+        def grab(self):
+            return True
+
+        def read(self):
+            return True, "frame"
+
+        def set(self, prop, value):
+            return True
+
+        def release(self):
+            self.released = True
+
+    class FakeCv2:
+        CAP_PROP_FPS = 5
+        CAP_PROP_POS_MSEC = 0
+        CAP_PROP_POS_FRAMES = 1
+
+        def __init__(self):
+            self.opened = []
+
+        def VideoCapture(self, path):
+            cap = FakeCap(path)
+            self.opened.append(cap)
+            return cap
+
+        def cvtColor(self, frame, code):
+            return frame
+
+        COLOR_BGR2GRAY = 6
+
+    fake = FakeCv2()
+    original = frames_mod.cv2
+    frames_mod.cv2 = fake
+    try:
+        reader = frames_mod.SequentialFrameReader()
+        for video in ("a.mp4", "b.mp4", "c.mp4"):
+            for t in (0.0, 1.0, 2.0):
+                assert reader.read_gray(video, t) == "frame"
+            # Never more than one live capture, however many videos have been read.
+            assert reader.open_videos == 1
+
+        assert len(fake.opened) == 3                      # one capture per video...
+        assert [c.released for c in fake.opened] == [True, True, False]  # ...prior ones freed
+
+        # A video that fails to open is remembered, not retried per frame, and does
+        # not evict the video currently being read.
+        assert reader.read_gray("broken.mp4", 0.0) is None
+        assert reader.read_gray("broken.mp4", 1.0) is None
+        assert len(fake.opened) == 4
+        assert reader.open_videos == 1
+
+        reader.close()
+        assert reader.open_videos == 0
+        assert all(c.released for c in fake.opened if c.isOpened())
+    finally:
+        frames_mod.cv2 = original
+
+
 def _run_keyed(n: int, runs: int) -> dict[str, list]:
     """Run-identity columns spreading ``n`` frames evenly over ``runs`` runs."""
 

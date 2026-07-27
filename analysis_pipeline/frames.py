@@ -88,25 +88,57 @@ class SequentialFrameReader:
     is dense enough that reading forward and discarding un-sampled frames is
     almost always cheaper. Seeks survive only as the fallback for a backwards
     request or a video with no usable fps.
+
+    **One video is open at a time.** Reading forward means holding decoder state
+    between calls, and the obvious implementation — keep a capture per video and
+    release them all at the end — leaves one live FFmpeg decoder per video for the
+    whole table build. On this corpus that is 76 simultaneous decoders over 632 MB
+    of media, which exhausts memory and hangs on a different video every run. The
+    frame table iterates records sorted by (route, video, run), so consecutive runs
+    over the same video still share one open capture and the sequential win is
+    kept; switching video releases the previous one.
     """
 
     def __init__(self) -> None:
-        # path -> [cap, fps, next_frame_index] (None marks a video that failed to open)
-        self._caps: dict[str, list[Any] | None] = {}
+        # The single open video: (path, [cap, fps, next_frame_index]). ``None`` state
+        # marks a path that failed to open, remembered so it isn't retried per frame.
+        self._key: str | None = None
+        self._state_for_key: list[Any] | None = None
+        self._failed: set[str] = set()
 
     def _state(self, video_path: Any) -> list[Any] | None:
         key = str(video_path)
-        if key not in self._caps:
-            if cv2 is None:
-                self._caps[key] = None
-            else:
-                cap = cv2.VideoCapture(key)
-                if not cap.isOpened():
-                    self._caps[key] = None
-                else:
-                    fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
-                    self._caps[key] = [cap, fps, 0]
-        return self._caps[key]
+        if key == self._key:
+            return self._state_for_key
+        if key in self._failed:
+            return None
+
+        if cv2 is None:
+            self._failed.add(key)
+            return None
+        # Open the new capture *before* releasing the current one: a path that fails to
+        # open must not cost us the video we are part-way through reading.
+        cap = cv2.VideoCapture(key)
+        if not cap.isOpened():
+            cap.release()
+            self._failed.add(key)
+            return None
+        self._release()
+        self._key = key
+        self._state_for_key = [cap, float(cap.get(cv2.CAP_PROP_FPS) or 0.0), 0]
+        return self._state_for_key
+
+    def _release(self) -> None:
+        if self._state_for_key is not None:
+            self._state_for_key[0].release()
+        self._key = None
+        self._state_for_key = None
+
+    @property
+    def open_videos(self) -> int:
+        """How many captures are live — bounded at one, and asserted by the tests."""
+
+        return 0 if self._state_for_key is None else 1
 
     def read_gray(self, video_path: Any, t: float):
         """The frame nearest ``t`` seconds as a grayscale array, or ``None``."""
@@ -139,10 +171,8 @@ class SequentialFrameReader:
         return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     def close(self) -> None:
-        for state in self._caps.values():
-            if state is not None:
-                state[0].release()
-        self._caps.clear()
+        self._release()
+        self._failed.clear()
 
 
 def _sample_interval_sec(config: dict[str, Any]) -> float:
