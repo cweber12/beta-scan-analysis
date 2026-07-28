@@ -1,11 +1,11 @@
 {
-  "jobId": "a586e53ed9ca47828b35613a46664234",
+  "jobId": "e75657417fe3409ca38c8aea65a5ca4f",
   "status": "done",
-  "updated_at": "2026-07-27T18:40:42",
+  "updated_at": "2026-07-27T19:19:49",
   "timings": {
-    "track_s": 35.09,
-    "pose_s": 20.16,
-    "total_s": 55.35
+    "track_s": 56.66,
+    "pose_s": 52.4,
+    "total_s": 109.19
   },
   "device": "cuda",
   "seedDebug": {
@@ -22,134 +22,147 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 1425,
-      "timestamp": 50.266666666666666,
-      "sourceFrame": 1508,
+      "frameIndex": 1428,
+      "timestamp": 50.36666666666667,
+      "sourceFrame": 1511,
       "box": {
-        "x": 0.6174185983836651,
-        "y": 0.43288983404636383,
-        "w": 0.05619821697473526,
-        "h": 0.2649862468242645,
-        "cx": 0.6455177068710327,
-        "cy": 0.5653829574584961
+        "x": 0.6129961013793945,
+        "y": 0.43140971660614014,
+        "w": 0.06493377685546875,
+        "h": 0.2730414867401123,
+        "cx": 0.6454629898071289,
+        "cy": 0.5679304599761963
       }
     },
     "stitch": {
-      "stitchedFrames": 817,
+      "stitchedFrames": 1818,
       "idSwitches": [
         {
-          "sourceFrame": 381,
-          "from": 13364,
+          "sourceFrame": 398,
+          "from": 2276,
+          "to": 2291
+        },
+        {
+          "sourceFrame": 482,
+          "from": 2291,
+          "to": 2298
+        },
+        {
+          "sourceFrame": 486,
+          "from": 2298,
+          "to": 2291
+        },
+        {
+          "sourceFrame": 508,
+          "from": 2291,
+          "to": 2306
+        },
+        {
+          "sourceFrame": 556,
+          "from": 2306,
+          "to": 2291
+        },
+        {
+          "sourceFrame": 564,
+          "from": 2291,
+          "to": 2306
+        },
+        {
+          "sourceFrame": 566,
+          "from": 2306,
+          "to": 2291
+        },
+        {
+          "sourceFrame": 797,
+          "from": 2291,
+          "to": -2
+        },
+        {
+          "sourceFrame": 801,
+          "from": -2,
+          "to": 2317
+        },
+        {
+          "sourceFrame": 811,
+          "from": 2317,
           "to": -1
         },
         {
-          "sourceFrame": 398,
+          "sourceFrame": 812,
           "from": -1,
-          "to": 13364
+          "to": -2
         },
         {
-          "sourceFrame": 401,
-          "from": 13364,
-          "to": 13425
+          "sourceFrame": 815,
+          "from": -2,
+          "to": -1
         },
         {
-          "sourceFrame": 409,
-          "from": 13425,
-          "to": 13364
+          "sourceFrame": 834,
+          "from": -1,
+          "to": 2317
         },
         {
-          "sourceFrame": 485,
-          "from": 13364,
-          "to": 13435
+          "sourceFrame": 959,
+          "from": 2317,
+          "to": 2334
         },
         {
-          "sourceFrame": 510,
-          "from": 13435,
-          "to": 13364
-        },
-        {
-          "sourceFrame": 570,
-          "from": 13364,
-          "to": 13443
-        },
-        {
-          "sourceFrame": 589,
-          "from": 13443,
-          "to": 13445
-        },
-        {
-          "sourceFrame": 626,
-          "from": 13445,
-          "to": 13450
-        },
-        {
-          "sourceFrame": 888,
-          "from": 13450,
-          "to": 13455
-        },
-        {
-          "sourceFrame": 999,
-          "from": 13455,
-          "to": 13457
-        },
-        {
-          "sourceFrame": 1298,
-          "from": 13457,
-          "to": 13462
-        },
-        {
-          "sourceFrame": 1479,
-          "from": 13462,
-          "to": 13467
-        },
-        {
-          "sourceFrame": 1577,
-          "from": 13467,
-          "to": 13468
-        },
-        {
-          "sourceFrame": 1721,
-          "from": 13468,
-          "to": 13469
-        },
-        {
-          "sourceFrame": 1989,
-          "from": 13469,
-          "to": 13473
-        },
-        {
-          "sourceFrame": 2149,
-          "from": 13473,
-          "to": 13474
+          "sourceFrame": 1270,
+          "from": 2334,
+          "to": 2342
         }
       ],
       "jumps": [
         {
-          "sourceFrame": 626,
-          "dist": 0.0811
-        },
-        {
-          "sourceFrame": 2149,
-          "dist": 0.0997
+          "sourceFrame": 398,
+          "dist": 0.0856
         }
       ],
       "reseeds": [
         {
-          "frameIndex": 702,
-          "sourceFrame": 785,
-          "timestamp": 26.166666666666668,
+          "frameIndex": 725,
+          "sourceFrame": 808,
+          "timestamp": 26.933333333333334,
           "reason": "appearance-mismatch-streak",
-          "discarded": 119,
+          "discarded": 7,
           "recovered": 5,
           "restored": 0
         },
         {
-          "frameIndex": 562,
-          "sourceFrame": 645,
-          "timestamp": 21.5,
+          "frameIndex": 699,
+          "sourceFrame": 782,
+          "timestamp": 26.066666666666666,
           "reason": "appearance-mismatch-streak",
-          "discarded": 15,
+          "discarded": 41,
           "recovered": 5,
+          "restored": 0
+        },
+        {
+          "frameIndex": 482,
+          "sourceFrame": 565,
+          "timestamp": 18.833333333333332,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 40,
+          "recovered": 29,
+          "restored": 11
+        },
+        {
+          "frameIndex": 472,
+          "sourceFrame": 555,
+          "timestamp": 18.5,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 41,
+          "recovered": 41,
+          "restored": 0
+        },
+        {
+          "frameIndex": 314,
+          "sourceFrame": 397,
+          "timestamp": 13.233333333333333,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 179,
+          "recovered": 179,
           "restored": 0
         }
       ]
