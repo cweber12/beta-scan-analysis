@@ -245,6 +245,10 @@ def main(argv: list[str] | None = None) -> int:
                              "bundles that fail to seed. Costs inference time")
     parser.add_argument("--conf", type=float, default=None,
                         help="person-detector confidence floor (default: backend's own)")
+    parser.add_argument("--only", default="",
+                        help="comma-separated video_keys to process, to the exclusion of "
+                             "everything else. For isolating one bundle when tuning "
+                             "detector settings")
     parser.add_argument("--skip", default="",
                         help="comma-separated video_keys to leave alone (e.g. one that "
                              "wedged the service last run)")
@@ -264,10 +268,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     skip = {k.strip() for k in args.skip.split(",") if k.strip()}
+    only = {k.strip() for k in args.only.split(",") if k.strip()}
     bundles = [p.parent for p in sorted(ANALYSIS_DIR.glob("*/*/metadata.json"))
-               if p.parent.name not in skip]
+               if p.parent.name not in skip and (not only or p.parent.name in only)]
     if skip:
         print(f"skipping {len(skip)} bundle(s) by request: {', '.join(sorted(skip))}")
+    if only:
+        missing = only - {b.name for b in bundles}
+        print(f"restricted to {len(bundles)} bundle(s) by --only"
+              + (f"; no such bundle: {', '.join(sorted(missing))}" if missing else ""))
     plans = [_plan(b) for b in bundles]
     todo = [p for p in plans if p and "payload" in p]
     skipped = [p for p in plans if p and "skip" in p]
