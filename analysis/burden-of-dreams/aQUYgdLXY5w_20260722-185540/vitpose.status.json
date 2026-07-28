@@ -1,11 +1,11 @@
 {
-  "jobId": "622700c6f2004b86a7d3f7c5e64d975f",
+  "jobId": "c282dab34f5f44fda1d30a3dab08c7ec",
   "status": "done",
-  "updated_at": "2026-07-27T18:33:53",
+  "updated_at": "2026-07-27T19:06:55",
   "timings": {
-    "track_s": 10.1,
-    "pose_s": 2.64,
-    "total_s": 12.76
+    "track_s": 19.86,
+    "pose_s": 23.91,
+    "total_s": 43.83
   },
   "device": "cuda",
   "seedDebug": {
@@ -22,94 +22,328 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 482,
-      "timestamp": 16.066666666666666,
-      "sourceFrame": 482,
+      "frameIndex": 450,
+      "timestamp": 15.0,
+      "sourceFrame": 450,
       "box": {
-        "x": 0.33194445073604584,
-        "y": 0.48828125,
-        "w": 0.28333333134651184,
-        "h": 0.296875,
-        "cx": 0.47361111640930176,
-        "cy": 0.63671875
+        "x": 0.4845445603132248,
+        "y": 0.5216895192861557,
+        "w": 0.13680890202522278,
+        "h": 0.19304409623146057,
+        "cx": 0.5529490113258362,
+        "cy": 0.618211567401886
       }
     },
     "stitch": {
-      "stitchedFrames": 85,
+      "stitchedFrames": 476,
       "idSwitches": [
         {
-          "sourceFrame": 63,
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 819
+        },
+        {
+          "sourceFrame": 19,
+          "from": 819,
+          "to": -1
+        },
+        {
+          "sourceFrame": 21,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 22,
           "from": -2,
-          "to": 12772
-        },
-        {
-          "sourceFrame": 92,
-          "from": 12772,
           "to": -1
         },
         {
-          "sourceFrame": 93,
+          "sourceFrame": 40,
           "from": -1,
-          "to": 12772
+          "to": -2
         },
         {
-          "sourceFrame": 119,
-          "from": 12772,
+          "sourceFrame": 41,
+          "from": -2,
           "to": -1
         },
         {
-          "sourceFrame": 123,
+          "sourceFrame": 54,
           "from": -1,
-          "to": 12773
+          "to": 827
         },
         {
-          "sourceFrame": 157,
-          "from": 12773,
+          "sourceFrame": 90,
+          "from": 827,
+          "to": -3
+        },
+        {
+          "sourceFrame": 91,
+          "from": -3,
+          "to": 827
+        },
+        {
+          "sourceFrame": 102,
+          "from": 827,
+          "to": -1
+        },
+        {
+          "sourceFrame": 124,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 125,
+          "from": -2,
+          "to": -3
+        },
+        {
+          "sourceFrame": 126,
+          "from": -3,
+          "to": -1
+        },
+        {
+          "sourceFrame": 127,
+          "from": -1,
+          "to": 834
+        },
+        {
+          "sourceFrame": 137,
+          "from": 834,
+          "to": 839
+        },
+        {
+          "sourceFrame": 235,
+          "from": 839,
+          "to": -1
+        },
+        {
+          "sourceFrame": 237,
+          "from": -1,
+          "to": 841
+        },
+        {
+          "sourceFrame": 251,
+          "from": 841,
           "to": -1
         },
         {
           "sourceFrame": 254,
           "from": -1,
+          "to": 841
+        },
+        {
+          "sourceFrame": 261,
+          "from": 841,
+          "to": -1
+        },
+        {
+          "sourceFrame": 263,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 264,
+          "from": -2,
+          "to": 841
+        },
+        {
+          "sourceFrame": 285,
+          "from": 841,
           "to": -3
         },
         {
-          "sourceFrame": 427,
+          "sourceFrame": 304,
           "from": -3,
           "to": -1
         },
         {
-          "sourceFrame": 433,
+          "sourceFrame": 429,
           "from": -1,
-          "to": 12775
+          "to": 853
         },
         {
-          "sourceFrame": 440,
-          "from": 12775,
+          "sourceFrame": 448,
+          "from": 853,
+          "to": 859
+        },
+        {
+          "sourceFrame": 450,
+          "from": 859,
+          "to": 853
+        },
+        {
+          "sourceFrame": 452,
+          "from": 853,
+          "to": 859
+        },
+        {
+          "sourceFrame": 454,
+          "from": 859,
           "to": -1
         },
         {
-          "sourceFrame": 441,
+          "sourceFrame": 455,
           "from": -1,
-          "to": 12775
+          "to": -2
         },
         {
-          "sourceFrame": 482,
-          "from": 12775,
+          "sourceFrame": 456,
+          "from": -2,
+          "to": -3
+        },
+        {
+          "sourceFrame": 457,
+          "from": -3,
           "to": -1
+        },
+        {
+          "sourceFrame": 459,
+          "from": -1,
+          "to": 865
+        },
+        {
+          "sourceFrame": 471,
+          "from": 865,
+          "to": 867
+        },
+        {
+          "sourceFrame": 521,
+          "from": 867,
+          "to": -1
+        },
+        {
+          "sourceFrame": 529,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 530,
+          "from": -2,
+          "to": 867
+        },
+        {
+          "sourceFrame": 540,
+          "from": 867,
+          "to": -1
+        },
+        {
+          "sourceFrame": 541,
+          "from": -1,
+          "to": 867
+        },
+        {
+          "sourceFrame": 560,
+          "from": 867,
+          "to": -1
+        },
+        {
+          "sourceFrame": 561,
+          "from": -1,
+          "to": 867
+        },
+        {
+          "sourceFrame": 607,
+          "from": 867,
+          "to": -1
+        },
+        {
+          "sourceFrame": 610,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 611,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 616,
+          "from": -1,
+          "to": 867
+        },
+        {
+          "sourceFrame": 632,
+          "from": 867,
+          "to": -1
+        },
+        {
+          "sourceFrame": 633,
+          "from": -1,
+          "to": 867
+        },
+        {
+          "sourceFrame": 668,
+          "from": 867,
+          "to": -1
+        },
+        {
+          "sourceFrame": 678,
+          "from": -1,
+          "to": -4
+        },
+        {
+          "sourceFrame": 680,
+          "from": -4,
+          "to": -2
         }
       ],
       "jumps": [
         {
-          "sourceFrame": 119,
-          "dist": 0.1405
+          "sourceFrame": 19,
+          "dist": 0.1115
         },
         {
-          "sourceFrame": 240,
-          "dist": 0.0879
+          "sourceFrame": 52,
+          "dist": 0.0874
         },
         {
-          "sourceFrame": 427,
-          "dist": 0.0909
+          "sourceFrame": 120,
+          "dist": 0.0826
+        },
+        {
+          "sourceFrame": 125,
+          "dist": 0.0862
+        },
+        {
+          "sourceFrame": 235,
+          "dist": 0.0967
+        },
+        {
+          "sourceFrame": 251,
+          "dist": 0.098
+        },
+        {
+          "sourceFrame": 252,
+          "dist": 0.1028
+        },
+        {
+          "sourceFrame": 304,
+          "dist": 0.1753
+        },
+        {
+          "sourceFrame": 425,
+          "dist": 0.1691
+        },
+        {
+          "sourceFrame": 632,
+          "dist": 0.1172
+        },
+        {
+          "sourceFrame": 633,
+          "dist": 0.1197
+        },
+        {
+          "sourceFrame": 668,
+          "dist": 0.1112
+        },
+        {
+          "sourceFrame": 678,
+          "dist": 0.1407
+        },
+        {
+          "sourceFrame": 699,
+          "dist": 0.0801
         }
       ],
       "reseeds": []
