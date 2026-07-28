@@ -1,11 +1,11 @@
 {
-  "jobId": "0fdebd15a3b5400f91b75660f4811a82",
+  "jobId": "a9805b34d5bf40c396f9390f3e0185d1",
   "status": "done",
-  "updated_at": "2026-07-27T15:14:30",
+  "updated_at": "2026-07-27T18:37:58",
   "timings": {
-    "track_s": 26.57,
-    "pose_s": 2.38,
-    "total_s": 29.0
+    "track_s": 24.2,
+    "pose_s": 2.14,
+    "total_s": 26.38
   },
   "device": "cuda",
   "warnings": [
@@ -25,39 +25,44 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 2,
-      "timestamp": 0.06666666666666667,
-      "sourceFrame": 2,
+      "frameIndex": 1,
+      "timestamp": 0.03333333333333333,
+      "sourceFrame": 1,
       "box": {
-        "x": 0.4403271973133087,
-        "y": 0.7143942713737488,
-        "w": 0.04820513725280762,
-        "h": 0.19294679164886475,
-        "cx": 0.4644297659397125,
-        "cy": 0.8108676671981812
+        "x": 0.4445312563329935,
+        "y": 0.713888868689537,
+        "w": 0.03984374925494194,
+        "h": 0.1944444477558136,
+        "cx": 0.4644531309604645,
+        "cy": 0.8111110925674438
       }
     },
     "stitch": {
       "stitchedFrames": 88,
       "idSwitches": [
         {
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 13253
+        },
+        {
           "sourceFrame": 15,
-          "from": 4504,
-          "to": 4739
+          "from": 13253,
+          "to": 13254
         },
         {
           "sourceFrame": 26,
-          "from": 4739,
+          "from": 13254,
           "to": -2
         },
         {
           "sourceFrame": 27,
           "from": -2,
-          "to": 4504
+          "to": 13253
         },
         {
           "sourceFrame": 46,
-          "from": 4504,
+          "from": 13253,
           "to": -1
         },
         {
@@ -73,11 +78,11 @@
         {
           "sourceFrame": 183,
           "from": -1,
-          "to": 4741
+          "to": 13256
         },
         {
           "sourceFrame": 190,
-          "from": 4741,
+          "from": 13256,
           "to": -1
         }
       ],
