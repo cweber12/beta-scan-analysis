@@ -238,6 +238,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="abort the run when a job's status sidecar stops changing "
                              "for this long (default 300). The service serializes jobs "
                              "under one lock, so a wedged job stops everything")
+    parser.add_argument("--imgsz", type=int, default=None,
+                        help="person-detector inference resolution. The lever for a "
+                             "Climber too small to detect: at the default 640 a distant "
+                             "Climber is ~35 px tall and goes undetected. Try 1920 on "
+                             "bundles that fail to seed. Costs inference time")
+    parser.add_argument("--conf", type=float, default=None,
+                        help="person-detector confidence floor (default: backend's own)")
     parser.add_argument("--skip", default="",
                         help="comma-separated video_keys to leave alone (e.g. one that "
                              "wedged the service last run)")
@@ -247,6 +254,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="only bundles whose current scaffold posed no frames, and "
                              "force them (implies --force); the repair pass after a run "
                              "whose seeding failed")
+    parser.add_argument("--below-coverage", type=float, default=None, metavar="RATE",
+                        help="only bundles whose current scaffold poses fewer than this "
+                             "share of its frames, and force them (implies --force). "
+                             "Pair with --imgsz to re-seed the Climbers the detector "
+                             "was too coarse to hold: e.g. --below-coverage 0.9")
     args = parser.parse_args(argv)
 
     skip = {k.strip() for k in args.skip.split(",") if k.strip()}
@@ -268,6 +280,26 @@ def main(argv: list[str] | None = None) -> int:
                 empty.append(plan)
         print(f"--retry-empty: {len(empty)} of {len(todo)} scaffold(s) pose nothing today")
         todo = empty
+
+    if args.below_coverage is not None:
+        args.force = True
+        thin = []
+        footage = 0.0
+        for plan in todo:
+            scaffold = _load(plan["bundle"] / "vitpose.json")
+            frames = scaffold.get("frames") or []
+            if not frames:
+                continue
+            posed = sum(1 for f in frames if f.get("keypoints"))
+            if posed / len(frames) < args.below_coverage:
+                thin.append(plan)
+                stamps = [f.get("timestamp") for f in frames
+                          if isinstance(f.get("timestamp"), (int, float))]
+                if stamps:
+                    footage += max(stamps) - min(stamps)
+        print(f"--below-coverage {args.below_coverage:.0%}: {len(thin)} of {len(todo)} "
+              f"scaffold(s) qualify, {footage/60:.0f} min of footage")
+        todo = thin
 
     already = [p for p in todo if p["current_seed_hash"]]
     total_frames = sum(p["frames"] for p in todo)
@@ -300,6 +332,10 @@ def main(argv: list[str] | None = None) -> int:
         payload = dict(plan["payload"])
         if args.force:
             payload["force"] = True
+        if args.imgsz is not None:
+            payload["detector_imgsz"] = args.imgsz
+        if args.conf is not None:
+            payload["detector_conf"] = args.conf
         label = f"[{i}/{len(todo)}] {bundle.parent.name}/{bundle.name}"
         code, body = _post(url, payload, timeout=60.0)
 
