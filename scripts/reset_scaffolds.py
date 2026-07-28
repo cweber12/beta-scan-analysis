@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 import urllib.error
@@ -55,6 +56,15 @@ DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 # The scanner's analysis timeline: 100 ms. Truth is exported onto this grid, so the
 # scaffold must be sampled on it too — a coarser scaffold is the rate mismatch that
 # fabricated 6,189 "absent" frames on the pre-reset corpus.
+#
+# **Every emitted timestamp must be an exact multiple of this.** The scanner matches a
+# scaffold pose to one of its Detection Frames within 1 ms
+# (``harnessGroundTruthScaffold.TIMESTAMP_EPSILON``) and documents the assumption it
+# rests on: "every Detection Frame timestamp is a 100 ms multiple by construction (the
+# uniform grid)". Starting the frame list at a raw ``climb_start`` of 2.87 emits
+# 2.87, 2.97, 3.07 … — every one of them 10-70 ms off the grid, so *nothing* matches and
+# the scanner seeds every frame absent no matter how well the scaffold posed. It cost a
+# 662-of-662-posed bundle its entire truth. The grid is a contract, not a convenience.
 FRAME_INTERVAL_SEC = 0.1
 POLL_INTERVAL_SEC = 3.0
 TERMINAL = {"done", "error", "skipped"}
@@ -118,14 +128,37 @@ def _duration_sec(bundle: Path) -> float | None:
 
 
 def _frames_for(bundle: Path, setup: dict[str, Any]) -> list[float]:
+    """The analysis-grid timestamps inside the climb window.
+
+    Snapped to the *global* 0.1 s grid — multiples of ``FRAME_INTERVAL_SEC`` measured
+    from zero — never to the climb start. A window of 2.87-69.0 yields 2.9, 3.0, 3.1 …,
+    not 2.87, 2.97, 3.07. See ``FRAME_INTERVAL_SEC`` for what the second form costs.
+    """
+
     start, end = _climb_window(setup)
     if end is None:
         end = _duration_sec(bundle)
     if end is None:
         return []
     begin = start or 0.0
-    n = int(round((end - begin) / FRAME_INTERVAL_SEC))
-    return [round(begin + i * FRAME_INTERVAL_SEC, 3) for i in range(max(0, n) + 1)]
+    # First grid point at or after the window start; last at or before its end. The
+    # epsilons keep a bound that is *exactly* on the grid from being nudged off it by
+    # float representation.
+    first = math.ceil(begin / FRAME_INTERVAL_SEC - 1e-9)
+    last = math.floor(end / FRAME_INTERVAL_SEC + 1e-9)
+    return [round(i * FRAME_INTERVAL_SEC, 3) for i in range(max(0, first), last + 1)]
+
+
+def off_grid(timestamps: list[float]) -> list[float]:
+    """Timestamps that are not 100 ms multiples — the invariant, as a check.
+
+    Cheap enough to run on every plan. A silent violation is expensive: the scanner
+    seeds every frame absent and the failure only surfaces as a human accepting empty
+    truth, one bundle at a time.
+    """
+
+    return [t for t in timestamps
+            if abs(t / FRAME_INTERVAL_SEC - round(t / FRAME_INTERVAL_SEC)) > 1e-6]
 
 
 def _post(url: str, payload: dict[str, Any], timeout: float) -> tuple[int, dict[str, Any]]:
@@ -158,6 +191,10 @@ def _plan(bundle: Path) -> dict[str, Any] | None:
     frames = _frames_for(bundle, setup)
     if not frames:
         return {"bundle": bundle, "skip": "no climb end and no known duration"}
+    stray = off_grid(frames)
+    if stray:
+        return {"bundle": bundle,
+                "skip": f"BUG: {len(stray)} frame(s) off the 0.1s grid, e.g. {stray[0]}"}
 
     start, end = _climb_window(setup)
     payload: dict[str, Any] = {
@@ -245,6 +282,11 @@ def main(argv: list[str] | None = None) -> int:
                              "bundles that fail to seed. Costs inference time")
     parser.add_argument("--conf", type=float, default=None,
                         help="person-detector confidence floor (default: backend's own)")
+    parser.add_argument("--off-grid", action="store_true",
+                        help="only bundles whose scaffold on disk carries timestamps off "
+                             "the 100 ms grid, and force them (implies --force). The "
+                             "repair pass for scaffolds written before the grid was "
+                             "enforced — the scanner cannot match those poses at all")
     parser.add_argument("--only", default="",
                         help="comma-separated video_keys to process, to the exclusion of "
                              "everything else. For isolating one bundle when tuning "
@@ -291,6 +333,19 @@ def main(argv: list[str] | None = None) -> int:
                 empty.append(plan)
         print(f"--retry-empty: {len(empty)} of {len(todo)} scaffold(s) pose nothing today")
         todo = empty
+
+    if args.off_grid:
+        args.force = True
+        stray = []
+        for plan in todo:
+            scaffold = _load(plan["bundle"] / "vitpose.json")
+            stamps = [f.get("timestamp") for f in (scaffold.get("frames") or [])
+                      if isinstance(f.get("timestamp"), (int, float))]
+            if stamps and off_grid(stamps):
+                stray.append(plan)
+        print(f"--off-grid: {len(stray)} of {len(todo)} scaffold(s) are off the 100 ms "
+              "grid and cannot be matched by the scanner")
+        todo = stray
 
     if args.below_coverage is not None:
         # Deliberately does NOT imply --force, unlike --retry-empty. Changing --imgsz

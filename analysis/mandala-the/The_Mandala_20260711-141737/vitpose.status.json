@@ -1,20 +1,26 @@
 {
-  "jobId": "ec9d77ee253347e48b1b2c2df0b99b3b",
+  "jobId": "564a1a8b102c47dab9b85955c93d7678",
   "status": "done",
-  "updated_at": "2026-07-27T14:42:25",
+  "updated_at": "2026-07-27T23:17:47",
   "timings": {
-    "track_s": 32.64,
-    "pose_s": 47.68,
-    "total_s": 80.46
+    "track_s": 54.78,
+    "pose_s": 82.94,
+    "total_s": 137.93
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
     "historyFrames": 1982,
     "tap": {
-      "x": 0.5397133135148455,
-      "y": 0.8457296770485603,
-      "t": 2.87
+      "x": 0.5059717367034338,
+      "y": 0.3770487639885494,
+      "t": 59.27
+    },
+    "crop": {
+      "x": 0.35597173670343374,
+      "y": 0.22704876398854942,
+      "w": 0.3,
+      "h": 0.3
     },
     "climbWindow": {
       "start": 2.87,
@@ -22,39 +28,39 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 17,
-      "timestamp": 3.469699489996077,
-      "sourceFrame": 104,
+      "frameIndex": 1708,
+      "timestamp": 59.88567869752844,
+      "sourceFrame": 1795,
       "box": {
-        "x": 0.4975319020450115,
-        "y": 0.6861774623394012,
-        "w": 0.07058272510766983,
-        "h": 0.30147606134414673,
-        "cx": 0.5328232645988464,
-        "cy": 0.8369154930114746
+        "x": 0.4442387595772743,
+        "y": 0.28304722905158997,
+        "w": 0.11988691985607147,
+        "h": 0.2047799825668335,
+        "cx": 0.5041822195053101,
+        "cy": 0.3854372203350067
       }
     },
     "stitch": {
-      "stitchedFrames": 1789,
+      "stitchedFrames": 1830,
       "idSwitches": [
         {
           "sourceFrame": 320,
-          "from": 3340,
-          "to": 3345
+          "from": 2,
+          "to": 7
         },
         {
           "sourceFrame": 370,
-          "from": 3345,
+          "from": 7,
           "to": -1
         },
         {
           "sourceFrame": 384,
           "from": -1,
-          "to": 3345
+          "to": 7
         },
         {
           "sourceFrame": 420,
-          "from": 3345,
+          "from": 7,
           "to": -1
         },
         {
@@ -63,23 +69,28 @@
           "to": -2
         },
         {
-          "sourceFrame": 459,
+          "sourceFrame": 458,
           "from": -2,
           "to": -1
         },
         {
-          "sourceFrame": 460,
+          "sourceFrame": 459,
           "from": -1,
           "to": -2
         },
         {
-          "sourceFrame": 461,
+          "sourceFrame": 460,
           "from": -2,
-          "to": 3350
+          "to": -1
+        },
+        {
+          "sourceFrame": 461,
+          "from": -1,
+          "to": 12
         },
         {
           "sourceFrame": 525,
-          "from": 3350,
+          "from": 12,
           "to": -1
         },
         {
@@ -95,37 +106,37 @@
         {
           "sourceFrame": 554,
           "from": -1,
-          "to": 3353
+          "to": 15
         },
         {
           "sourceFrame": 1748,
-          "from": 3353,
-          "to": 3385
+          "from": 15,
+          "to": 47
         },
         {
-          "sourceFrame": 1796,
-          "from": 3385,
-          "to": 3386
+          "sourceFrame": 1754,
+          "from": 47,
+          "to": 48
         },
         {
           "sourceFrame": 1953,
-          "from": 3386,
+          "from": 48,
           "to": -1
         },
         {
           "sourceFrame": 1955,
           "from": -1,
-          "to": 3386
+          "to": 48
         },
         {
           "sourceFrame": 1995,
-          "from": 3386,
+          "from": 48,
           "to": -1
         },
         {
           "sourceFrame": 2041,
           "from": -1,
-          "to": 3406
+          "to": 68
         }
       ],
       "jumps": [],
