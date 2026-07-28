@@ -79,6 +79,39 @@ Follow this lifecycle so branches and `main` never drift:
 5. **Before pushing, confirm the target branch isn't already merged**
    (`gh pr view <branch>`); if it is, start a fresh branch.
 
+## The working tree is shared with the human — treat it as live
+
+The human works the corpus through the beta-scanner UI **against the files in this
+working tree**, while long GPU jobs write into `analysis/` for hours. A branch
+operation rewrites those files underneath both. Every one of these rules exists
+because ignoring it cost real work:
+
+- **A checkout while the human is working is a data-loss event.** `git checkout`,
+  `git_cleanup.py` (which checks out `main`), and anything else that rewrites
+  `analysis/` must not run while the scanner is open or a re-seed is in flight. The
+  human accepted Ground Truth against scaffolds that a checkout had swapped mid-session,
+  and the acceptance recorded empty truth. **Ask before any branch operation once the
+  human is working the corpus**, and say plainly that it will rewrite files under them.
+- **Never leave a data PR parked.** An unmerged `data:` branch means the working tree
+  and the corpus disagree: any branch created from `main` silently reverts the corpus
+  to a pre-data state, and the human then reviews against superseded artifacts. Merge
+  data PRs as soon as they are confirmed — before starting the next piece of work, not
+  after. If a data PR must stay open, **do not create branches from `main`** until it
+  lands.
+- **Commit before touching branches.** Uncommitted `analysis/` output is the only copy
+  of an expensive GPU run. A throwaway holding commit (`wip: …`) before any checkout is
+  cheap and has already saved the corpus twice; replay it onto the proper branch
+  afterwards.
+- **Verify the tree is what you think before measuring.** After any branch operation,
+  confirm the artifacts on disk match the branch you believe is checked out — compare a
+  known bundle against `git show <branch>:<path>`. A "regression" was reported to the
+  human that was purely a checkout artifact, because measurements were taken against a
+  tree that had silently reverted.
+- **Long-running jobs pin the branch.** While a re-seed or batch is running, stay on
+  one branch. Land code fixes by editing the file in place (Python reads the script at
+  start, so an in-flight run is unaffected) and commit them afterwards — do not switch
+  branches to make the change.
+
 ## Code quality
 
 - Prefer a lean **`analysis_pipeline`** footprint: `numpy`, `pandas`,
