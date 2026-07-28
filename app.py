@@ -127,6 +127,11 @@ class VitPoseJobRequest(BaseModel):
     climb_end: float | None = Field(default=None, alias="climbEnd", ge=0)
     # Re-run even when the seed is unchanged (bypasses the idempotence skip).
     force: bool = False
+    # Person-detector inference resolution / confidence floor. Omitted leaves the
+    # backend defaults alone, so existing clients and existing seed hashes are
+    # unchanged. Raise `detector_imgsz` when the Climber is too small to detect.
+    detector_imgsz: int | None = Field(default=None, alias="detectorImgsz", ge=320, le=4096)
+    detector_conf: float | None = Field(default=None, alias="detectorConf", gt=0, lt=1)
     panning: bool = False
     # Hash of the setup.json this job runs under; stamped into vitpose.json as the
     # provenance anchor. Optional: the job falls back to the bundle's setup.json.
@@ -355,6 +360,8 @@ def _to_vitpose_request(payload: VitPoseJobRequest) -> vitpose_job.VitPoseReques
         panning=payload.panning,
         setup_hash=payload.setup_hash,
         force=payload.force,
+        detector_imgsz=payload.detector_imgsz,
+        detector_conf=payload.detector_conf,
     )
 
 

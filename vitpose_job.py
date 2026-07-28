@@ -207,6 +207,19 @@ class VitPoseRequest:
     setup_hash: str | None = None
     # Re-run the job even when the seed hash is unchanged (issue #101 idempotence).
     force: bool = False
+    # Person-detector inference resolution and confidence floor. ``None`` leaves the
+    # backend's own defaults (ultralytics: imgsz 640) untouched, so existing behaviour
+    # and existing seed hashes are unchanged.
+    #
+    # A raised ``detector_imgsz`` is the lever for a Climber too small to detect. YOLO
+    # letterboxes to imgsz, so a 1280x720 clip is halved at 640 and a Climber occupying
+    # ~1% of frame lands around 35 px tall - under what yolov8n reliably finds. Measured
+    # on the bundles that failed to seed: at 640 the nearest detection to the tap sat
+    # 0.69 of a frame away (bystanders at the base, not the Climber); at 1920 it sat
+    # 0.037 away. Costly - inference scales with pixel count - so it is opt-in per
+    # request rather than the default.
+    detector_imgsz: int | None = None
+    detector_conf: float | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -872,6 +885,12 @@ def seed_hash(request: VitPoseRequest, video_path: Path) -> str:
         "climbEnd": request.climb_end,
         "video": _video_identity(video_path),
     }
+    # Detector settings join the hash only when set. Adding them unconditionally would
+    # change every existing scaffold's hash and force a needless corpus-wide re-seed.
+    if request.detector_imgsz is not None:
+        payload["detectorImgsz"] = request.detector_imgsz
+    if request.detector_conf is not None:
+        payload["detectorConf"] = request.detector_conf
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -1227,16 +1246,21 @@ def _track_in_window(
     ``window_history`` bounds its output afterwards either way.
     """
 
-    if request.climb_start is None and request.climb_end is None:
+    wanted = {
+        "climb_start": request.climb_start,
+        "climb_end": request.climb_end,
+        "imgsz": request.detector_imgsz,
+        "conf": request.detector_conf,
+    }
+    wanted = {k: v for k, v in wanted.items() if v is not None}
+    if not wanted:
         return list(tracker.track(video_path))
     try:
         params = inspect.signature(tracker.track).parameters
     except (TypeError, ValueError):
         params = {}
-    if "climb_start" in params and "climb_end" in params:
-        return list(tracker.track(video_path, climb_start=request.climb_start,
-                                  climb_end=request.climb_end))
-    return list(tracker.track(video_path))
+    kwargs = {k: v for k, v in wanted.items() if k in params}
+    return list(tracker.track(video_path, **kwargs))
 
 
 def run_vitpose_job(
@@ -1480,7 +1504,8 @@ class UltralyticsTracker:
         self._ensure_model()
 
     def track(self, video_path: Path, climb_start: float | None = None,
-              climb_end: float | None = None) -> list[FrameTracks]:
+              climb_end: float | None = None, imgsz: int | None = None,
+              conf: float | None = None) -> list[FrameTracks]:
         import cv2  # lazy
 
         model = self._ensure_model()
@@ -1495,11 +1520,16 @@ class UltralyticsTracker:
         # half (fp16) only on CUDA — passing the kwarg at all on CPU trips an
         # ultralytics deprecation warning.
         fp16 = {"half": True} if self.device == "cuda" else {}
+        tuning = {}
+        if imgsz is not None:
+            tuning["imgsz"] = imgsz
+        if conf is not None:
+            tuning["conf"] = conf
         results = model.track(
             source=str(video_path), classes=[0], persist=True,
             tracker="bytetrack.yaml", stream=True, verbose=False,
             device=0 if self.device == "cuda" else "cpu",
-            vid_stride=stride, **fp16,
+            vid_stride=stride, **fp16, **tuning,
         )
         for idx, result in enumerate(results):
             frame_no = idx * stride

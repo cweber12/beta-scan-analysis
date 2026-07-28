@@ -238,6 +238,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="abort the run when a job's status sidecar stops changing "
                              "for this long (default 300). The service serializes jobs "
                              "under one lock, so a wedged job stops everything")
+    parser.add_argument("--imgsz", type=int, default=None,
+                        help="person-detector inference resolution. The lever for a "
+                             "Climber too small to detect: at the default 640 a distant "
+                             "Climber is ~35 px tall and goes undetected. Try 1920 on "
+                             "bundles that fail to seed. Costs inference time")
+    parser.add_argument("--conf", type=float, default=None,
+                        help="person-detector confidence floor (default: backend's own)")
     parser.add_argument("--skip", default="",
                         help="comma-separated video_keys to leave alone (e.g. one that "
                              "wedged the service last run)")
@@ -300,6 +307,10 @@ def main(argv: list[str] | None = None) -> int:
         payload = dict(plan["payload"])
         if args.force:
             payload["force"] = True
+        if args.imgsz is not None:
+            payload["detector_imgsz"] = args.imgsz
+        if args.conf is not None:
+            payload["detector_conf"] = args.conf
         label = f"[{i}/{len(todo)}] {bundle.parent.name}/{bundle.name}"
         code, body = _post(url, payload, timeout=60.0)
 

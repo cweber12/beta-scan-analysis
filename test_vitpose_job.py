@@ -1079,6 +1079,74 @@ def test_unchanged_seed_skips_the_job_and_reports_the_skip():
         assert forced.calls == 1
 
 
+def test_detector_settings_reach_a_tracker_that_accepts_them():
+    """Issue #101 follow-up: the person detector's inference resolution is the lever
+    for a Climber too small to detect, so it has to reach the tracker.
+
+    Measured on bundles that failed to seed: at the default 640 the nearest detection
+    to the tap sat 0.69 of a frame away — bystanders at the base, not the Climber — and
+    at 1920 it sat 0.037 away. A tracker that does not accept the kwargs keeps working,
+    which is what protects every stub in this file."""
+
+    seen = {}
+
+    class TuningTracker:
+        def track(self, video_path, climb_start=None, climb_end=None,
+                  imgsz=None, conf=None):
+            seen.update(climb_start=climb_start, climb_end=climb_end,
+                        imgsz=imgsz, conf=conf)
+            return _history_two_people()
+
+    req = VitPoseRequest(
+        video_path="analysis/r/k/k.mp4", route_folder="r", video_key="k",
+        frames=(0.0,), seed_tap=Point(0.50, 0.40), detector_imgsz=1920,
+        detector_conf=0.1, climb_start=0.0, climb_end=9.0)
+    assert vj._track_in_window(TuningTracker(), Path("x.mp4"), req)
+    assert seen == {"climb_start": 0.0, "climb_end": 9.0, "imgsz": 1920, "conf": 0.1}
+
+    # A tracker with the old one-argument signature is called unchanged.
+    class LegacyTracker:
+        def __init__(self): self.calls = 0
+        def track(self, video_path):
+            self.calls += 1
+            return _history_two_people()
+
+    legacy = LegacyTracker()
+    assert vj._track_in_window(legacy, Path("x.mp4"), req)
+    assert legacy.calls == 1
+
+    # ...and with nothing to tune, the plain call is used.
+    plain = LegacyTracker()
+    bare = VitPoseRequest(video_path="a", route_folder="r", video_key="k",
+                          frames=(0.0,), seed_tap=Point(0.5, 0.4))
+    assert vj._track_in_window(plain, Path("x.mp4"), bare)
+    assert plain.calls == 1
+
+
+def test_detector_settings_join_the_seed_hash_only_when_set():
+    """They must change the hash when set — a scaffold built at a different detector
+    resolution is a different scaffold — but adding them unconditionally would change
+    every existing scaffold's hash and force a needless corpus-wide re-seed."""
+
+    from dataclasses import replace as _replace
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vid = _make_bundle(root)
+        base = VitPoseRequest(video_path="analysis/r/k/k.mp4", route_folder="r",
+                              video_key="k", frames=(0.0,), seed_tap=Point(0.5, 0.4))
+        baseline = vj.seed_hash(base, vid)
+
+        # Unset -> byte-identical hash to a request that predates the fields.
+        assert vj.seed_hash(_replace(base, detector_imgsz=None,
+                                     detector_conf=None), vid) == baseline
+        # Set -> a different scaffold, so a different hash.
+        assert vj.seed_hash(_replace(base, detector_imgsz=1920), vid) != baseline
+        assert vj.seed_hash(_replace(base, detector_conf=0.1), vid) != baseline
+        assert (vj.seed_hash(_replace(base, detector_imgsz=1920), vid)
+                != vj.seed_hash(_replace(base, detector_imgsz=1280), vid))
+
+
 # --------------------------------------------------------------------------- #
 # scipy preflight (the real root cause: a missing scipy dies deep in transformers
 # with a cryptic NameError 'inv'; the guard turns that into an actionable message)
