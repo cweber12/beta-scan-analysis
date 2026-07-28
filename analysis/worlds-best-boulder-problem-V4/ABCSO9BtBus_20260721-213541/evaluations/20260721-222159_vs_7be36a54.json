@@ -295,14 +295,14 @@
     },
     "frames": {
       "lowVisibility": 0,
-      "matchedAbsent": 3,
+      "matchedAbsent": 1,
       "matchedPresent": 80,
       "scoreable": 80,
       "torsoUndefined": 0,
-      "truthFrames": 734,
+      "truthFrames": 622,
       "unconfirmedAbsent": 1,
-      "unmatchedAbsent": 73,
-      "unmatchedPresent": 578,
+      "unmatchedAbsent": 14,
+      "unmatchedPresent": 527,
       "verifiedFrames": 0
     },
     "perJoint": {
@@ -529,7 +529,7 @@
       }
     },
     "presence": {
-      "absentDetected": 2,
+      "absentDetected": 0,
       "absentUndetected": 0,
       "presentDetected": 80,
       "presentUndetected": 0
@@ -552,7 +552,7 @@
     ]
   },
   "climbWindow": {
-    "end": null,
+    "end": 75.4,
     "start": 13.23
   },
   "conformance": {
@@ -596,16 +596,16 @@
   },
   "counts": {
     "absenceReasons": {
-      "confirmed-absent": 51,
+      "confirmed-absent": 0,
       "not-sampled": 0,
-      "out-of-scope": 3,
+      "out-of-scope": 64,
       "unknown": 0,
-      "untracked": 25
+      "untracked": 15
     },
     "agreementSkipped": {
       "flaggedAbsent": 0,
       "flaggedWrong": 0,
-      "outOfScope": 133
+      "outOfScope": 245
     },
     "review": {
       "auto": 867,
@@ -613,7 +613,7 @@
       "flaggedWrong": 0
     },
     "truthFramesAbsent": 79,
-    "truthFramesOutOfScope": 133,
+    "truthFramesOutOfScope": 245,
     "truthFramesPresent": 788,
     "truthFramesTotal": 867,
     "truthFramesVerified": 0
@@ -655,11 +655,11 @@
     "classCounts": {
       "distorted": 3,
       "flipped-rotated": 3,
-      "hallucination-fp": 3,
+      "hallucination-fp": 1,
       "ok": 17,
       "wrong-subject": 57
     },
-    "detectedFrames": 83,
+    "detectedFrames": 81,
     "detectorAttemptStatusCounts": {
       "accepted": 0,
       "flipRejected": 0,
@@ -668,7 +668,7 @@
       "unknown": 0
     },
     "detectorEvidence": "legacy-frames",
-    "flaggedCount": 66,
+    "flaggedCount": 64,
     "frames": [
       {
         "absenceReason": null,
@@ -2532,61 +2532,15 @@
         "source": null,
         "t": 74.9,
         "truthPresent": true
-      },
-      {
-        "absenceReason": "confirmed-absent",
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 84.0,
-        "truthPresent": false
-      },
-      {
-        "absenceReason": "confirmed-absent",
-        "annotationSetupHash": null,
-        "autoClass": "hallucination-fp",
-        "centroidDist": null,
-        "class": "hallucination-fp",
-        "crop": null,
-        "detectorEvidence": "legacy-frames",
-        "distractor": null,
-        "failureClass": "hallucination-fp",
-        "frozenStale": false,
-        "heldPose": false,
-        "rejectionCentroidDist": null,
-        "rejectionJointAgreement": null,
-        "rejectionRawClass": null,
-        "rejectionReason": null,
-        "rejectionResidual": null,
-        "rejectionVerdict": null,
-        "residual": null,
-        "source": null,
-        "t": 86.0,
-        "truthPresent": false
       }
     ],
     "frozenStaleCount": 0,
     "hallucinationSplit": {
-      "total": 3,
-      "truth-absent": 2,
+      "total": 1,
+      "truth-absent": 0,
       "truth-present": 0,
-      "truthAbsentShare": 1.0,
-      "truthPresentShare": 0.0,
+      "truthAbsentShare": null,
+      "truthPresentShare": null,
       "unconfirmedAbsent": 1
     },
     "heldPoseCount": 0,

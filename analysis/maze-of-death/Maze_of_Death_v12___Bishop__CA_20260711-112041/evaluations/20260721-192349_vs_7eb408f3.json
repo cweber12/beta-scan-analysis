@@ -299,10 +299,10 @@
       "matchedPresent": 49,
       "scoreable": 30,
       "torsoUndefined": 19,
-      "truthFrames": 383,
-      "unconfirmedAbsent": 18,
+      "truthFrames": 345,
+      "unconfirmedAbsent": 17,
       "unmatchedAbsent": 33,
-      "unmatchedPresent": 283,
+      "unmatchedPresent": 245,
       "verifiedFrames": 0
     },
     "perJoint": {
@@ -529,7 +529,7 @@
       }
     },
     "presence": {
-      "absentDetected": 0,
+      "absentDetected": 1,
       "absentUndetected": 0,
       "presentDetected": 49,
       "presentUndetected": 0
@@ -552,7 +552,7 @@
     ]
   },
   "climbWindow": {
-    "end": null,
+    "end": 44.8,
     "start": 10.4
   },
   "conformance": {
@@ -596,16 +596,16 @@
   },
   "counts": {
     "absenceReasons": {
-      "confirmed-absent": 0,
+      "confirmed-absent": 1,
       "not-sampled": 0,
       "out-of-scope": 81,
       "unknown": 0,
-      "untracked": 51
+      "untracked": 50
     },
     "agreementSkipped": {
       "flaggedAbsent": 0,
       "flaggedWrong": 0,
-      "outOfScope": 104
+      "outOfScope": 142
     },
     "review": {
       "auto": 487,
@@ -613,7 +613,7 @@
       "flaggedWrong": 0
     },
     "truthFramesAbsent": 132,
-    "truthFramesOutOfScope": 104,
+    "truthFramesOutOfScope": 142,
     "truthFramesPresent": 355,
     "truthFramesTotal": 487,
     "truthFramesVerified": 0
@@ -671,7 +671,7 @@
     "flaggedCount": 55,
     "frames": [
       {
-        "absenceReason": "untracked",
+        "absenceReason": "confirmed-absent",
         "annotationSetupHash": null,
         "autoClass": "hallucination-fp",
         "centroidDist": null,
@@ -2215,11 +2215,11 @@
     "frozenStaleCount": 0,
     "hallucinationSplit": {
       "total": 18,
-      "truth-absent": 0,
+      "truth-absent": 1,
       "truth-present": 0,
-      "truthAbsentShare": null,
-      "truthPresentShare": null,
-      "unconfirmedAbsent": 18
+      "truthAbsentShare": 1.0,
+      "truthPresentShare": 0.0,
+      "unconfirmedAbsent": 17
     },
     "heldPoseCount": 3,
     "rejectionCorrectness": {

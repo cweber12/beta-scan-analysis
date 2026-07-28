@@ -1,11 +1,11 @@
 {
-  "jobId": "f847f5a7cd1047e5a20bb9c2b0ab3863",
+  "jobId": "c8884c3110ae4a709c6faa1783f11f59",
   "status": "done",
-  "updated_at": "2026-07-28T00:50:17",
+  "updated_at": "2026-07-28T02:32:56",
   "timings": {
-    "track_s": 92.94,
-    "pose_s": 52.58,
-    "total_s": 145.78
+    "track_s": 66.25,
+    "pose_s": 51.61,
+    "total_s": 118.23
   },
   "device": "cuda",
   "seedDebug": {
@@ -22,284 +22,194 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 20,
-      "timestamp": 6.439766666666666,
-      "sourceFrame": 193,
+      "frameIndex": 8,
+      "timestamp": 6.039366666666667,
+      "sourceFrame": 181,
       "box": {
-        "x": 0.2025941163301468,
-        "y": 0.7095404118299484,
-        "w": 0.08829644322395325,
-        "h": 0.1852037012577057,
-        "cx": 0.2467423379421234,
-        "cy": 0.8021422624588013
+        "x": 0.195247832685709,
+        "y": 0.7059125751256943,
+        "w": 0.09132783859968185,
+        "h": 0.19105759263038635,
+        "cx": 0.24091175198554993,
+        "cy": 0.8014413714408875
       }
     },
     "stitch": {
-      "stitchedFrames": 2788,
+      "stitchedFrames": 2838,
       "idSwitches": [
         {
-          "sourceFrame": 180,
-          "from": 3566,
+          "sourceFrame": 216,
+          "from": 2728,
+          "to": 2740
+        },
+        {
+          "sourceFrame": 263,
+          "from": 2740,
+          "to": 2741
+        },
+        {
+          "sourceFrame": 289,
+          "from": 2741,
+          "to": 2740
+        },
+        {
+          "sourceFrame": 291,
+          "from": 2740,
+          "to": 2741
+        },
+        {
+          "sourceFrame": 377,
+          "from": 2741,
+          "to": 2746
+        },
+        {
+          "sourceFrame": 863,
+          "from": 2746,
           "to": -1
         },
         {
-          "sourceFrame": 182,
+          "sourceFrame": 873,
           "from": -1,
-          "to": 3566
+          "to": 2746
         },
         {
-          "sourceFrame": 210,
-          "from": 3566,
+          "sourceFrame": 902,
+          "from": 2746,
           "to": -1
         },
         {
-          "sourceFrame": 211,
-          "from": -1,
-          "to": 3566
-        },
-        {
-          "sourceFrame": 226,
-          "from": 3566,
-          "to": -1
-        },
-        {
-          "sourceFrame": 231,
-          "from": -1,
-          "to": -2
-        },
-        {
-          "sourceFrame": 232,
-          "from": -2,
-          "to": -1
-        },
-        {
-          "sourceFrame": 233,
-          "from": -1,
-          "to": 3582
-        },
-        {
-          "sourceFrame": 285,
-          "from": 3582,
-          "to": -1
-        },
-        {
-          "sourceFrame": 286,
-          "from": -1,
-          "to": 3582
-        },
-        {
-          "sourceFrame": 324,
-          "from": 3582,
-          "to": 3590
-        },
-        {
-          "sourceFrame": 325,
-          "from": 3590,
-          "to": 3582
-        },
-        {
-          "sourceFrame": 329,
-          "from": 3582,
-          "to": 3590
-        },
-        {
-          "sourceFrame": 809,
-          "from": 3590,
-          "to": 3600
-        },
-        {
-          "sourceFrame": 821,
-          "from": 3600,
-          "to": -1
-        },
-        {
-          "sourceFrame": 823,
-          "from": -1,
-          "to": 3590
-        },
-        {
-          "sourceFrame": 884,
-          "from": 3590,
-          "to": -1
-        },
-        {
-          "sourceFrame": 888,
+          "sourceFrame": 928,
           "from": -1,
           "to": -2
         },
         {
-          "sourceFrame": 890,
+          "sourceFrame": 929,
           "from": -2,
+          "to": 2746
+        },
+        {
+          "sourceFrame": 1135,
+          "from": 2746,
           "to": -1
         },
         {
-          "sourceFrame": 900,
+          "sourceFrame": 1148,
           "from": -1,
-          "to": -2
+          "to": 2746
         },
         {
-          "sourceFrame": 901,
-          "from": -2,
+          "sourceFrame": 1157,
+          "from": 2746,
           "to": -1
         },
         {
-          "sourceFrame": 904,
+          "sourceFrame": 1180,
           "from": -1,
-          "to": 3605
+          "to": 2746
         },
         {
-          "sourceFrame": 910,
-          "from": 3605,
+          "sourceFrame": 1212,
+          "from": 2746,
+          "to": 2757
+        },
+        {
+          "sourceFrame": 1213,
+          "from": 2757,
+          "to": 2746
+        },
+        {
+          "sourceFrame": 1217,
+          "from": 2746,
+          "to": 2757
+        },
+        {
+          "sourceFrame": 1247,
+          "from": 2757,
+          "to": 2759
+        },
+        {
+          "sourceFrame": 1391,
+          "from": 2759,
+          "to": 2761
+        },
+        {
+          "sourceFrame": 1392,
+          "from": 2761,
+          "to": 2759
+        },
+        {
+          "sourceFrame": 1429,
+          "from": 2759,
+          "to": 2762
+        },
+        {
+          "sourceFrame": 1430,
+          "from": 2762,
           "to": -1
         },
         {
-          "sourceFrame": 911,
+          "sourceFrame": 1431,
           "from": -1,
-          "to": 3605
+          "to": 2759
         },
         {
-          "sourceFrame": 1031,
-          "from": 3605,
-          "to": 3609
-        },
-        {
-          "sourceFrame": 1032,
-          "from": 3609,
-          "to": 3605
-        },
-        {
-          "sourceFrame": 1033,
-          "from": 3605,
-          "to": 3609
-        },
-        {
-          "sourceFrame": 1035,
-          "from": 3609,
-          "to": 3605
-        },
-        {
-          "sourceFrame": 1136,
-          "from": 3605,
+          "sourceFrame": 1736,
+          "from": 2759,
           "to": -1
         },
         {
-          "sourceFrame": 1176,
+          "sourceFrame": 1739,
           "from": -1,
-          "to": 3614
+          "to": 2759
         },
         {
-          "sourceFrame": 1481,
-          "from": 3614,
+          "sourceFrame": 1968,
+          "from": 2759,
           "to": -1
         },
         {
-          "sourceFrame": 1483,
+          "sourceFrame": 1972,
           "from": -1,
-          "to": 3614
+          "to": 2759
         },
         {
-          "sourceFrame": 1660,
-          "from": 3614,
-          "to": 3623
-        },
-        {
-          "sourceFrame": 1711,
-          "from": 3623,
+          "sourceFrame": 2046,
+          "from": 2759,
           "to": -1
         },
         {
-          "sourceFrame": 1717,
+          "sourceFrame": 2048,
           "from": -1,
-          "to": 3614
+          "to": 2759
         },
         {
-          "sourceFrame": 1804,
-          "from": 3614,
+          "sourceFrame": 2409,
+          "from": 2759,
           "to": -1
         },
         {
-          "sourceFrame": 1840,
+          "sourceFrame": 2423,
           "from": -1,
-          "to": 3629
+          "to": 2759
         },
         {
-          "sourceFrame": 1844,
-          "from": 3629,
+          "sourceFrame": 2463,
+          "from": 2759,
+          "to": 2778
+        },
+        {
+          "sourceFrame": 2559,
+          "from": 2778,
           "to": -1
         },
         {
-          "sourceFrame": 1848,
+          "sourceFrame": 2575,
           "from": -1,
-          "to": 3629
-        },
-        {
-          "sourceFrame": 2061,
-          "from": 3629,
-          "to": -1
-        },
-        {
-          "sourceFrame": 2065,
-          "from": -1,
-          "to": 3629
-        },
-        {
-          "sourceFrame": 2324,
-          "from": 3629,
-          "to": 3633
-        },
-        {
-          "sourceFrame": 2332,
-          "from": 3633,
-          "to": 3629
-        },
-        {
-          "sourceFrame": 2419,
-          "from": 3629,
-          "to": -1
-        },
-        {
-          "sourceFrame": 2421,
-          "from": -1,
-          "to": 3629
-        },
-        {
-          "sourceFrame": 2479,
-          "from": 3629,
-          "to": 3637
-        },
-        {
-          "sourceFrame": 2480,
-          "from": 3637,
-          "to": 3629
-        },
-        {
-          "sourceFrame": 2558,
-          "from": 3629,
-          "to": -1
-        },
-        {
-          "sourceFrame": 2560,
-          "from": -1,
-          "to": 3629
-        },
-        {
-          "sourceFrame": 2838,
-          "from": 3629,
-          "to": 3645
+          "to": 2797
         }
       ],
       "jumps": [],
-      "reseeds": [
-        {
-          "frameIndex": 2667,
-          "sourceFrame": 2840,
-          "timestamp": 94.76133333333334,
-          "reason": "appearance-mismatch-streak",
-          "discarded": 42,
-          "recovered": 42,
-          "restored": 0
-        }
-      ]
+      "reseeds": []
     }
   }
 }
