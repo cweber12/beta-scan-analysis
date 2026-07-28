@@ -759,6 +759,45 @@ def _hallucination_split_html(ctx: dict[str, Any]) -> str:
             f"{'; '.join(parts)}.{tail}</p>")
 
 
+def _stale_truth_html(ctx: dict[str, Any]) -> str:
+    """Bundles whose Ground Truth has fallen behind its scaffold (issue #101 follow-up).
+
+    Worth its own section rather than a footnote: nothing else detects this. ``setupHash``
+    tracks calibration, and re-seeding a scaffold does not change the calibration, so a
+    truth authored from a superseded scaffold still reads as accepted and current on both
+    sides. Every frame the new scaffold poses and the old truth calls absent becomes a
+    phantom absence in the very metric this work exists to make trustworthy."""
+
+    rows = ctx.get("stale_truth_bundles") or []
+    if not rows:
+        return ("<p class='muted'>No bundle's truth has fallen behind its scaffold — "
+                "every authored truth broadly matches what its scaffold poses.</p>")
+    head = ("<tr><th>route</th><th>video</th><th>truth present</th>"
+            "<th>scaffold poses</th><th>shortfall</th><th>ratio</th></tr>")
+    body = "".join(
+        f"<tr><td>{_esc(r['route_folder'])}</td><td>{_esc(r['video_key'])}</td>"
+        f"<td>{int(r['truth_present'])}</td><td>{int(r['scaffold_posed'])}</td>"
+        f"<td>{int(r['shortfall'])}</td><td>{_pct(r['ratio'])}</td></tr>"
+        for r in rows
+    )
+    worst = rows[0]
+    return (
+        f"<p class='sub'><strong>{len(rows)}</strong> bundle"
+        f"{'' if len(rows) == 1 else 's'} carry Ground Truth authored from a superseded "
+        "scaffold. Re-accept these in the scanner before trusting any absence-derived "
+        "number from them — until then each contributes phantom absences, where the "
+        "scaffold poses a Climber the truth calls missing. Worst: "
+        f"<code>{_esc(worst['video_key'])}</code>, {int(worst['truth_present'])} present "
+        f"against {int(worst['scaffold_posed'])} posed.</p>"
+        "<p class='sub muted'>Detected by comparing present-frame counts, because "
+        "nothing better exists yet: <code>setupHash</code> tracks calibration, and a "
+        "re-seed does not change the calibration, so a stale truth pairs as current. "
+        "The durable fix is for Ground Truth to stamp the scaffold "
+        "<code>seedHash</code> it was authored from.</p>"
+        "<div class='tablewrap'><table><thead>" + head +
+        f"</thead><tbody>{body}</tbody></table></div>")
+
+
 def _absence_reason_html(ctx: dict[str, Any]) -> str:
     """How the pooled truth-absent frames split by reason (issue #101).
 
@@ -869,7 +908,9 @@ def _frame_quality_html(ctx: dict[str, Any]) -> str:
                      f"</tr></thead><tbody>{rows}</tbody></table></div>")
     class_tbl = (_hallucination_split_html(ctx) + class_tbl
                  + "<h3>Why the absent frames are absent (#101)</h3>"
-                 + _absence_reason_html(ctx))
+                 + _absence_reason_html(ctx)
+                 + "<h3>Truth that has fallen behind its scaffold (#101)</h3>"
+                 + _stale_truth_html(ctx))
 
     distractors = ctx.get("frame_quality_distractors")
     distractor_tbl = "<p class='muted'>(no annotated distractors yet)</p>"

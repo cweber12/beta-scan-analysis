@@ -791,6 +791,75 @@ def _climb_window_from_setup(setup: dict[str, Any]) -> tuple[float | None, float
     return start, _num(setup.get("climbEnd"))
 
 
+# Truth-vs-scaffold drift (issue #101 follow-up). Ground Truth is authored *from* the
+# ViTPose scaffold, so the two should carry roughly the same number of Climber-present
+# frames. When the scaffold is regenerated — a re-seed, a resolution change — the truth
+# on disk keeps describing the *old* scaffold, and every frame the new scaffold poses but
+# the old truth called absent becomes a phantom absence: exactly the contamination this
+# issue exists to remove.
+#
+# Nothing existing detects this. ``setupHash`` tracks *calibration* changes and a re-seed
+# does not change the calibration, so a stale truth still pairs as current — the same
+# structural blind spot ADR 0007 fixed for scaffolds with ``seedHash``, one layer up.
+# Measured on the corpus this was written for: 20 bundles adrift, two of them carrying
+# **zero** present frames against scaffolds holding 1136 and 500.
+#
+# This is a heuristic, and deliberately a loose one — the honest fix is for Ground Truth
+# to stamp the scaffold ``seedHash`` it was authored from, which is a scanner-side
+# contract change. Until then, a large shortfall in present frames is the signal
+# available. Thresholds are generous so ordinary human editing never trips it: a human
+# marking frames absent, or trimming a few, is normal and expected.
+TRUTH_DRIFT_MIN_RATIO = 0.5     # truth-present must be at least this share of scaffold-posed
+TRUTH_DRIFT_MIN_FRAMES = 20     # ignore shortfalls smaller than this many frames
+
+
+def scaffold_truth_drift(video_dir: Path) -> dict[str, Any] | None:
+    """Has this Bundle's truth fallen behind the scaffold it was authored from?
+
+    ``None`` when the question does not arise — no scaffold, or no authored truth (a
+    Bundle with no ``ground-truth.json`` scores against the scaffold directly, so it
+    cannot drift from it). Otherwise a block naming both counts and the verdict, so a
+    reader can judge the heuristic rather than trust it.
+    """
+
+    scaffold_path = video_dir / "vitpose.json"
+    truth_path = video_dir / "ground-truth.json"
+    if not scaffold_path.exists() or not truth_path.exists():
+        return None
+    try:
+        scaffold = _load_json(scaffold_path)
+        truth = _load_json(truth_path)
+    except ValueError:
+        return None
+
+    frames = scaffold.get("frames")
+    truth_frames = truth.get("frames")
+    if not isinstance(frames, list) or not isinstance(truth_frames, list):
+        return None
+
+    posed = sum(1 for f in frames if isinstance(f, dict) and f.get("keypoints"))
+    present = sum(1 for f in truth_frames
+                  if isinstance(f, dict) and f.get("state", "present") == "present")
+    shortfall = posed - present
+    drifted = (
+        posed > 0
+        and shortfall >= TRUTH_DRIFT_MIN_FRAMES
+        and present < posed * TRUTH_DRIFT_MIN_RATIO
+    )
+    return {
+        "scaffoldPosed": posed,
+        "truthPresent": present,
+        "shortfall": shortfall,
+        "ratio": _round6(present / posed) if posed else None,
+        "drifted": drifted,
+        # The scaffold's own seed provenance, so a re-export can be checked against it
+        # once Ground Truth stamps the seed hash it was authored from.
+        "scaffoldSeedHash": scaffold.get("seedHash"),
+        "thresholds": {"minRatio": TRUTH_DRIFT_MIN_RATIO,
+                       "minFrames": TRUTH_DRIFT_MIN_FRAMES},
+    }
+
+
 def derive_absence_reason(
     timestamp: float,
     evidence: AbsenceEvidence | None,
