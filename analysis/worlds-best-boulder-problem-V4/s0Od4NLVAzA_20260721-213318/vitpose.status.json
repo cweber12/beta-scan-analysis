@@ -1,11 +1,11 @@
 {
-  "jobId": "8ffb8df8d4204b019c083b8771e5cddc",
+  "jobId": "37067229e3984f48878b572ebca671c5",
   "status": "done",
-  "updated_at": "2026-07-27T15:43:52",
+  "updated_at": "2026-07-28T00:55:01",
   "timings": {
-    "track_s": 24.54,
-    "pose_s": 22.35,
-    "total_s": 47.02
+    "track_s": 70.28,
+    "pose_s": 31.71,
+    "total_s": 102.26
   },
   "device": "cuda",
   "seedDebug": {
@@ -22,30 +22,65 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 0,
-      "timestamp": 20.890094236248082,
-      "sourceFrame": 622,
+      "frameIndex": 22,
+      "timestamp": 21.628972167433705,
+      "sourceFrame": 644,
       "box": {
-        "x": 0.3967425748705864,
-        "y": 0.39458131790161133,
-        "w": 0.18485404551029205,
-        "h": 0.3013719320297241,
-        "cx": 0.4891695976257324,
-        "cy": 0.5452672839164734
+        "x": 0.3768529072403908,
+        "y": 0.4175868332386017,
+        "w": 0.2257506102323532,
+        "h": 0.27674025297164917,
+        "cx": 0.4897282123565674,
+        "cy": 0.5559569597244263
       }
     },
     "stitch": {
-      "stitchedFrames": 1611,
+      "stitchedFrames": 1602,
       "idSwitches": [
         {
-          "sourceFrame": 2234,
-          "from": 7163,
+          "sourceFrame": 1189,
+          "from": 4029,
+          "to": 4099
+        },
+        {
+          "sourceFrame": 1194,
+          "from": 4099,
+          "to": 4029
+        },
+        {
+          "sourceFrame": 1342,
+          "from": 4029,
+          "to": 4108
+        },
+        {
+          "sourceFrame": 1344,
+          "from": 4108,
+          "to": 4029
+        },
+        {
+          "sourceFrame": 1436,
+          "from": 4029,
+          "to": 4125
+        },
+        {
+          "sourceFrame": 1794,
+          "from": 4125,
+          "to": 4164
+        },
+        {
+          "sourceFrame": 1795,
+          "from": 4164,
+          "to": 4125
+        },
+        {
+          "sourceFrame": 2215,
+          "from": 4125,
           "to": -1
         },
         {
-          "sourceFrame": 2236,
+          "sourceFrame": 2219,
           "from": -1,
-          "to": 7163
+          "to": 4125
         }
       ],
       "jumps": [],
