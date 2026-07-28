@@ -1,70 +1,42 @@
 {
-  "jobId": "786b1cd1f5a0469fa93dea89334b5b3e",
+  "jobId": "ab7c259a2ad04411999ffe36d45540c3",
   "status": "done",
-  "updated_at": "2026-07-22T21:56:45",
+  "updated_at": "2026-07-27T15:36:57",
   "timings": {
-    "track_s": 53.95,
-    "pose_s": 35.42,
-    "total_s": 89.57
+    "track_s": 19.84,
+    "pose_s": 20.95,
+    "total_s": 40.94
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2446,
+    "historyFrames": 1702,
     "tap": {
       "x": 0.5441539443938306,
       "y": 0.6892574917051998,
       "t": 5.99
     },
-    "crop": {
-      "x": 0.39415394439383056,
-      "y": 0.5392574917051998,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 5.99,
+      "end": 62.7
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 179,
-      "timestamp": 5.966666666666667,
-      "sourceFrame": 179,
+      "frameIndex": 21,
+      "timestamp": 6.7,
+      "sourceFrame": 201,
       "box": {
-        "x": 0.4644531011581421,
-        "y": 0.5811320096254349,
-        "w": 0.19099366664886475,
-        "h": 0.25022777915000916,
-        "cx": 0.5599499344825745,
-        "cy": 0.7062458992004395
+        "x": 0.4811314418911934,
+        "y": 0.5730940997600555,
+        "w": 0.1647540181875229,
+        "h": 0.25816434621810913,
+        "cx": 0.5635084509849548,
+        "cy": 0.7021762728691101
       }
     },
     "stitch": {
-      "stitchedFrames": 2074,
-      "idSwitches": [
-        {
-          "sourceFrame": 2118,
-          "from": 3769,
-          "to": 3782
-        },
-        {
-          "sourceFrame": 2169,
-          "from": 3782,
-          "to": 3784
-        },
-        {
-          "sourceFrame": 2253,
-          "from": 3784,
-          "to": 3785
-        },
-        {
-          "sourceFrame": 2279,
-          "from": 3785,
-          "to": 3791
-        },
-        {
-          "sourceFrame": 2326,
-          "from": 3791,
-          "to": 3792
-        }
-      ],
+      "stitchedFrames": 1699,
+      "idSwitches": [],
       "jumps": [],
       "reseeds": []
     }

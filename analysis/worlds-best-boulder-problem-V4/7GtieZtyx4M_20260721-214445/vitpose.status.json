@@ -1,26 +1,24 @@
 {
-  "jobId": "5808b8fe20ef4b32ad0427d470f3e117",
+  "jobId": "779bf9c94d7c442e8e5340efdb630113",
   "status": "done",
-  "updated_at": "2026-07-21T21:52:16",
+  "updated_at": "2026-07-27T15:38:53",
   "timings": {
-    "track_s": 52.1,
-    "pose_s": 37.42,
-    "total_s": 89.79
+    "track_s": 33.55,
+    "pose_s": 44.31,
+    "total_s": 78.09
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 3252,
+    "historyFrames": 2914,
     "tap": {
       "x": 0.42277985934159273,
       "y": 0.8238719634401765,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.12550423063171384,
-      "y": 0.49594592305696583,
-      "w": 0.5979836011552953,
-      "h": 0.5040540769430342
+    "climbWindow": {
+      "start": 0.0,
+      "end": 97.1
     },
     "seedFound": true,
     "seed": {
@@ -37,27 +35,47 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 3049,
+      "stitchedFrames": 2883,
       "idSwitches": [
         {
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 6794
+        },
+        {
+          "sourceFrame": 453,
+          "from": 6794,
+          "to": -1
+        },
+        {
+          "sourceFrame": 455,
+          "from": -1,
+          "to": 6794
+        },
+        {
           "sourceFrame": 491,
-          "from": 1320,
-          "to": 1333
+          "from": 6794,
+          "to": 6807
         },
         {
           "sourceFrame": 516,
-          "from": 1333,
-          "to": 1320
+          "from": 6807,
+          "to": 6794
+        },
+        {
+          "sourceFrame": 613,
+          "from": 6794,
+          "to": -1
+        },
+        {
+          "sourceFrame": 614,
+          "from": -1,
+          "to": 6794
         },
         {
           "sourceFrame": 2781,
-          "from": 1320,
-          "to": 1366
-        },
-        {
-          "sourceFrame": 3152,
-          "from": 1366,
-          "to": 1392
+          "from": 6794,
+          "to": 6840
         }
       ],
       "jumps": [],

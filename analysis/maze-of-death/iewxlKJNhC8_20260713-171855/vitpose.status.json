@@ -1,40 +1,134 @@
 {
-  "jobId": "ca482050f4314ce7bf269235a0c3a5a0",
+  "jobId": "47e3ac245f1e40e2961874f3f428df8d",
   "status": "done",
-  "updated_at": "2026-07-17T21:39:03",
+  "updated_at": "2026-07-27T14:54:01",
   "timings": {
-    "track_s": 39.24,
-    "pose_s": 41.55,
-    "total_s": 80.83
+    "track_s": 27.91,
+    "pose_s": 33.46,
+    "total_s": 61.55
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2286,
+    "historyFrames": 1591,
     "tap": {
       "x": 0.6622266339142189,
       "y": 0.9217477346446337,
       "t": 6.09
     },
-    "crop": {
-      "x": 0.5538226262112999,
-      "y": 0.6589106634708635,
-      "w": 0.25868717050849044,
-      "h": 0.34108933652913653
+    "climbWindow": {
+      "start": 6.09,
+      "end": 59.1
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 177,
-      "timestamp": 5.9,
-      "sourceFrame": 177,
+      "frameIndex": 0,
+      "timestamp": 6.1,
+      "sourceFrame": 183,
       "box": {
-        "x": 0.5985585525631905,
-        "y": 0.7157004177570343,
-        "w": 0.11476491391658783,
-        "h": 0.2832561135292053,
-        "cx": 0.6559410095214844,
-        "cy": 0.857328474521637
+        "x": 0.582078717648983,
+        "y": 0.715206578373909,
+        "w": 0.11862964928150177,
+        "h": 0.26079270243644714,
+        "cx": 0.6413935422897339,
+        "cy": 0.8456029295921326
       }
+    },
+    "stitch": {
+      "stitchedFrames": 1564,
+      "idSwitches": [
+        {
+          "sourceFrame": 642,
+          "from": 3676,
+          "to": 3691
+        },
+        {
+          "sourceFrame": 643,
+          "from": 3691,
+          "to": 3676
+        },
+        {
+          "sourceFrame": 704,
+          "from": 3676,
+          "to": 3695
+        },
+        {
+          "sourceFrame": 707,
+          "from": 3695,
+          "to": 3676
+        },
+        {
+          "sourceFrame": 972,
+          "from": 3676,
+          "to": 3720
+        },
+        {
+          "sourceFrame": 1360,
+          "from": 3720,
+          "to": 3735
+        },
+        {
+          "sourceFrame": 1363,
+          "from": 3735,
+          "to": 3720
+        },
+        {
+          "sourceFrame": 1366,
+          "from": 3720,
+          "to": 3735
+        },
+        {
+          "sourceFrame": 1370,
+          "from": 3735,
+          "to": 3720
+        },
+        {
+          "sourceFrame": 1540,
+          "from": 3720,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1541,
+          "from": -1,
+          "to": 3720
+        },
+        {
+          "sourceFrame": 1555,
+          "from": 3720,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1579,
+          "from": -1,
+          "to": 3752
+        },
+        {
+          "sourceFrame": 1757,
+          "from": 3752,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1767,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1772,
+          "from": -1,
+          "to": 3752
+        }
+      ],
+      "jumps": [
+        {
+          "sourceFrame": 1757,
+          "dist": 0.0934
+        },
+        {
+          "sourceFrame": 1767,
+          "dist": 0.1443
+        }
+      ],
+      "reseeds": []
     }
   }
 }

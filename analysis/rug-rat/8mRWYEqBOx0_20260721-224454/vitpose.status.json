@@ -1,27 +1,130 @@
 {
-  "jobId": "2f1335e7ac1149df8f0d16c97b5b3fe8",
+  "jobId": "e2850ef5849e48ae8f91cc5a5e634eb2",
   "status": "done",
-  "updated_at": "2026-07-22T21:45:59",
+  "updated_at": "2026-07-27T15:19:31",
   "timings": {
-    "track_s": 31.6,
-    "pose_s": 0.06,
-    "total_s": 31.66
+    "track_s": 21.25,
+    "pose_s": 1.33,
+    "total_s": 22.59
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 1752,
+    "historyFrames": 1505,
     "tap": {
       "x": 0.4703989819619326,
       "y": 0.9281189513942019,
       "t": 2.79
     },
-    "crop": {
-      "x": 0.3203989819619326,
-      "y": 0.7781189513942018,
-      "w": 0.3,
-      "h": 0.22188104860579816
+    "climbWindow": {
+      "start": 2.79,
+      "end": 53.0
     },
-    "seedFound": false
+    "seedFound": true,
+    "seed": {
+      "frameIndex": 10,
+      "timestamp": 3.1364666666666667,
+      "sourceFrame": 94,
+      "box": {
+        "x": 0.9124999940395355,
+        "y": 0.7960937470197678,
+        "w": 0.06666666269302368,
+        "h": 0.10312500596046448,
+        "cx": 0.9458333253860474,
+        "cy": 0.84765625
+      }
+    },
+    "stitch": {
+      "stitchedFrames": 73,
+      "idSwitches": [
+        {
+          "sourceFrame": 85,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 88,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 100,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 105,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 128,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 141,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 152,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 158,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 159,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 164,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 165,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 210,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 211,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 212,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 213,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 216,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 300,
+          "from": -1,
+          "to": 5157
+        }
+      ],
+      "jumps": [],
+      "reseeds": []
+    }
   }
 }

@@ -1,13 +1,16 @@
 {
-  "jobId": "65e007203a2c48a6a8615e315a61c719",
+  "jobId": "ebe22600382345b39c9d8324d58adf6c",
   "status": "done",
-  "updated_at": "2026-07-16T08:03:41",
+  "updated_at": "2026-07-27T14:49:27",
   "timings": {
-    "track_s": 16.94,
-    "pose_s": 12.29,
-    "total_s": 29.24
+    "track_s": 36.02,
+    "pose_s": 144.45,
+    "total_s": 180.65
   },
   "device": "cuda",
+  "warnings": [
+    "seed_tap.t is 0 while multiple people appear near clip start; seeding may anchor to the wrong subject. Re-tap on the intended climber frame."
+  ],
   "seedDebug": {
     "mode": "tap_time_window",
     "historyFrames": 1271,
@@ -16,11 +19,9 @@
       "y": 0.8203902830899594,
       "t": 0.0
     },
-    "crop": {
-      "x": 0.06944444444444445,
-      "y": 0.44375,
-      "w": 0.6888888888888889,
-      "h": 0.5453125
+    "climbWindow": {
+      "start": 0.0,
+      "end": 42.4
     },
     "seedFound": true,
     "seed": {
@@ -35,6 +36,133 @@
         "cx": 0.4550774395465851,
         "cy": 0.7153412103652954
       }
+    },
+    "stitch": {
+      "stitchedFrames": 1221,
+      "idSwitches": [
+        {
+          "sourceFrame": 1,
+          "from": -1,
+          "to": 3539
+        },
+        {
+          "sourceFrame": 55,
+          "from": 3539,
+          "to": 3541
+        },
+        {
+          "sourceFrame": 61,
+          "from": 3541,
+          "to": -1
+        },
+        {
+          "sourceFrame": 99,
+          "from": -1,
+          "to": 3542
+        },
+        {
+          "sourceFrame": 303,
+          "from": 3542,
+          "to": -1
+        },
+        {
+          "sourceFrame": 308,
+          "from": -1,
+          "to": 3542
+        },
+        {
+          "sourceFrame": 346,
+          "from": 3542,
+          "to": 3554
+        },
+        {
+          "sourceFrame": 353,
+          "from": 3554,
+          "to": 3542
+        },
+        {
+          "sourceFrame": 358,
+          "from": 3542,
+          "to": 3554
+        },
+        {
+          "sourceFrame": 362,
+          "from": 3554,
+          "to": 3542
+        },
+        {
+          "sourceFrame": 434,
+          "from": 3542,
+          "to": 3562
+        },
+        {
+          "sourceFrame": 469,
+          "from": 3562,
+          "to": 3564
+        },
+        {
+          "sourceFrame": 472,
+          "from": 3564,
+          "to": 3542
+        },
+        {
+          "sourceFrame": 783,
+          "from": 3542,
+          "to": 3571
+        },
+        {
+          "sourceFrame": 830,
+          "from": 3571,
+          "to": 3572
+        }
+      ],
+      "jumps": [
+        {
+          "sourceFrame": 52,
+          "dist": 0.1172
+        },
+        {
+          "sourceFrame": 54,
+          "dist": 0.096
+        },
+        {
+          "sourceFrame": 99,
+          "dist": 0.1687
+        },
+        {
+          "sourceFrame": 346,
+          "dist": 0.0923
+        },
+        {
+          "sourceFrame": 353,
+          "dist": 0.1198
+        },
+        {
+          "sourceFrame": 358,
+          "dist": 0.1044
+        },
+        {
+          "sourceFrame": 362,
+          "dist": 0.145
+        },
+        {
+          "sourceFrame": 434,
+          "dist": 0.1594
+        },
+        {
+          "sourceFrame": 469,
+          "dist": 0.1605
+        },
+        {
+          "sourceFrame": 472,
+          "dist": 0.1022
+        },
+        {
+          "sourceFrame": 783,
+          "dist": 0.1274
+        }
+      ],
+      "reseeds": []
     }
   }
 }

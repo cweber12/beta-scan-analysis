@@ -1,228 +1,291 @@
 {
-  "jobId": "80eaf81ae4714cee8d557f42d31eeac4",
+  "jobId": "9cb1015aea0a4a1d8e3f3bdc631bc2e4",
   "status": "done",
-  "updated_at": "2026-07-22T21:38:30",
+  "updated_at": "2026-07-27T14:28:35",
   "timings": {
-    "track_s": 67.53,
-    "pose_s": 90.6,
-    "total_s": 158.56
+    "track_s": 57.49,
+    "pose_s": 75.47,
+    "total_s": 133.28
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 6662,
+    "historyFrames": 4339,
     "tap": {
       "x": 0.41913260313104966,
       "y": 0.6499580009019521,
       "t": 14.9
     },
-    "crop": {
-      "x": 0.2691326031310497,
-      "y": 0.4999580009019521,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 14.9,
+      "end": 159.5
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 437,
-      "timestamp": 14.566666666666666,
-      "sourceFrame": 437,
+      "frameIndex": 0,
+      "timestamp": 14.9,
+      "sourceFrame": 447,
       "box": {
-        "x": 0.3629065491259098,
-        "y": 0.5934006199240685,
-        "w": 0.0970258042216301,
-        "h": 0.13121314346790314,
-        "cx": 0.41141945123672485,
-        "cy": 0.65900719165802
+        "x": 0.3743055835366249,
+        "y": 0.6100524440407753,
+        "w": 0.08409284055233002,
+        "h": 0.10952381789684296,
+        "cx": 0.4163520038127899,
+        "cy": 0.6648143529891968
       }
     },
     "stitch": {
-      "stitchedFrames": 5258,
+      "stitchedFrames": 3958,
       "idSwitches": [
         {
-          "sourceFrame": 19,
-          "from": 2028,
-          "to": 2030
+          "sourceFrame": 527,
+          "from": 1840,
+          "to": -2
+        },
+        {
+          "sourceFrame": 540,
+          "from": -2,
+          "to": 1840
+        },
+        {
+          "sourceFrame": 654,
+          "from": 1840,
+          "to": -1
+        },
+        {
+          "sourceFrame": 661,
+          "from": -1,
+          "to": 1840
+        },
+        {
+          "sourceFrame": 673,
+          "from": 1840,
+          "to": -1
+        },
+        {
+          "sourceFrame": 675,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 685,
+          "from": -2,
+          "to": 1840
+        },
+        {
+          "sourceFrame": 794,
+          "from": 1840,
+          "to": -1
+        },
+        {
+          "sourceFrame": 795,
+          "from": -1,
+          "to": 1840
+        },
+        {
+          "sourceFrame": 797,
+          "from": 1840,
+          "to": -1
         },
         {
           "sourceFrame": 830,
-          "from": 2030,
-          "to": 2045
+          "from": -1,
+          "to": 1855
         },
         {
           "sourceFrame": 1045,
-          "from": 2045,
-          "to": 2063
+          "from": 1855,
+          "to": 1873
         },
         {
           "sourceFrame": 1206,
-          "from": 2063,
-          "to": 2054
+          "from": 1873,
+          "to": 1864
         },
         {
           "sourceFrame": 1631,
-          "from": 2054,
-          "to": 2111
+          "from": 1864,
+          "to": 1921
         },
         {
           "sourceFrame": 1668,
-          "from": 2111,
-          "to": 2050
+          "from": 1921,
+          "to": 1860
         },
         {
           "sourceFrame": 1849,
-          "from": 2050,
-          "to": 2120
+          "from": 1860,
+          "to": 1930
         },
         {
           "sourceFrame": 2048,
-          "from": 2120,
-          "to": 2136
+          "from": 1930,
+          "to": 1946
         },
         {
           "sourceFrame": 2086,
-          "from": 2136,
-          "to": 2120
+          "from": 1946,
+          "to": 1930
+        },
+        {
+          "sourceFrame": 2393,
+          "from": 1930,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2394,
+          "from": -1,
+          "to": 1930
+        },
+        {
+          "sourceFrame": 2406,
+          "from": 1930,
+          "to": -1
         },
         {
           "sourceFrame": 2411,
-          "from": 2120,
-          "to": 2152
+          "from": -1,
+          "to": 1962
+        },
+        {
+          "sourceFrame": 2434,
+          "from": 1962,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2438,
+          "from": -1,
+          "to": 1962
+        },
+        {
+          "sourceFrame": 2510,
+          "from": 1962,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2520,
+          "from": -1,
+          "to": 1962
+        },
+        {
+          "sourceFrame": 2595,
+          "from": 1962,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2614,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 2615,
+          "from": -2,
+          "to": -1
         },
         {
           "sourceFrame": 2618,
-          "from": 2152,
-          "to": 2163
+          "from": -1,
+          "to": 1973
+        },
+        {
+          "sourceFrame": 2640,
+          "from": 1973,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2647,
+          "from": -1,
+          "to": 1973
+        },
+        {
+          "sourceFrame": 2657,
+          "from": 1973,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2661,
+          "from": -1,
+          "to": 1973
+        },
+        {
+          "sourceFrame": 2666,
+          "from": 1973,
+          "to": -2
+        },
+        {
+          "sourceFrame": 2675,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2697,
+          "from": -1,
+          "to": 1973
         },
         {
           "sourceFrame": 3243,
-          "from": 2163,
-          "to": 2189
+          "from": 1973,
+          "to": 1999
         },
         {
           "sourceFrame": 3271,
-          "from": 2189,
-          "to": 2191
+          "from": 1999,
+          "to": 2001
         },
         {
           "sourceFrame": 3274,
-          "from": 2191,
-          "to": 2189
+          "from": 2001,
+          "to": 1999
         },
         {
           "sourceFrame": 3604,
-          "from": 2189,
-          "to": 2208
+          "from": 1999,
+          "to": 2018
+        },
+        {
+          "sourceFrame": 3749,
+          "from": 2018,
+          "to": -1
+        },
+        {
+          "sourceFrame": 3754,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 3755,
+          "from": -2,
+          "to": 2047
+        },
+        {
+          "sourceFrame": 3762,
+          "from": 2047,
+          "to": 2018
         },
         {
           "sourceFrame": 3936,
-          "from": 2208,
-          "to": 2253
+          "from": 2018,
+          "to": 2063
         },
         {
           "sourceFrame": 3985,
-          "from": 2253,
-          "to": 2254
+          "from": 2063,
+          "to": 2064
         },
         {
           "sourceFrame": 4140,
-          "from": 2254,
-          "to": 2257
+          "from": 2064,
+          "to": 2067
         },
         {
           "sourceFrame": 4141,
-          "from": 2257,
-          "to": 2254
+          "from": 2067,
+          "to": 2064
         },
         {
           "sourceFrame": 4205,
-          "from": 2254,
-          "to": 2266
-        },
-        {
-          "sourceFrame": 4209,
-          "from": 2266,
-          "to": 2254
-        },
-        {
-          "sourceFrame": 4256,
-          "from": 2254,
-          "to": 2273
-        },
-        {
-          "sourceFrame": 4279,
-          "from": 2273,
-          "to": 2254
-        },
-        {
-          "sourceFrame": 4359,
-          "from": 2254,
-          "to": 2273
-        },
-        {
-          "sourceFrame": 4384,
-          "from": 2273,
-          "to": 2254
-        },
-        {
-          "sourceFrame": 4428,
-          "from": 2254,
-          "to": 2277
-        },
-        {
-          "sourceFrame": 4429,
-          "from": 2277,
-          "to": 2254
-        },
-        {
-          "sourceFrame": 4992,
-          "from": 2254,
-          "to": 2302
-        },
-        {
-          "sourceFrame": 4993,
-          "from": 2302,
-          "to": 2254
-        },
-        {
-          "sourceFrame": 4997,
-          "from": 2254,
-          "to": 2302
-        },
-        {
-          "sourceFrame": 5024,
-          "from": 2302,
-          "to": 2254
-        },
-        {
-          "sourceFrame": 5425,
-          "from": 2254,
-          "to": 2333
-        },
-        {
-          "sourceFrame": 5438,
-          "from": 2333,
-          "to": 2254
-        },
-        {
-          "sourceFrame": 5760,
-          "from": 2254,
-          "to": 2386
-        },
-        {
-          "sourceFrame": 5797,
-          "from": 2386,
-          "to": 2388
-        },
-        {
-          "sourceFrame": 6083,
-          "from": 2388,
-          "to": 2436
-        },
-        {
-          "sourceFrame": 6088,
-          "from": 2436,
-          "to": 2441
+          "from": 2064,
+          "to": 2076
         }
       ],
       "jumps": [
@@ -235,17 +298,17 @@
           "dist": 0.0945
         },
         {
-          "sourceFrame": 5760,
-          "dist": 0.0959
+          "sourceFrame": 2693,
+          "dist": 0.1711
         },
         {
-          "sourceFrame": 6083,
-          "dist": 0.6046
+          "sourceFrame": 2697,
+          "dist": 0.171
         }
       ],
       "reseeds": [
         {
-          "frameIndex": 2291,
+          "frameIndex": 1844,
           "sourceFrame": 2291,
           "timestamp": 76.36666666666666,
           "reason": "appearance-mismatch-streak",
@@ -254,12 +317,12 @@
           "restored": 0
         },
         {
-          "frameIndex": 5956,
-          "sourceFrame": 5956,
-          "timestamp": 198.53333333333333,
+          "frameIndex": 2250,
+          "sourceFrame": 2697,
+          "timestamp": 89.9,
           "reason": "appearance-mismatch-streak",
-          "discarded": 130,
-          "recovered": 5,
+          "discarded": 32,
+          "recovered": 32,
           "restored": 0
         }
       ]

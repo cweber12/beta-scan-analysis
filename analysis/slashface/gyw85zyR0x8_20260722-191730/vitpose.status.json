@@ -1,26 +1,24 @@
 {
-  "jobId": "1236a890a7474c9e9f8a8773d4c3020a",
+  "jobId": "a5b91e1a292b47d58919dbb223aaef7e",
   "status": "done",
-  "updated_at": "2026-07-23T08:59:36",
+  "updated_at": "2026-07-27T15:28:33",
   "timings": {
-    "track_s": 50.99,
-    "pose_s": 46.42,
-    "total_s": 97.61
+    "track_s": 30.07,
+    "pose_s": 46.94,
+    "total_s": 77.14
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2567,
+    "historyFrames": 2320,
     "tap": {
       "x": 0.44729264848270023,
       "y": 0.6389920995135895,
       "t": 23.41
     },
-    "crop": {
-      "x": 0.2972926484827002,
-      "y": 0.48899209951358946,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 0.0,
+      "end": 77.3
     },
     "seedFound": true,
     "seed": {
@@ -37,57 +35,77 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 2239,
+      "stitchedFrames": 2077,
       "idSwitches": [
         {
           "sourceFrame": 264,
-          "from": 4628,
-          "to": 4635
+          "from": 5968,
+          "to": 5975
+        },
+        {
+          "sourceFrame": 957,
+          "from": 5975,
+          "to": -1
+        },
+        {
+          "sourceFrame": 959,
+          "from": -1,
+          "to": 5975
+        },
+        {
+          "sourceFrame": 1147,
+          "from": 5975,
+          "to": -1
         },
         {
           "sourceFrame": 1167,
-          "from": 4635,
-          "to": 4648
+          "from": -1,
+          "to": 5988
+        },
+        {
+          "sourceFrame": 1384,
+          "from": 5988,
+          "to": -1
         },
         {
           "sourceFrame": 1425,
-          "from": 4648,
-          "to": 4654
+          "from": -1,
+          "to": 5994
         },
         {
           "sourceFrame": 1554,
-          "from": 4654,
-          "to": 4659
+          "from": 5994,
+          "to": 5999
         },
         {
           "sourceFrame": 1574,
-          "from": 4659,
-          "to": 4664
+          "from": 5999,
+          "to": 6004
         },
         {
           "sourceFrame": 1575,
-          "from": 4664,
-          "to": 4659
+          "from": 6004,
+          "to": 5999
         },
         {
           "sourceFrame": 1664,
-          "from": 4659,
-          "to": 4667
+          "from": 5999,
+          "to": 6007
         },
         {
           "sourceFrame": 2027,
-          "from": 4667,
-          "to": 4704
+          "from": 6007,
+          "to": 6044
         },
         {
           "sourceFrame": 2066,
-          "from": 4704,
-          "to": 4667
+          "from": 6044,
+          "to": 6007
         },
         {
           "sourceFrame": 2068,
-          "from": 4667,
-          "to": 4704
+          "from": 6007,
+          "to": 6044
         }
       ],
       "jumps": [],

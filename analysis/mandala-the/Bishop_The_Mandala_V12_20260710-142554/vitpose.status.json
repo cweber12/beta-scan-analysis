@@ -1,30 +1,28 @@
 {
-  "jobId": "e72fb7d83b734f0489ac5ea60c7290e1",
+  "jobId": "418514a1f1884be193d911caae851845",
   "status": "done",
-  "updated_at": "2026-07-21T17:55:51",
+  "updated_at": "2026-07-27T14:40:22",
   "timings": {
-    "track_s": 40.47,
-    "pose_s": 22.72,
-    "total_s": 63.29
+    "track_s": 32.22,
+    "pose_s": 18.07,
+    "total_s": 50.36
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2305,
+    "historyFrames": 1260,
     "tap": {
       "x": 0.4817136046090176,
       "y": 0.5981432910891794,
       "t": 22.88
     },
-    "crop": {
-      "x": 0.3921875,
-      "y": 0.42486073706720384,
-      "w": 0.14339103323452346,
-      "h": 0.5751392629327962
+    "climbWindow": {
+      "start": 22.88,
+      "end": 64.9
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 701,
+      "frameIndex": 15,
       "timestamp": 23.390033333333335,
       "sourceFrame": 701,
       "box": {
@@ -37,124 +35,250 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 720,
+      "stitchedFrames": 676,
       "idSwitches": [
         {
-          "sourceFrame": 136,
-          "from": 379,
-          "to": 378
+          "sourceFrame": 710,
+          "from": 3141,
+          "to": -1
         },
         {
-          "sourceFrame": 671,
-          "from": 378,
-          "to": 396
+          "sourceFrame": 717,
+          "from": -1,
+          "to": 3141
+        },
+        {
+          "sourceFrame": 754,
+          "from": 3141,
+          "to": -1
+        },
+        {
+          "sourceFrame": 759,
+          "from": -1,
+          "to": -3
+        },
+        {
+          "sourceFrame": 760,
+          "from": -3,
+          "to": -1
+        },
+        {
+          "sourceFrame": 763,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 764,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 766,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 767,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 770,
+          "from": -1,
+          "to": -2
         },
         {
           "sourceFrame": 771,
-          "from": 396,
-          "to": 410
+          "from": -2,
+          "to": 3155
         },
         {
           "sourceFrame": 828,
-          "from": 410,
-          "to": 418
+          "from": 3155,
+          "to": 3163
         },
         {
           "sourceFrame": 829,
-          "from": 418,
-          "to": 410
+          "from": 3163,
+          "to": 3155
         },
         {
           "sourceFrame": 832,
-          "from": 410,
-          "to": 418
+          "from": 3155,
+          "to": 3163
         },
         {
           "sourceFrame": 838,
-          "from": 418,
-          "to": 410
+          "from": 3163,
+          "to": 3155
         },
         {
           "sourceFrame": 860,
-          "from": 410,
-          "to": 418
+          "from": 3155,
+          "to": 3163
+        },
+        {
+          "sourceFrame": 940,
+          "from": 3163,
+          "to": -1
+        },
+        {
+          "sourceFrame": 943,
+          "from": -1,
+          "to": 3163
+        },
+        {
+          "sourceFrame": 958,
+          "from": 3163,
+          "to": -1
         },
         {
           "sourceFrame": 992,
-          "from": 418,
-          "to": 429
+          "from": -1,
+          "to": 3174
+        },
+        {
+          "sourceFrame": 1013,
+          "from": 3174,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1014,
+          "from": -1,
+          "to": 3174
+        },
+        {
+          "sourceFrame": 1038,
+          "from": 3174,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1039,
+          "from": -1,
+          "to": 3174
         },
         {
           "sourceFrame": 1126,
-          "from": 429,
-          "to": 436
+          "from": 3174,
+          "to": 3181
         },
         {
           "sourceFrame": 1129,
-          "from": 436,
-          "to": 429
+          "from": 3181,
+          "to": 3174
+        },
+        {
+          "sourceFrame": 1217,
+          "from": 3174,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1218,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1262,
+          "from": -1,
+          "to": -2
         },
         {
           "sourceFrame": 1265,
-          "from": 429,
-          "to": 449
+          "from": -2,
+          "to": 3194
+        },
+        {
+          "sourceFrame": 1269,
+          "from": 3194,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1271,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1272,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1285,
+          "from": -1,
+          "to": -2
         },
         {
           "sourceFrame": 1328,
-          "from": 449,
-          "to": 461
+          "from": -2,
+          "to": 3206
         },
         {
           "sourceFrame": 1397,
-          "from": 461,
-          "to": 471
+          "from": 3206,
+          "to": 3216
         },
         {
           "sourceFrame": 1426,
-          "from": 471,
-          "to": 473
+          "from": 3216,
+          "to": 3218
         },
         {
           "sourceFrame": 1429,
-          "from": 473,
-          "to": 471
+          "from": 3218,
+          "to": 3216
         },
         {
           "sourceFrame": 1433,
-          "from": 471,
-          "to": 473
+          "from": 3216,
+          "to": 3218
         },
         {
           "sourceFrame": 1446,
-          "from": 473,
-          "to": 471
+          "from": 3218,
+          "to": 3216
         },
         {
           "sourceFrame": 1451,
-          "from": 471,
-          "to": 473
+          "from": 3216,
+          "to": 3218
         },
         {
           "sourceFrame": 1475,
-          "from": 473,
-          "to": 471
+          "from": 3218,
+          "to": 3216
         },
         {
-          "sourceFrame": 1543,
-          "from": 471,
-          "to": 486
-        }
-      ],
-      "jumps": [
-        {
-          "sourceFrame": 136,
-          "dist": 0.1423
+          "sourceFrame": 1483,
+          "from": 3216,
+          "to": -2
         },
         {
-          "sourceFrame": 671,
-          "dist": 0.1756
+          "sourceFrame": 1484,
+          "from": -2,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1501,
+          "from": -1,
+          "to": 3231
+        },
+        {
+          "sourceFrame": 1571,
+          "from": 3231,
+          "to": -1
+        },
+        {
+          "sourceFrame": 1573,
+          "from": -1,
+          "to": -2
+        },
+        {
+          "sourceFrame": 1574,
+          "from": -2,
+          "to": -1
         }
       ],
+      "jumps": [],
       "reseeds": []
     }
   }

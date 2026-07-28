@@ -1,27 +1,90 @@
 {
-  "jobId": "865aee114bbc4a2ebd9cf07020679faf",
+  "jobId": "bf95aae5672a40e58fb0b3ef20832f97",
   "status": "done",
-  "updated_at": "2026-07-23T08:46:07",
+  "updated_at": "2026-07-27T14:07:24",
   "timings": {
-    "track_s": 108.88,
-    "pose_s": 0.6,
-    "total_s": 109.48
+    "track_s": 88.92,
+    "pose_s": 107.31,
+    "total_s": 196.52
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 5441,
+    "historyFrames": 3711,
     "tap": {
       "x": 0.5476091297734638,
       "y": 0.3972368802777728,
       "t": 98.56
     },
-    "crop": {
-      "x": 0.39760912977346374,
-      "y": 0.24723688027777282,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 50.31,
+      "end": 174.0
     },
-    "seedFound": false
+    "seedFound": true,
+    "seed": {
+      "frameIndex": 1435,
+      "timestamp": 98.16666666666667,
+      "sourceFrame": 2945,
+      "box": {
+        "x": 0.4588974826037884,
+        "y": 0.7304657399654388,
+        "w": 0.05716309696435928,
+        "h": 0.23339122533798218,
+        "cx": 0.487479031085968,
+        "cy": 0.8471613526344299
+      }
+    },
+    "stitch": {
+      "stitchedFrames": 3702,
+      "idSwitches": [
+        {
+          "sourceFrame": 1676,
+          "from": 156,
+          "to": 187
+        },
+        {
+          "sourceFrame": 1766,
+          "from": 187,
+          "to": 188
+        },
+        {
+          "sourceFrame": 1769,
+          "from": 188,
+          "to": 187
+        },
+        {
+          "sourceFrame": 1772,
+          "from": 187,
+          "to": 188
+        },
+        {
+          "sourceFrame": 2601,
+          "from": 188,
+          "to": -1
+        },
+        {
+          "sourceFrame": 2612,
+          "from": -1,
+          "to": 188
+        },
+        {
+          "sourceFrame": 3758,
+          "from": 188,
+          "to": 313
+        }
+      ],
+      "jumps": [],
+      "reseeds": [
+        {
+          "frameIndex": 1089,
+          "sourceFrame": 2599,
+          "timestamp": 86.63333333333334,
+          "reason": "appearance-mismatch-streak",
+          "discarded": 9,
+          "recovered": 8,
+          "restored": 0
+        }
+      ]
+    }
   }
 }

@@ -1,30 +1,28 @@
 {
-  "jobId": "8b1d10e4de6b43c1bee50b2ce3028027",
+  "jobId": "512fb02772f543a086e8dd99f43086ec",
   "status": "done",
-  "updated_at": "2026-07-23T11:08:20",
+  "updated_at": "2026-07-27T15:22:18",
   "timings": {
-    "track_s": 51.4,
-    "pose_s": 41.07,
-    "total_s": 92.63
+    "track_s": 36.26,
+    "pose_s": 23.86,
+    "total_s": 60.21
   },
   "device": "cuda",
   "seedDebug": {
     "mode": "tap_time_window",
-    "historyFrames": 2485,
+    "historyFrames": 2315,
     "tap": {
       "x": 0.6535952212244491,
       "y": 0.5295811981737926,
       "t": 49.8
     },
-    "crop": {
-      "x": 0.5035952212244491,
-      "y": 0.37958119817379254,
-      "w": 0.3,
-      "h": 0.3
+    "climbWindow": {
+      "start": 2.75,
+      "end": 79.9
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 1508,
+      "frameIndex": 1425,
       "timestamp": 50.266666666666666,
       "sourceFrame": 1508,
       "box": {
@@ -37,82 +35,92 @@
       }
     },
     "stitch": {
-      "stitchedFrames": 886,
+      "stitchedFrames": 817,
       "idSwitches": [
         {
+          "sourceFrame": 381,
+          "from": 5307,
+          "to": -1
+        },
+        {
+          "sourceFrame": 398,
+          "from": -1,
+          "to": 5307
+        },
+        {
           "sourceFrame": 401,
-          "from": 6720,
-          "to": 6781
+          "from": 5307,
+          "to": 5368
         },
         {
           "sourceFrame": 409,
-          "from": 6781,
-          "to": 6720
+          "from": 5368,
+          "to": 5307
         },
         {
           "sourceFrame": 485,
-          "from": 6720,
-          "to": 6791
+          "from": 5307,
+          "to": 5378
         },
         {
           "sourceFrame": 510,
-          "from": 6791,
-          "to": 6720
+          "from": 5378,
+          "to": 5307
         },
         {
           "sourceFrame": 570,
-          "from": 6720,
-          "to": 6799
+          "from": 5307,
+          "to": 5386
         },
         {
           "sourceFrame": 589,
-          "from": 6799,
-          "to": 6801
+          "from": 5386,
+          "to": 5388
         },
         {
           "sourceFrame": 626,
-          "from": 6801,
-          "to": 6806
+          "from": 5388,
+          "to": 5393
         },
         {
           "sourceFrame": 888,
-          "from": 6806,
-          "to": 6811
+          "from": 5393,
+          "to": 5398
         },
         {
           "sourceFrame": 999,
-          "from": 6811,
-          "to": 6813
+          "from": 5398,
+          "to": 5400
         },
         {
           "sourceFrame": 1298,
-          "from": 6813,
-          "to": 6818
+          "from": 5400,
+          "to": 5405
         },
         {
           "sourceFrame": 1479,
-          "from": 6818,
-          "to": 6823
+          "from": 5405,
+          "to": 5410
         },
         {
           "sourceFrame": 1577,
-          "from": 6823,
-          "to": 6824
+          "from": 5410,
+          "to": 5411
         },
         {
           "sourceFrame": 1721,
-          "from": 6824,
-          "to": 6825
+          "from": 5411,
+          "to": 5412
         },
         {
           "sourceFrame": 1989,
-          "from": 6825,
-          "to": 6829
+          "from": 5412,
+          "to": 5416
         },
         {
           "sourceFrame": 2149,
-          "from": 6829,
-          "to": 6830
+          "from": 5416,
+          "to": 5417
         }
       ],
       "jumps": [
@@ -127,7 +135,7 @@
       ],
       "reseeds": [
         {
-          "frameIndex": 785,
+          "frameIndex": 702,
           "sourceFrame": 785,
           "timestamp": 26.166666666666668,
           "reason": "appearance-mismatch-streak",
@@ -136,7 +144,7 @@
           "restored": 0
         },
         {
-          "frameIndex": 645,
+          "frameIndex": 562,
           "sourceFrame": 645,
           "timestamp": 21.5,
           "reason": "appearance-mismatch-streak",
