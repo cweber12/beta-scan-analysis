@@ -255,10 +255,12 @@ def main(argv: list[str] | None = None) -> int:
                              "force them (implies --force); the repair pass after a run "
                              "whose seeding failed")
     parser.add_argument("--below-coverage", type=float, default=None, metavar="RATE",
-                        help="only bundles whose current scaffold poses fewer than this "
-                             "share of its frames, and force them (implies --force). "
-                             "Pair with --imgsz to re-seed the Climbers the detector "
-                             "was too coarse to hold: e.g. --below-coverage 0.9")
+                        help="only bundles whose current scaffold poses fewer than "
+                             "this share of its frames. Pair with --imgsz to re-seed "
+                             "the Climbers the detector was too coarse to hold, e.g. "
+                             "--below-coverage 0.9. Unchanged seeds still skip, so a "
+                             "wider pass does not redo a narrower one; add --force to "
+                             "re-seed under settings that have not changed")
     args = parser.parse_args(argv)
 
     skip = {k.strip() for k in args.skip.split(",") if k.strip()}
@@ -282,7 +284,12 @@ def main(argv: list[str] | None = None) -> int:
         todo = empty
 
     if args.below_coverage is not None:
-        args.force = True
+        # Deliberately does NOT imply --force, unlike --retry-empty. Changing --imgsz
+        # already changes the seed hash, so the job runs anyway; forcing on top of that
+        # means a later, wider pass re-seeds everything a narrower one just did. With
+        # the skip left in place the passes compose: --below-coverage 0.6 then 0.9 does
+        # the 0.6 set once, and the 0.9 run picks up only what is still outstanding.
+        # Pass --force explicitly to re-seed under unchanged settings.
         thin = []
         footage = 0.0
         for plan in todo:
