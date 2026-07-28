@@ -39,6 +39,7 @@ from .detector_attempts import (
 from .runs import _detector_attempt_summary
 from .evaluate import (
     ABSENCE_CONFIRMED,
+    scaffold_truth_drift,
     RATE_MISMATCH_MIN_RATIO,
     ABSENCE_REASONS,
     ABSENCE_UNKNOWN,
@@ -758,6 +759,32 @@ def _version_regression(
                 })
 
     return overview, pd.DataFrame(delta_rows), flags
+
+
+def _stale_truth_worklist(analysis_root: Path) -> list[dict[str, Any]]:
+    """Bundles whose Ground Truth has fallen behind the scaffold it was authored from.
+
+    Worst shortfall first — this is a re-review queue, and the Bundle whose truth records
+    zero present frames against a fully-posed scaffold is the one contributing the most
+    phantom absences.
+    """
+
+    rows: list[dict[str, Any]] = []
+    for video_dir in _iter_video_dirs(analysis_root):
+        drift = scaffold_truth_drift(video_dir)
+        if not drift or not drift["drifted"]:
+            continue
+        metadata = _load_json(video_dir / "metadata.json")
+        rows.append({
+            "route_folder": str(metadata.get("route_folder") or video_dir.parent.name),
+            "video_key": str(metadata.get("video_key") or video_dir.name),
+            "truth_present": drift["truthPresent"],
+            "scaffold_posed": drift["scaffoldPosed"],
+            "shortfall": drift["shortfall"],
+            "ratio": drift["ratio"],
+            "scaffold_seed_hash": drift["scaffoldSeedHash"],
+        })
+    return sorted(rows, key=lambda r: -r["shortfall"])
 
 
 def _shame_lists(analysis_root: Path) -> tuple[list[str], list[str]]:
@@ -1921,6 +1948,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     ) if not frame_joint_df.empty else pd.DataFrame()
     split_df = _cross_video_splits(recs, analysis_root)
     no_truth, stale_runs = _shame_lists(analysis_root)
+    stale_truth = _stale_truth_worklist(analysis_root)
     visible_hist = _visible_histogram(recs)
     low_conf_worklist = _low_confidence_worklist(analysis_root)
 
@@ -1991,6 +2019,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "version_deltas": version_deltas,
         "version_flags": version_flags,
         "truthless_bundles": no_truth,
+        "stale_truth_bundles": stale_truth,
+        "stale_truth_count": len(stale_truth),
         "stale_runs": stale_runs,
         "visible_histogram": visible_hist,
         "low_conf_worklist": low_conf_worklist,
@@ -2036,6 +2066,8 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
     truth_repair_df = pd.DataFrame(truth_repair) if truth_repair else pd.DataFrame()
     superseded = ctx.get("superseded_records") or []
     superseded_df = pd.DataFrame(superseded) if superseded else pd.DataFrame()
+    stale_truth = ctx.get("stale_truth_bundles") or []
+    stale_truth_df = pd.DataFrame(stale_truth) if stale_truth else pd.DataFrame()
     rate_mismatch = ctx.get("rate_mismatch_records") or []
     rate_mismatch_df = pd.DataFrame(rate_mismatch) if rate_mismatch else pd.DataFrame()
     tables = {
@@ -2050,6 +2082,7 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_superseded_records.csv": superseded_df,
         "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
         "eval_frame_quality_absence_reasons.csv": ctx.get("frame_quality_absence_reasons"),
+        "eval_stale_truth_worklist.csv": stale_truth_df,
         "eval_rate_mismatch_records.csv": rate_mismatch_df,
         "eval_frame_quality_distractors.csv": ctx.get("frame_quality_distractors"),
         "eval_frame_quality_worklist.csv": ctx.get("frame_quality_worklist"),

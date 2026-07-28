@@ -139,6 +139,15 @@ not a spec — it carries no implementation detail.
   and never promoted. One label used to flatten all four, and the difference between
   them is the difference between four different fixes — only `confirmed-absent`
   implies presence gating. See `docs/adr/0008`.
+- **Scaffold drift** — Ground Truth is authored *from* the ViTPose scaffold, so the
+  two should record roughly the same Climber-present frames. When the scaffold is
+  regenerated, the truth on disk keeps describing the superseded one, and every frame
+  the new scaffold poses that the old truth calls absent becomes a **phantom absence**.
+  Nothing else detects it: `setupHash` tracks *calibration*, and a re-seed does not
+  change the calibration, so a drifted truth still pairs as current on both sides —
+  the same blind spot ADR 0007 closed for scaffolds, one layer up. Measured by
+  comparing present-frame counts, which is a heuristic; the durable fix is for Ground
+  Truth to stamp the scaffold `seedHash` it was authored from.
 - **Truth sufficiency** — the conformance gate's floor on truth-present **frames**,
   distinct from its floor on joint-*pairs*. A bundle whose near-perfect fit rests on
   eleven frames is not a conforming bundle, and counting joint-pairs let exactly that

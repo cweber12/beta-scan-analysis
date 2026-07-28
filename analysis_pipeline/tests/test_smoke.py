@@ -2771,6 +2771,65 @@ def test_sequential_reader_holds_one_video_open_at_a_time():
         frames_mod.cv2 = original
 
 
+def test_stale_truth_detected_when_the_scaffold_moves_underneath_it():
+    """Issue #101 follow-up: Ground Truth is authored *from* the scaffold, so when the
+    scaffold is regenerated the truth on disk keeps describing the old one — and every
+    frame the new scaffold poses that the old truth calls absent becomes a phantom
+    absence.
+
+    Nothing else catches this. ``setupHash`` tracks *calibration*, and a re-seed does not
+    change the calibration, so the truth still pairs as current on both sides. The
+    fixture reproduces exactly that: matching setupHashes, truth that looks accepted, and
+    a scaffold that has moved on."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    def bundle(root, name, truth_present, scaffold_posed, total):
+        vdir = root / "routeST" / name
+        _write_bundle_meta(vdir, setup_hash="sh_stale")
+        # Truth and setup agree on setupHash — the existing staleness test passes.
+        (vdir / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS), "setupHash": "sh_stale",
+            "groundTruthHash": f"st{name}"[:16].ljust(16, "0"),
+            "frames": [_truth_frame(i, float(i), i < truth_present)
+                       for i in range(total)]}), encoding="utf-8")
+        _write_scaffold(vdir, samples=[float(i) for i in range(total)],
+                        posed=[float(i) for i in range(scaffold_posed)], seed_found=True)
+        return vdir
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # Adrift: truth records almost nothing, the scaffold poses nearly everything.
+        bundle(root, "vidDrift", truth_present=5, scaffold_posed=200, total=220)
+        # Healthy: truth broadly matches what the scaffold poses.
+        bundle(root, "vidFresh", truth_present=195, scaffold_posed=200, total=220)
+        # Small shortfall from ordinary human editing must NOT trip it.
+        bundle(root, "vidEdited", truth_present=95, scaffold_posed=100, total=120)
+
+        drift = ev.scaffold_truth_drift(root / "routeST" / "vidDrift")
+        assert drift["drifted"] is True
+        assert (drift["truthPresent"], drift["scaffoldPosed"]) == (5, 200)
+        assert drift["scaffoldSeedHash"] is None  # stub scaffold carries none
+        assert ev.scaffold_truth_drift(root / "routeST" / "vidFresh")["drifted"] is False
+        assert ev.scaffold_truth_drift(root / "routeST" / "vidEdited")["drifted"] is False
+
+        # A bundle with no authored truth cannot drift from the scaffold — it *is*
+        # scored against the scaffold.
+        (root / "routeST" / "vidFresh" / "ground-truth.json").unlink()
+        assert ev.scaffold_truth_drift(root / "routeST" / "vidFresh") is None
+
+        rows = trends._stale_truth_worklist(root)
+        assert [r["video_key"] for r in rows] == ["vidDrift"]
+        assert rows[0]["shortfall"] == 195
+
+        html = report._stale_truth_html({"stale_truth_bundles": rows})
+        assert "vidDrift" in html and "phantom absences" in html
+        assert "re-accept these in the scanner" in html.lower()
+        # ...and an untroubled corpus says so rather than rendering an empty table.
+        assert "No bundle's truth has fallen behind" in report._stale_truth_html({})
+
+
 def _run_keyed(n: int, runs: int) -> dict[str, list]:
     """Run-identity columns spreading ``n`` frames evenly over ``runs`` runs."""
 
