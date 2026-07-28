@@ -1,11 +1,11 @@
 {
-  "jobId": "e65efab563914fa08e14b271c5971517",
+  "jobId": "0bd159f59d3b45dc929049fd8077c662",
   "status": "done",
-  "updated_at": "2026-07-27T15:07:01",
+  "updated_at": "2026-07-28T00:28:23",
   "timings": {
-    "track_s": 55.83,
-    "pose_s": 46.67,
-    "total_s": 102.78
+    "track_s": 84.86,
+    "pose_s": 50.13,
+    "total_s": 135.28
   },
   "device": "cuda",
   "seedDebug": {
@@ -22,60 +22,65 @@
     },
     "seedFound": true,
     "seed": {
-      "frameIndex": 8,
-      "timestamp": 3.9701651699807567,
-      "sourceFrame": 119,
+      "frameIndex": 1,
+      "timestamp": 3.73662604233483,
+      "sourceFrame": 112,
       "box": {
-        "x": 0.2026447206735611,
-        "y": 0.6368673518300056,
-        "w": 0.11691591143608093,
-        "h": 0.16202686727046967,
-        "cx": 0.26110267639160156,
-        "cy": 0.7178807854652405
+        "x": 0.20575369894504547,
+        "y": 0.6455447599291801,
+        "w": 0.20263049006462097,
+        "h": 0.15537656843662262,
+        "cx": 0.30706894397735596,
+        "cy": 0.7232330441474915
       }
     },
     "stitch": {
-      "stitchedFrames": 2937,
+      "stitchedFrames": 2981,
       "idSwitches": [
         {
-          "sourceFrame": 117,
-          "from": 4224,
-          "to": 4226
+          "sourceFrame": 239,
+          "from": 1371,
+          "to": 1406
         },
         {
-          "sourceFrame": 122,
-          "from": 4226,
-          "to": 4224
+          "sourceFrame": 241,
+          "from": 1406,
+          "to": 1371
         },
         {
-          "sourceFrame": 654,
-          "from": 4224,
-          "to": 4238
+          "sourceFrame": 242,
+          "from": 1371,
+          "to": 1406
         },
         {
-          "sourceFrame": 712,
-          "from": 4238,
-          "to": 4240
+          "sourceFrame": 244,
+          "from": 1406,
+          "to": 1371
         },
         {
-          "sourceFrame": 760,
-          "from": 4240,
-          "to": 4242
+          "sourceFrame": 245,
+          "from": 1371,
+          "to": 1406
         },
         {
-          "sourceFrame": 776,
-          "from": 4242,
-          "to": 4245
+          "sourceFrame": 252,
+          "from": 1406,
+          "to": 1371
+        },
+        {
+          "sourceFrame": 1349,
+          "from": 1371,
+          "to": 1495
         }
       ],
       "jumps": [],
       "reseeds": [
         {
-          "frameIndex": 1463,
-          "sourceFrame": 1574,
-          "timestamp": 52.5129409878127,
+          "frameIndex": 1230,
+          "sourceFrame": 1341,
+          "timestamp": 44.73942431045542,
           "reason": "appearance-mismatch-streak",
-          "discarded": 10,
+          "discarded": 8,
           "recovered": 5,
           "restored": 0
         }
