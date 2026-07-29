@@ -16,6 +16,22 @@ pairs them with the scanner's pose/ORB detection diagnostics into self-contained
   `final_frame.png`, `detections/<ts>_{pose,orb}.json`. **Video binaries are
   gitignored** (the JSON/PNG record is tracked); `reports/` is gitignored.
 
+## Shell environment
+
+This machine is Windows and two shells are available. They are **not**
+interchangeable — pick the tool first, then use that tool's syntax:
+
+- **Bash tool** = Git Bash (POSIX `sh`). Heredocs (`<<'EOF'`) are correct here.
+- **PowerShell tool** = `pwsh`. Here-strings (`@'…'@`) are correct here.
+
+Never carry one shell's multi-line syntax into the other tool. PowerShell
+here-strings used inside the Bash tool have left stray `@` characters in commit
+messages on at least three occasions, each needing a `git commit --amend`. This
+is a tool-selection rule, not a ban on multi-line strings.
+
+For commit messages and PR bodies specifically, prefer repeated `-m` flags or
+`--body-file` — correct in both shells, and it sidesteps the question entirely.
+
 ## Commit conventions
 
 **Commit after each implementation.** When you finish a self-contained unit of work
@@ -36,12 +52,17 @@ you push the branch. If the branch's PR has already merged, or the data is a dis
 concern, put it on a fresh branch instead.
 
 **General git rules** (also in the harness defaults):
+
 - Before starting work, check the current branch and worktree. If the branch is
   not `main` and it has uncommitted changes or no merged PR, stop and tell the
   human before doing any implementation.
 - If on the default branch (`main`), create a feature branch before committing.
-- End every commit message with:
-  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
+- End every commit message with a `Co-Authored-By:` trailer naming the model that
+  actually authored it — currently:
+  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
+  Name the model you are actually running as rather than copying a hardcoded
+  string; this line sat stale at a superseded model long enough to put wrong
+  attributions in the history. Include any variant suffix the harness specifies.
 - Push and open a PR automatically after completing a self-contained task, unless
   there are loose ends to clarify or the human explicitly asks to keep the work
   local. Before pushing, confirm the target branch is not already merged. This
@@ -56,12 +77,17 @@ covering a later PR. Once the human confirms, the agent runs the merge
 (`gh pr merge <n> --merge`) and immediately follows with the cleanup in rule 4.
 Follow this lifecycle so branches and `main` never drift:
 
-1. **Start clean.** Before new work: check `git status -sb`. If already on a
-   non-`main` branch, confirm whether that branch has an open/merged PR and
-   whether the worktree is clean. If it has uncommitted changes or has not been
-   merged, report that to the human and wait for direction before implementing.
-   Otherwise `git checkout main && git pull`, then branch from an up-to-date
-   `main`.
+1. **Start clean.** Before new work, run all three: `git status -sb`,
+   `git branch -a --no-merged main`, and `gh pr list`. A clean working tree is
+   **not** evidence that nothing is in flight — unmerged branches and open PRs
+   do not appear in `git status`. Never report "nothing in flight" on the
+   strength of `git status` alone. The worst case is a branch that is unmerged
+   with **no** open PR: invisible to `gh pr list`, holding work `main` does not
+   have. If already on a non-`main` branch, confirm whether that branch has an
+   open/merged PR and whether the worktree is clean. If it has uncommitted
+   changes or has not been merged, report that to the human and wait for
+   direction before implementing. Otherwise `git checkout main && git pull`,
+   then branch from an up-to-date `main`.
 2. **One branch = one PR = one concern.** Don't grow a PR's scope after it's opened
    without flagging it. If unrelated `analysis/` data appears mid-issue, prefer a
    separate branch/PR over appending it to a code PR under review.
@@ -130,6 +156,12 @@ because ignoring it cost real work:
   After touching the Video Stats core (`video_stats.py`) run
   `python -m tests.test_video_stats`, and after touching `app.py` run
   `python -m tests.test_api` (both dependency-free beyond numpy/cv2).
+- **Prove data-affecting changes against the real corpus.** Green unit tests do
+  not demonstrate that a change did anything. For any filter, gate, predicate or
+  threshold change, run it over the real corpus and report the before/after
+  count of affected records. If it moves zero real records, say so plainly
+  rather than reporting green tests — an inert filter has already shipped here
+  once on the strength of a passing suite.
 
 ## Agent skills
 
