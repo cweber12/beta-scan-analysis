@@ -15,18 +15,25 @@ The whole corpus has now been human-reviewed. Every stretch the human marked
 identity failure, not a joint-accuracy failure. Measured over 86 bundles:
 
 | | |
-|---|---:|
+| --- | ---: |
 | Truth frames | 78,465 |
 | `review: auto` | 76,349 (97.3%) |
 | `human-flagged-wrong` | **2,113 (2.7%), in 7 bundles** |
 | `human-flagged-absent` | 3 |
 
 Six of those seven bundles are already excluded from trusted pooled metrics by the
-#15 conformance gate. The seventh (`planet-x/R0Z6c1zlic0`) carries 10 bad frames out
-of 742.
+conformance gate (#15). The seventh (`planet-x/R0Z6c1zlic0`) carries 10 bad frames
+out of 742.
 
 A second model plus its dependency stack plus a corpus-wide GPU re-run would exist
 to auto-verify what complete human review has already attested.
+
+**What that review does and does not establish.** The reviewer's criterion was
+*"is this the right climber?"*, so the attestation covers **identity**, not joint
+correctness. A truth defect that leaves the skeleton on the correct person — a
+left/right laterality swap being the named candidate (#148 H2) — passes that review
+unseen. The 2.7% is therefore the identity-defect rate, not the total truth-defect
+rate, and this rejection rests on the former.
 
 ### It shares the stage that actually fails
 

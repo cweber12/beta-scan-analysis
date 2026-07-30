@@ -69,6 +69,16 @@ Deleting the tier was the serious alternative and is rejected below.
   every one of those defects. Drawing independence properly (separate detector and
   tracker, sharing only decoded pixels) is defensible but roughly doubles seeding cost
   for the same 2.7%.
+
+  **One caveat, stated so the rejection is not read wider than it is.** The review
+  criterion was *"is this the right climber?"*, so it attests **identity**, not joint
+  correctness. A truth defect leaving the skeleton on the correct person — a
+  left/right laterality swap (#148 H2) — is invisible to it, and is the one failure
+  class two pose heads on a *shared* box would genuinely disagree about. The rejection
+  holds anyway: test-time flip augmentation on the existing model addresses laterality
+  at a fraction of a second model's cost, and #148 sequences the measurement.
+  Read this ADR as retiring second-model verification, not as a claim that truth is
+  defect-free.
 - **Delete the accuracy tier and report only agreement.** Rejected, though it was
   close. With one pose number in the report, `agreement` is read as accuracy — the
   ADR 0003 circularity re-entering through the report layer instead of the data layer.
