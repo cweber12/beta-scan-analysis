@@ -179,3 +179,10 @@ Canonical five-role vocabulary — `needs-triage` / `needs-info` / `ready-for-ag
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
+
+### Scanner handoffs
+
+The scanner is a separate repo with its own agents; **never push to it**. Work that
+lands on the scanner side travels as a handoff doc in `docs/handoffs/`, committed
+`docs:` on its own branch and linked from a `ready-for-human` issue — the issue tracks,
+the doc specifies. See `docs/agents/scanner-handoffs.md`.
