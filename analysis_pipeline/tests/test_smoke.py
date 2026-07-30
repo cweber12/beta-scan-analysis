@@ -2864,6 +2864,168 @@ def test_frame_quality_condition_bands_flagged_rate():
     assert trends._frame_quality_condition_bands(pd.DataFrame()).empty
 
 
+def _approx(a: object, b: object, tol: float = 1e-9) -> bool:
+    """Float equality for the share/rate assertions. This suite runs without pytest, so
+    there is no ``pytest.approx`` to lean on."""
+
+    return abs(float(a) - float(b)) <= tol  # type: ignore[arg-type]
+
+
+def _funnel_run_row(route: str, attempts: int, missing: int, conforming: bool,
+                    cause: str | None) -> dict:
+    """One per-run funnel row: ``attempts`` attempts of which ``missing`` were missed."""
+
+    return {
+        "route_folder": route, "video_key": f"vid_{route}",
+        "run_ts": "20260101-000000",
+        "conforming": conforming, "nonconformance_cause": cause,
+        "attempt_count": attempts,
+        "attempt_status_accepted_count": attempts - missing,
+        "attempt_status_accepted_rate": (attempts - missing) / attempts,
+        "attempt_status_missing_count": missing,
+        "attempt_status_missing_rate": missing / attempts,
+    }
+
+
+def test_conformance_is_a_covariate_on_failure_modes_not_a_filter():
+    """Issue #132: the #15 gate must not filter the attempt funnel.
+
+    The gate exists to keep a mis-fit truth out of *truth-fit* metrics. Applied to the
+    funnel it selects on the failure being measured — most sharply for ``sparse-match``,
+    which by definition is the detector supplying too little to fit. So the funnel pools
+    every run and reports conformance as a dimension.
+
+    The corpus here is deliberately the shape that broke cross-batch comparison: one clean
+    conforming run and one collapsed ``sparse-match`` run holding a minority of the
+    attempts and the overwhelming majority of the misses."""
+
+    from analysis_pipeline import trends
+
+    funnel = pd.DataFrame([
+        _funnel_run_row("clean", attempts=800, missing=8, conforming=True, cause=None),
+        _funnel_run_row("collapsed", attempts=200, missing=180, conforming=False,
+                        cause="sparse-match"),
+    ])
+    out = trends._attempt_funnel_conformance(funnel)
+    by_pop = out.set_index("population")
+
+    # The pooled row is over ALL runs: 188/1000, not the conforming pool's 8/800.
+    assert by_pop.loc["all", "attempts"] == 1000
+    assert _approx(by_pop.loc["all", "missing_share"], 0.188)
+    assert _approx(by_pop.loc["conforming", "missing_share"], 0.01)
+
+    # ...and the gate's selectivity is visible rather than baked in: the quarantined run
+    # is a fifth of the attempts and almost all of the misses. This pair of columns is the
+    # whole point of the breakout.
+    assert _approx(by_pop.loc["non-conforming", "share_of_attempts"], 0.2)
+    assert _approx(by_pop.loc["non-conforming", "share_of_missing"], 180 / 188)
+
+    # The cause rows partition the non-conforming pool, and every cause is named even at
+    # zero so "no mis-track suspects this batch" is distinguishable from "never split".
+    causes = out[out["kind"] == "cause"].set_index("population")
+    assert set(causes.index) == set(trends.NONCONFORMANCE_CAUSES)
+    assert _approx(causes.loc["sparse-match", "share_of_missing"], 180 / 188)
+    assert causes.loc["suspected-mistrack", "runs"] == 0
+
+    # Construction invariant: the `all` row is the same arithmetic as the section's
+    # headline tiles, so the breakout can never contradict the number above it.
+    totals = trends._attempt_funnel_totals(
+        funnel, trends._attempt_funnel_status_table(funnel))
+    assert totals["attempts"] == by_pop.loc["all", "attempts"]
+    assert _approx(totals["status_shares"]["missing"], by_pop.loc["all", "missing_share"])
+
+    # A pool with no conformance verdict at all yields the pooled row alone rather than a
+    # fabricated split.
+    bare = trends._attempt_funnel_conformance(funnel.drop(columns=["conforming"]))
+    assert list(bare["population"]) == ["all"]
+    assert trends._attempt_funnel_conformance(pd.DataFrame()).empty
+
+
+def test_miss_cause_mix_breaks_out_by_conformance():
+    """Issue #132: the miss-cause mix read off the conforming pool is not the corpus's
+    mix, because the quarantined runs hold most of the misses. Both are reported."""
+
+    from analysis_pipeline import trends
+
+    rows = []
+    # Conforming run: 10 misses, all identity-gated.
+    rows += [{"route_folder": "r1", "video_key": "v1", "run_ts": "20260101-000000",
+              "conforming": True, "nonconformance_cause": None,
+              "miss_cause": "identity-gated"} for _ in range(10)]
+    # Quarantined run: 90 misses, all no-candidates.
+    rows += [{"route_folder": "r2", "video_key": "v2", "run_ts": "20260101-000000",
+              "conforming": False, "nonconformance_cause": "sparse-match",
+              "miss_cause": "no-candidates"} for _ in range(90)]
+    crop_df = pd.DataFrame(rows)
+
+    out = trends._miss_cause_conformance(crop_df).set_index("population")
+    # Gated, the corpus would read 100% identity-gated. Pooled, it reads 90% no-candidates
+    # — the number a scanner change would actually be judged on.
+    assert _approx(out.loc["conforming", "identity_gated_share"], 1.0)
+    assert _approx(out.loc["all", "identity_gated_share"], 0.1)
+    assert _approx(out.loc["all", "no_candidates_share"], 0.9)
+    assert _approx(out.loc["non-conforming", "share_of_misses"], 0.9)
+    assert out.loc["all", "misses"] == 100
+    assert out.loc["all", "runs"] == 2
+
+    assert trends._miss_cause_conformance(pd.DataFrame()).empty
+    # Nothing scored as a miss -> no table rather than a table of zeros.
+    assert trends._miss_cause_conformance(
+        crop_df.assign(miss_cause=None)).empty
+
+
+def test_rejection_and_crop_breakouts_reuse_the_section_totals():
+    """Issue #132: the rejection and crop breakouts are built by running the section's own
+    totals function once per population, so the ``all`` row cannot drift from the headline
+    tiles it sits under. Asserted rather than assumed — two code paths computing the same
+    pooled number is exactly how the report has disagreed with itself before."""
+
+    from analysis_pipeline import trends
+
+    run_df = pd.DataFrame([
+        {"route_folder": "r1", "video_key": "v1", "run_ts": "20260101-000000",
+         "conforming": True, "nonconformance_cause": None,
+         "rejected_attempts": 20, "good_pose_rejected": 8, "bad_pose_rejected": 12,
+         "rejection_truth_absent": 2, "rejection_truth_unknown": 0,
+         "over_rejection_rate": 0.4},
+        {"route_folder": "r2", "video_key": "v2", "run_ts": "20260101-000000",
+         "conforming": False, "nonconformance_cause": "suspected-mistrack",
+         "rejected_attempts": 10, "good_pose_rejected": 1, "bad_pose_rejected": 9,
+         "rejection_truth_absent": 4, "rejection_truth_unknown": 0,
+         "over_rejection_rate": 0.1},
+    ])
+    rej = trends._rejection_conformance(run_df).set_index("population")
+    headline = trends._rejection_totals(run_df)
+    assert _approx(rej.loc["all", "over_rejection_rate"], headline["over_rejection_rate"])
+    assert _approx(rej.loc["all", "over_rejection_rate"], 9 / 30)
+    # The gate would have reported 0.4 — and it inverts the ranking of the two runs.
+    assert _approx(rej.loc["conforming", "over_rejection_rate"], 0.4)
+    assert _approx(rej.loc["non-conforming", "over_rejection_rate"], 0.1)
+
+    crop_df = pd.DataFrame([
+        {"route_folder": "r1", "video_key": "v1", "run_ts": "20260101-000000",
+         "conforming": True, "nonconformance_cause": None, "miss_cause": None,
+         "crop_contained_truth": True, "initial_crop_containment": 1.0,
+         "initial_search_region_iou": 0.6},
+        {"route_folder": "r2", "video_key": "v2", "run_ts": "20260101-000000",
+         "conforming": False, "nonconformance_cause": "sparse-match",
+         "miss_cause": "no-candidates",
+         "crop_contained_truth": False, "initial_crop_containment": 0.0,
+         "initial_search_region_iou": 0.0},
+    ])
+    crop = trends._crop_conformance(crop_df).set_index("population")
+    crop_headline = trends._crop_totals(crop_df)
+    assert _approx(crop.loc["all", "crop_missed_truth_rate"],
+                   crop_headline["crop_missed_truth_rate"])
+    assert _approx(crop.loc["all", "crop_missed_truth_rate"], 0.5)
+    # Gated, the crop looks flawless; pooled, half the scored crops excluded the Climber.
+    assert _approx(crop.loc["conforming", "crop_missed_truth_rate"], 0.0)
+    assert _approx(crop.loc["non-conforming", "crop_missed_truth_rate"], 1.0)
+
+    assert trends._rejection_conformance(pd.DataFrame()).empty
+    assert trends._crop_conformance(pd.DataFrame()).empty
+
+
 def test_condition_band_cis_are_computed_at_the_run_unit():
     """Issue #70: frames within a run are pseudo-replicated, so a band's CI resamples
     runs, not frames — the pooled rate is unchanged but the interval widens to match the
@@ -3103,8 +3265,18 @@ def test_analysis_report_includes_eval_trend_sections():
             "Shame lists",
             "Superseded records (#89 evidence-generation dedup)",
             "Loose-paired bundles (#44 best-overlap fallback)",
+            # Issue #132: the gate's two roles are each stated where they apply.
+            "How the #15 conformance gate is applied",
+            "Conformance breakout (covariate, not a filter)",
+            "Miss-cause mix by conformance",
+            "Rejection correctness by conformance",
+            "Crop placement by conformance",
         ):
             assert header in html_text, f"missing report section: {header}"
+
+        # Every truth-fit section says out loud that it quarantines (#132) — four of them:
+        # version regression, joint ranking, condition bands, cross-video splits.
+        assert html_text.count("Truth-fit metric — quarantined pool") == 4
 
         assert "routeT/vidNoTruth" in html_text
         assert "routeT/vidStale" in html_text  # stale shame list + loose table

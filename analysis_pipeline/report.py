@@ -576,6 +576,75 @@ _NONCONFORMANCE_CAUSE_BLURB = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# Conformance breakouts on failure-mode sections (issue #132)
+# --------------------------------------------------------------------------- #
+
+# Said once, above the first breakout, and referenced by the others: the #15 gate is a
+# quarantine for truth-fit metrics and a covariate for failure-mode ones, because on a
+# failure-mode metric the gate selects on the very failure being measured.
+_CONFORMANCE_COVARIATE_NOTE = (
+    "<p class='sub'>This section pools <strong>all</strong> runs. The #15 conformance "
+    "gate is a quarantine for <em>truth-fit</em> metrics only (accuracy, agreement, PCK, "
+    "normDist), where a bad truth fit makes the number meaningless. On a "
+    "<em>failure-mode</em> metric it would select on the very failure being measured — "
+    "most sharply for <code>sparse-match</code>, which <em>is</em> the detector supplying "
+    "too little to fit — so conformance is reported below as a dimension instead of "
+    "applied as a filter (#132). Read <strong>share of attempts</strong> against the "
+    "population's own failure rate: a population holding a slice of the corpus and most "
+    "of its failures is the gate's selectivity made visible, and is why a "
+    "conforming-pool number drifts batch over batch as corpus composition changes.</p>")
+
+# Non-conforming rows are a partition of the corpus at the gate; cause rows are a
+# partition of *that* partition. Marked in the label rather than by indentation alone so
+# the CSV and the HTML read the same way.
+_CONFORMANCE_POPULATION_BLURB = {
+    "all": "every run — the section's headline pool",
+    "conforming": "passed the #15 gate",
+    "non-conforming": "failed the #15 gate",
+    "sparse-match": "of non-conforming: detector supplied too little to fit",
+    "suspected-mistrack": "of non-conforming: ample detections, fit still misses identity",
+    "rate-mismatch": "of non-conforming: scaffold sampled coarser than the truth grid",
+}
+
+
+def _conformance_breakout_table(df: Any, empty: str) -> str:
+    """Render a ``population``-indexed breakout (see ``trends._conformance_pools``).
+
+    Formatting is driven off the column name — anything that is a share or a rate renders
+    as a percentage, everything else as a count — so the four breakouts stay in step
+    without four hand-written renderers to keep aligned."""
+
+    if not isinstance(df, pd.DataFrame) or df.empty or "population" not in df.columns:
+        return f"<p class='muted'>{empty}</p>"
+    cols = [c for c in df.columns if c not in ("population", "kind")]
+    head = ("<tr><th>population</th><th>meaning</th>"
+            + "".join(f"<th>{_esc(c.replace('_', ' '))}</th>" for c in cols)
+            + "</tr>")
+    body = []
+    for _, r in df.iterrows():
+        pop = str(r["population"])
+        cause_row = str(r.get("kind")) == "cause"
+        cells = []
+        for c in cols:
+            v = r.get(c)
+            if c.endswith("_share") or c.startswith("share_of_") or c.endswith("_rate"):
+                cells.append(_pct(v))
+            elif c.startswith("median_") or c.endswith("_median") or c.endswith("_p90"):
+                cells.append(_fmt(v, 3))
+            else:
+                cells.append(_fmt_int(v))
+        tr = "<tr class='muted'>" if cause_row else "<tr>"
+        body.append(
+            tr
+            + f"<td><code>{_esc(pop)}</code></td>"
+            f"<td>{_esc(_CONFORMANCE_POPULATION_BLURB.get(pop, ''))}</td>"
+            + "".join(f"<td>{c}</td>" for c in cells)
+            + "</tr>")
+    return ("<div class='tablewrap'><table><thead>" + head
+            + f"</thead><tbody>{''.join(body)}</tbody></table></div>")
+
+
 def _quarantine_cause_table(rows: list[dict[str, Any]]) -> str:
     head = ("<tr><th>route</th><th>video</th><th>run</th><th>reasons</th>"
             "<th>n</th><th>fit frames</th><th>accepted share</th>"
@@ -1124,9 +1193,15 @@ def _attempt_funnel_html(ctx: dict[str, Any]) -> str:
         worst_tbl += (f"<p class='muted'>Showing {len(shown)} of {len(funnel)} runs; the "
                       "full funnel is in <code>eval_attempt_funnel_runs.csv</code>.</p>")
 
+    conformance_tbl = _conformance_breakout_table(
+        ctx.get("attempt_funnel_conformance"),
+        "No conformance breakout — no run carries a conformance verdict.")
+
     return (
         tiles
         + "<h3>Status mix (pooled attempts vs run-unit distribution)</h3>" + status_tbl
+        + "<h3>Conformance breakout (covariate, not a filter)</h3>"
+        + _CONFORMANCE_COVARIATE_NOTE + conformance_tbl
         + "<h3>Reacquire effectiveness and per-run spread</h3>" + run_stats_tbl
         + "<h3>Search-condition flags by status</h3>" + flag_tbl
         + "<h3>Worst runs by missing share</h3>" + worst_tbl
@@ -1255,10 +1330,34 @@ def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
     ]
     top = runs.sort_values("flagged_rate", ascending=False, na_position="last")
     top = top[[c for c in display_cols if c in top.columns]].head(20)
+
+    # Issue #132: rejection correctness, crop placement and the miss-cause mix are all
+    # failure-mode metrics, so each is pooled over every run and broken out by
+    # conformance rather than gated on it. The covariate note is stated once, in the
+    # attempt-funnel section above, and referred back to here.
+    rejection_tbl = _conformance_breakout_table(
+        ctx.get("rejection_conformance"),
+        "No conformance breakout for rejections — no run carries a conformance verdict.")
+    crop_conf_tbl = _conformance_breakout_table(
+        ctx.get("crop_quality_conformance"),
+        "No conformance breakout for crop placement — no scored crop attempts.")
+    miss_conf_tbl = _conformance_breakout_table(
+        ctx.get("crop_quality_miss_cause_conformance"),
+        "No conformance breakout for miss causes — no scored missing attempts.")
+    conformance_note = (
+        "<p class='sub'>All three tables below pool <strong>every</strong> run and carry "
+        "conformance as a dimension (#132) — see the covariate note in the attempt-funnel "
+        "section above for why a failure-mode metric must not be gated on it. Cause rows "
+        "(greyed) partition the non-conforming population.</p>")
+
     return (
         tiles
         + "<h3>Crop placement vs Ground Truth</h3>" + crop_tiles
         + "<h3>Missing-attempt causes</h3>" + cause_tbl
+        + "<h3>Conformance breakout (covariate, not a filter)</h3>" + conformance_note
+        + "<h4>Miss-cause mix by conformance</h4>" + miss_conf_tbl
+        + "<h4>Rejection correctness by conformance</h4>" + rejection_tbl
+        + "<h4>Crop placement by conformance</h4>" + crop_conf_tbl
         + "<h3>Run-level attempt conditions vs Detection Errors</h3>" + band_tbl
         + "<h3>Worst runs with attempt evidence</h3>" + _df_to_table(top)
     )
@@ -1551,12 +1650,43 @@ def build_report_html(ctx: dict[str, Any]) -> str:
     trusted_evidence = _evidence_generation_html(ctx.get("evidence_generation_trusted"))
     frames_evidence = _evidence_generation_html(ctx.get("evidence_generation_frames"))
 
+    # Issue #132: every truth-fit section says out loud that it quarantines, and how much
+    # it is quarantining. These metrics are measured *against* Ground Truth, so a run whose
+    # truth does not fit yields a meaningless number rather than a bad one — the gate stays.
+    # Stated per section rather than once at the top, because the failure-mode sections
+    # below deliberately do the opposite and the reader must not carry one rule into both.
+    n_quarantined = int(ctx.get("quarantined_count") or 0)
+    n_trusted = int(ctx.get("eval_count") or 0)
+    n_loose = int(ctx.get("loose_count") or 0)
+    quarantine_note = (
+        "<p class='sub'><strong>Truth-fit metric — quarantined pool.</strong> Measured "
+        f"over the {n_trusted} trusted record(s) only: the {n_quarantined} record(s) that "
+        f"failed the #15 conformance gate and the {n_loose} #44 loose pairing(s) are held "
+        "out, because these numbers are scored <em>against</em> Ground Truth and a truth "
+        "fit that misses identity makes them meaningless rather than merely bad. This is "
+        "the opposite of the failure-mode sections (attempt funnel, miss causes, "
+        "rejection, crop), which pool every run and carry conformance as a covariate "
+        "(#132). Quarantined records are listed by cause under Shame lists.</p>")
+
     parts += [
         "<h2>Evaluation trend accounting</h2>",
         "<p class='sub'>Two-tier accounting from committed evaluation records. "
         "Every value is explicitly tagged as agreement or accuracy. Records superseded "
         "by a newer evidence generation for the same video+truth pairing are dropped "
         "before any of this (#89) and listed in the shame lists below.</p>",
+        # The #15 gate has two roles and they point opposite ways (#132). Say which is
+        # which here, once, so no section below has to be read as if it were the other.
+        "<p class='sub'><strong>How the #15 conformance gate is applied.</strong> "
+        "<em>Truth-fit</em> metrics — accuracy, agreement, PCK, normDist, and everything "
+        "derived from them (version regression, joint ranking, condition bands, "
+        "cross-video splits) — <strong>quarantine</strong> non-conforming records: they "
+        "are scored against Ground Truth, so a truth fit that misses identity makes them "
+        "meaningless. <em>Failure-mode</em> metrics — the attempt funnel, miss causes, "
+        "rejection correctness and crop placement — <strong>pool every run</strong> and "
+        "report conformance as a covariate instead, because gating them would select on "
+        "the very failure being measured. The tile counts below are the trusted "
+        "(quarantined) pool; each failure-mode section carries its own conformance "
+        "breakout.</p>",
         trusted_evidence,
         _stat_tiles([
             (str(ctx.get("eval_count", 0)), "trusted records [pooled]"),
@@ -1629,6 +1759,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "regressed); ΔPCK &gt; 0 and Δmedian &lt; 0 are improvements. Superseded legacy "
         "records are already gone (#89), so a change of evidence generation can no "
         "longer masquerade as a scanner change either.</p>",
+        quarantine_note,
         trusted_evidence,
         _version_overview_table(ctx.get("version_overview", pd.DataFrame())),
         _version_delta_table(ctx.get("version_deltas", pd.DataFrame())),
@@ -1639,6 +1770,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "<h2>Per-joint failure ranking (frame/joint unit)</h2>",
         "<p class='sub'>Joint ranking uses frame/joint evidence with bootstrap "
         "95% CIs (no per-video correlation coefficients).</p>",
+        quarantine_note,
         trusted_evidence,
         _joint_ranking_table(ctx.get("joint_rank", pd.DataFrame())),
 
@@ -1650,11 +1782,13 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "runs (#70) and the per-run median/p90 sits beside it. Read a band as "
         "well-evidenced only when its <code>runs</code> count is large; a wide interval "
         "over many frames means few runs, not noisy frames.</p>",
+        quarantine_note,
         trusted_evidence,
         _condition_table(ctx.get("condition_bands", pd.DataFrame())),
 
         "<h2>Cross-video descriptive splits</h2>",
         f"<p class='sub'>{_esc(ctx.get('confound_caveat', ''))}</p>",
+        quarantine_note,
         trusted_evidence,
         _cross_video_split_table(ctx.get("cross_video_splits", pd.DataFrame())),
 
