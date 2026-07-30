@@ -220,6 +220,14 @@ class VitPoseRequest:
     # request rather than the default.
     detector_imgsz: int | None = None
     detector_conf: float | None = None
+    # Identity of the models that produced the scaffold, when either deviates from the
+    # declared default (issue #149). **Derived, never client-supplied**: stamped by
+    # ``run_vitpose_job`` from the backends actually injected, so the hash records what
+    # ran rather than what a caller claimed. ``None`` on both means "the declared
+    # defaults", which is what every scaffold on disk was built with — so the payload,
+    # and the hash, are unchanged for the default path.
+    tracker_model: str | None = None
+    pose_model: str | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -327,6 +335,18 @@ _AREA_WEIGHT = 0.3
 # seedDebug event thresholds/caps.
 _JUMP_EVENT_DIST = 0.08
 _EVENT_CAP = 50
+
+# The declared default models. A scaffold is a function of these, so they are named here
+# rather than only as constructor defaults: ``stamp_model_identity`` hashes a model
+# **only when it deviates from the declared default**, which is what keeps every existing
+# scaffold's seed hash byte-identical while making any deviation detectable (issue #149).
+#
+# The residual sharp edge, stated because it cannot be closed by hashing: *changing a
+# declared default here* is a deliberate act that leaves existing hashes matching. Pair
+# it with a forced re-seed (``force``/``--force``), or the corpus keeps scaffolds built
+# by the previous model while claiming the seed is unchanged.
+DEFAULT_TRACKER_MODEL = "yolov8n.pt"
+DEFAULT_POSE_MODEL = "usyd-community/vitpose-plus-base"
 
 
 def _source_frame_no(history: Sequence[FrameTracks], i: int) -> int:
@@ -865,15 +885,45 @@ def _video_identity(video_path: Path) -> str:
     return f"{video_path.name}:{size}"
 
 
+def stamp_model_identity(
+    request: VitPoseRequest, tracker: object, pose_backend: object
+) -> VitPoseRequest:
+    """Record which models are about to run, when either deviates from the default.
+
+    The scaffold is a function of the models that produce it, so a model change must
+    change the seed hash — otherwise ``seed_is_unchanged`` skips the job and the
+    experiment reads out "no change" from a run that never happened (issue #149).
+
+    Identity is read off the backends *actually injected* rather than taken from the
+    request, so the hash records what ran and a caller cannot misdeclare it. A backend
+    with no ``model_id`` (every stub in the test suite) reports nothing and is treated
+    as the default, which is what keeps stub-backed hashes stable.
+    """
+    tracker_id = getattr(tracker, "model_id", None)
+    pose_id = getattr(pose_backend, "model_id", None)
+    return replace(
+        request,
+        tracker_model=tracker_id if tracker_id not in (None, DEFAULT_TRACKER_MODEL) else None,
+        pose_model=pose_id if pose_id not in (None, DEFAULT_POSE_MODEL) else None,
+    )
+
+
 def seed_hash(request: VitPoseRequest, video_path: Path) -> str:
     """Identity of everything the ViTPose scaffold is a function of (issue #101).
 
-    Covers the seed tap, the seed region, the climb window and the video binary.
-    Stamped into the artifact so a scaffold *records which seed it was built from*,
-    and compared on each request so an unchanged seed skips the job. This is one
-    change wearing two hats: it is the correctness fix for silent staleness (before
-    it, a re-calibration that moved the seed left a stale scaffold behind and the
-    setupHash matched either way) and the largest re-run saving.
+    Covers the seed tap, the seed region, the climb window and the video binary, plus —
+    only when they deviate from the declared defaults — the detector settings and the
+    identity of both models (issue #149). Stamped into the artifact so a scaffold
+    *records which seed it was built from*, and compared on each request so an unchanged
+    seed skips the job. This is one change wearing two hats: it is the correctness fix
+    for silent staleness (before it, a re-calibration that moved the seed left a stale
+    scaffold behind and the setupHash matched either way) and the largest re-run saving.
+
+    **What it deliberately does not cover.** Changing a value of ``DEFAULT_POSE_MODEL`` /
+    ``DEFAULT_TRACKER_MODEL`` itself does not move the hash — every scaffold would
+    otherwise re-seed on a constant edit. Such an edit must be paired with a forced
+    re-seed. Nor does it cover ``frames`` or ``setup_hash``: neither changes the
+    trajectory the scaffold is built from.
     """
 
     tap = request.seed_tap
@@ -885,12 +935,18 @@ def seed_hash(request: VitPoseRequest, video_path: Path) -> str:
         "climbEnd": request.climb_end,
         "video": _video_identity(video_path),
     }
-    # Detector settings join the hash only when set. Adding them unconditionally would
-    # change every existing scaffold's hash and force a needless corpus-wide re-seed.
+    # Detector settings and model identities join the hash only when set. Adding them
+    # unconditionally would change every existing scaffold's hash and force a needless
+    # corpus-wide re-seed. ``None`` means "the declared default", which is what the whole
+    # corpus was built with.
     if request.detector_imgsz is not None:
         payload["detectorImgsz"] = request.detector_imgsz
     if request.detector_conf is not None:
         payload["detectorConf"] = request.detector_conf
+    if request.tracker_model is not None:
+        payload["trackerModel"] = request.tracker_model
+    if request.pose_model is not None:
+        payload["poseModel"] = request.pose_model
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -1163,6 +1219,13 @@ def _seed_debug(
         "mode": _seed_mode(request),
         "historyFrames": len(history),
     }
+    # Which models produced this scaffold, recorded only when they deviate from the
+    # declared defaults (issue #149). Present here means "this scaffold is not comparable
+    # to a default-model one" — the same thing its seed hash now says, said readably.
+    if request.tracker_model is not None:
+        debug["trackerModel"] = request.tracker_model
+    if request.pose_model is not None:
+        debug["poseModel"] = request.pose_model
     # Output keys stay `tap`/`crop` — cross-program seedDebug shape the scanner reads.
     if request.seed_tap is not None:
         debug["tap"] = {
@@ -1287,6 +1350,11 @@ def run_vitpose_job(
     # so an unchanged seed under a *changed* window must not be read as unchanged.
     start, end = resolve_climb_window(request, bundle_dir)
     request = replace(request, climb_start=start, climb_end=end)
+
+    # Same reasoning, one stage earlier in the pipeline: the models are part of the seed
+    # hash, so a *model* change under an unchanged tap must not read as unchanged
+    # (issue #149). Read off the injected backends, before the idempotence check.
+    request = stamp_model_identity(request, tracker, pose_backend)
 
     # Idempotence (issue #101): identical seed inputs produce an identical scaffold, so
     # skip the job and say so. The status sidecar is the scanner's only channel, so the
@@ -1480,12 +1548,18 @@ class UltralyticsTracker:
 
     CPU_VID_STRIDE = 2
 
-    def __init__(self, model_name: str = "yolov8n.pt", vid_stride: int | None = None) -> None:
+    def __init__(self, model_name: str = DEFAULT_TRACKER_MODEL,
+                 vid_stride: int | None = None) -> None:
         self._model_name = model_name
         self._vid_stride = vid_stride  # explicit override; None = pick by device
         self._model = None
         self._load_lock = threading.Lock()
         self.device: str | None = None  # "cuda" / "cpu", known after the model loads
+
+    @property
+    def model_id(self) -> str:
+        """Checkpoint identity, for the seed hash (issue #149)."""
+        return self._model_name
 
     def _ensure_model(self):
         # Locked: the boot-time warm thread and an early first job otherwise race
@@ -1576,12 +1650,17 @@ class TransformersViTPoseBackend:
     COCO_EXPERT_INDEX = 0
     BATCH_SIZE = 16
 
-    def __init__(self, model_name: str = "usyd-community/vitpose-plus-base") -> None:
+    def __init__(self, model_name: str = DEFAULT_POSE_MODEL) -> None:
         self._model_name = model_name
         self._processor = None
         self._model = None
         self._load_lock = threading.Lock()
         self.device = "cpu"
+
+    @property
+    def model_id(self) -> str:
+        """Checkpoint identity, for the seed hash (issue #149)."""
+        return self._model_name
 
     def _ensure_model(self):
         # Locked: the boot-time warm thread and an early first job otherwise race
@@ -1672,22 +1751,25 @@ class TransformersViTPoseBackend:
 # Cached singletons: the models are expensive to load and re-init on CUDA, so we
 # keep one resident instance each and reuse it across every job (this server runs
 # locally for a single user — jobs are serialized by the caller's lock).
-_TRACKER: Tracker | None = None
-_POSE_BACKEND: PoseBackend | None = None
+# Keyed by checkpoint name, not a bare singleton: a job asking for a non-default model
+# must never be handed the resident instance of a *different* one, which would put the
+# wrong model behind a request whose seed hash claims the requested one (issue #149).
+_TRACKERS: dict[str, Tracker] = {}
+_POSE_BACKENDS: dict[str, PoseBackend] = {}
 
 
-def default_tracker() -> Tracker:
-    global _TRACKER
-    if _TRACKER is None:
-        _TRACKER = UltralyticsTracker()
-    return _TRACKER
+def default_tracker(model_name: str | None = None) -> Tracker:
+    name = model_name or DEFAULT_TRACKER_MODEL
+    if name not in _TRACKERS:
+        _TRACKERS[name] = UltralyticsTracker(model_name=name)
+    return _TRACKERS[name]
 
 
-def default_pose_backend() -> PoseBackend:
-    global _POSE_BACKEND
-    if _POSE_BACKEND is None:
-        _POSE_BACKEND = TransformersViTPoseBackend()
-    return _POSE_BACKEND
+def default_pose_backend(model_name: str | None = None) -> PoseBackend:
+    name = model_name or DEFAULT_POSE_MODEL
+    if name not in _POSE_BACKENDS:
+        _POSE_BACKENDS[name] = TransformersViTPoseBackend(model_name=name)
+    return _POSE_BACKENDS[name]
 
 
 def warm_backends() -> None:

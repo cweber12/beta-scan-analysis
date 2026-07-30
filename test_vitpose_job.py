@@ -1147,6 +1147,84 @@ def test_detector_settings_join_the_seed_hash_only_when_set():
                 != vj.seed_hash(_replace(base, detector_imgsz=1280), vid))
 
 
+def test_model_identity_joins_the_seed_hash_only_when_it_deviates():
+    """Issue #149: the scaffold is a function of the models that build it, so a model
+    change must move the hash — otherwise ``seed_is_unchanged`` skips the job and the
+    experiment reads "no change" out of a run that never happened.
+
+    Identity is read off the *injected backends*, never taken from the request, so a
+    caller cannot misdeclare which model ran. A backend with no ``model_id`` — every
+    stub here, and the whole corpus's default path — hashes exactly as before.
+    """
+
+    from dataclasses import replace as _replace
+
+    class _NamedTracker(StubTracker):
+        def __init__(self, history, model_id):
+            super().__init__(history)
+            self.model_id = model_id
+
+    class _NamedPose(StubPoseBackend):
+        def __init__(self, model_id):
+            super().__init__()
+            self.model_id = model_id
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vid = _make_bundle(root)
+        base = VitPoseRequest(video_path="analysis/r/k/k.mp4", route_folder="r",
+                              video_key="k", frames=(0.0,), seed_tap=Point(0.5, 0.4))
+        baseline = vj.seed_hash(base, vid)
+
+        # A stub with no model_id reports nothing -> the corpus's hashes do not move.
+        stamped = vj.stamp_model_identity(base, StubTracker([]), StubPoseBackend())
+        assert stamped.tracker_model is None and stamped.pose_model is None
+        assert vj.seed_hash(stamped, vid) == baseline
+
+        # A backend naming the *declared default* is also not a deviation.
+        default_stamped = vj.stamp_model_identity(
+            base,
+            _NamedTracker([], vj.DEFAULT_TRACKER_MODEL),
+            _NamedPose(vj.DEFAULT_POSE_MODEL),
+        )
+        assert default_stamped.tracker_model is None
+        assert default_stamped.pose_model is None
+        assert vj.seed_hash(default_stamped, vid) == baseline
+
+        # A different pose checkpoint is a different scaffold, so a different hash.
+        larger = vj.stamp_model_identity(
+            base, StubTracker([]), _NamedPose("usyd-community/vitpose-plus-large"))
+        assert larger.pose_model == "usyd-community/vitpose-plus-large"
+        assert vj.seed_hash(larger, vid) != baseline
+
+        # So is a different detector, and the two are distinguishable from each other.
+        other_detector = vj.stamp_model_identity(
+            base, _NamedTracker([], "yolov8x.pt"), StubPoseBackend())
+        assert vj.seed_hash(other_detector, vid) != baseline
+        assert vj.seed_hash(other_detector, vid) != vj.seed_hash(larger, vid)
+        assert (vj.seed_hash(larger, vid)
+                != vj.seed_hash(_replace(larger, pose_model="other/checkpoint"), vid))
+
+
+def test_default_backends_are_cached_per_checkpoint_not_as_one_singleton():
+    """Issue #149: a request for a non-default model must never be served the resident
+    instance of a different one — that would put the wrong model behind a seed hash
+    claiming the requested one. Constructors only; no weights are loaded here."""
+
+    a = vj.default_tracker()
+    assert a is vj.default_tracker()                 # still cached
+    assert a is vj.default_tracker(vj.DEFAULT_TRACKER_MODEL)  # explicit default == default
+    b = vj.default_tracker("yolov8x.pt")
+    assert b is not a and b.model_id == "yolov8x.pt"
+    assert a.model_id == vj.DEFAULT_TRACKER_MODEL    # the default instance is untouched
+
+    p = vj.default_pose_backend()
+    assert p is vj.default_pose_backend()
+    q = vj.default_pose_backend("usyd-community/vitpose-plus-large")
+    assert q is not p and q.model_id == "usyd-community/vitpose-plus-large"
+    assert p.model_id == vj.DEFAULT_POSE_MODEL
+
+
 # --------------------------------------------------------------------------- #
 # scipy preflight (the real root cause: a missing scipy dies deep in transformers
 # with a cryptic NameError 'inv'; the guard turns that into an actionable message)

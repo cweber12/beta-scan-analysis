@@ -42,11 +42,16 @@ not a spec — it carries no implementation detail.
   Climber walking away from a finished problem is out of scope, not a detection
   failure.
 - **Seed hash** — the identity of everything a ViTPose scaffold is a function of: the
-  seed tap, the seed region, the climb window and the video binary. Stamped into
-  `vitpose.json` so a scaffold records *which seed it was built from*, and compared on
-  every request so unchanged inputs skip the job. This is what makes a **stale
-  scaffold** detectable; `setupHash` structurally could not, because it matches whether
-  or not a re-seed moved the tap.
+  seed tap, the seed region, the climb window, the video binary, and — when they deviate
+  from the declared defaults — the detector settings and the identity of both models.
+  Stamped into `vitpose.json` so a scaffold records *which seed it was built from*, and
+  compared on every request so unchanged inputs skip the job. This is what makes a
+  **stale scaffold** detectable; `setupHash` structurally could not, because it matches
+  whether or not a re-seed moved the tap. Model identity is read from the backends that
+  actually ran, never from the request, so the hash records what produced the scaffold
+  rather than what a caller claimed. One thing it deliberately cannot cover: changing a
+  *declared default* itself leaves hashes matching, so such a change must be paired with
+  a forced re-seed.
 - **Seed failure reason** — why seeding found no Climber, recorded in the status
   sidecar so diagnosis never requires re-running the job: `no-detections` /
   `no-candidates` (the detector found nobody — the video is genuinely hard), or
