@@ -63,8 +63,30 @@ in the quarantine table, where it reads as one.
 
 **4. `BASELINE_CYCLE_SCHEMA` advances v14 → v15 at a cycle boundary.** The v14 cycle's
 analyse phase completed and produced #147, #148, #149 and #150; the maintainer confirmed
-nothing was mid-analysis. The whole population is re-scored under `--mode all`, which is
-what makes this a boundary rather than the mid-cycle bump ADR 0009 flags.
+nothing was mid-analysis. The population is re-scored under `--mode all`, which is what
+makes this a boundary rather than the mid-cycle bump ADR 0009 flags.
+
+### The re-score does not reach the whole trusted pool, and this is not a clean boundary
+
+Stated plainly because ADR 0009 exists to stop exactly this being glossed. After
+`--mode all`, the trusted pool is **176 records at v15 and 4 at v14**, so the report
+renders `basis: MIXED SCHEMA`.
+
+The four are **loose-paired** records (the #44 best-overlap fallback). Their runs fail the
+`setupHash` gate, so `evaluate` skips them as mismatched pairs — and the fallback then
+recovers them into the trusted pool. They are therefore *inside* the compared population
+and *outside* the reach of the remedy.
+
+**This is a gap in ADR 0009's prescription**, which says the fix for a straddled
+population is `evaluate --mode all` over the whole of it. For a loose-paired record no
+invocation of that command can move its basis; only resolving the underlying `setupHash`
+mismatch can, which is [#21](https://github.com/cweber12/beta-scan-analysis/issues/21)'s
+truth re-export.
+
+The mixture is therefore **named, not hidden** — which is the behaviour ADR 0009 chose
+deliberately over refusing to report. The four records are `maze-of-death/…113258` runs
+`20260724-165915` and `20260725-204605`, and `maze-of-death/maze_of_death1…113427` runs
+`20260724-190300` and `20260725-205445`.
 
 ## Consequences
 
@@ -74,6 +96,11 @@ what makes this a boundary rather than the mid-cycle bump ADR 0009 flags.
   intended outcome: it records the absence of evidence instead of manufacturing a side.
   A reader who wants more must supply evidence — #150's per-frame identity confidence is
   the next source, and #148 H2 the one after.
+- **ADR 0009's remedy needs amending, or #21 needs to land.** "Re-score the whole
+  compared population" is unachievable while any loose-paired record is in it. Either the
+  re-score learns to reach loose pairs, or a loose-paired record should be held out of the
+  trusted pool until its `setupHash` mismatch is resolved. That is a decision for
+  whoever picks up #21, and it is recorded here rather than discovered again.
 - A pre-v15 record reads its old cause spelling through a compatibility mapping and
   reports `unattributed`, so an unre-scored record is never silently upgraded to a claim
   it does not support.
