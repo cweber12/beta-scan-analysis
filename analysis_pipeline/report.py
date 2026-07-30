@@ -467,10 +467,13 @@ def _version_overview_table(df: pd.DataFrame) -> str:
                 "yet.</p>")
     rows = []
     for _, r in df.iterrows():
+        code_hash = str(r.get("detector_code_hash") or "")
         rows.append(
             "<tr>"
             f"<td><code>{_esc(r['app_version'])}</code></td>"
-            f"<td>{_esc(r['first_run_ts'])}</td>"
+            + (f"<td><code>{_esc(code_hash)}</code></td>" if code_hash
+               else "<td class='muted'>unknown</td>")
+            + f"<td>{_esc(r['first_run_ts'])}</td>"
             f"<td>{_esc(r['last_run_ts'])}</td>"
             f"<td>{int(r['n_records'])}</td>"
             f"<td>{int(r['n_videos'])}</td>"
@@ -478,8 +481,34 @@ def _version_overview_table(df: pd.DataFrame) -> str:
         )
     return (
         "<div class='tablewrap'><table><thead><tr>"
-        "<th>appVersion</th><th>first run</th><th>last run</th>"
+        "<th>build</th><th>detectorCodeHash</th><th>first run</th><th>last run</th>"
         "<th>eval records</th><th>videos</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def _build_conflict_table(df: pd.DataFrame) -> str:
+    """One appVersion, more than one detectorCodeHash — the `c305954` signature (#130)."""
+
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return ("<p class='muted'>No appVersion stamps more than one detector build. "
+                "Runs without a <code>detectorCodeHash</code> are unknown provenance, "
+                "never a conflict.</p>")
+    rows = []
+    for _, r in df.iterrows():
+        rows.append(
+            "<tr>"
+            f"<td><code>{_esc(r['app_version'])}</code></td>"
+            f"<td><code>{_esc(r['detector_code_hash'])}</code></td>"
+            f"<td>{int(r['n_runs'])}</td>"
+            f"<td>{_esc(r['first_run_ts'])}</td>"
+            f"<td>{_esc(r['last_run_ts'])}</td>"
+            "</tr>"
+        )
+    return (
+        "<div class='tablewrap'><table><thead><tr>"
+        "<th>appVersion</th><th>detectorCodeHash</th><th>runs</th>"
+        "<th>first run</th><th>last run</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
 
@@ -1749,10 +1778,18 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         frames_evidence,
         _detection_error_attempt_html(ctx),
 
-        "<h2>Scanner version regression (appVersion run-over-run)</h2>",
-        "<p class='sub'>Evaluation records grouped by the scanner commit "
-        "(<code>appVersion</code> from the pose diagnostics), ordered by first-seen "
-        "run timestamp. Consecutive versions are delta'd per joint over the videos "
+        "<h2>Scanner version regression (build identity run-over-run)</h2>",
+        "<p class='sub'>Evaluation records grouped by <strong>build identity</strong> — "
+        "the pair <code>(appVersion, detectorCodeHash)</code> from the pose diagnostics, "
+        "not the commit stamp alone (#130). <code>appVersion</code> is resolved once at "
+        "dev-server start, so a hot reload moves the code without moving the stamp; "
+        "<code>detectorCodeHash</code> is derived per run from the detector source that "
+        "actually executed. A build that hot-reloaded mid-batch therefore splits into "
+        "its real behavioural groups instead of averaging them, and two commits sharing "
+        "one hash — a commit that did not touch detection — stay pooled instead of "
+        "reading as a version boundary. Runs with no hash group on the appVersion alone "
+        "and are labelled plainly; the field is fail-open by contract. Builds are "
+        "ordered by first-seen "
         "both versions evaluated <em>under the same truth revision</em> — a truth "
         "change never masquerades as a scanner change. Deltas are coloured only "
         "when the bootstrap 95% CI excludes zero (green = improved, red = "
@@ -1763,6 +1800,15 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         trusted_evidence,
         _version_overview_table(ctx.get("version_overview", pd.DataFrame())),
         _version_delta_table(ctx.get("version_deltas", pd.DataFrame())),
+        "<h3>Build-identity conflicts</h3>",
+        "<p class='sub'>One <code>appVersion</code> covering runs that executed "
+        "different detector code — the signature of a hot reload that left the stamp "
+        "frozen, which is how the 07-25/26 batch came to be stamped "
+        "<code>c305954</code> while behaviourally running a later build. Derived over "
+        "<em>every</em> pose run on disk, not just the ones an evaluation record "
+        "scored: a hot reload during an unscored batch contaminates just as much, and "
+        "is most worth knowing about before the scoring pass rather than after.</p>",
+        _build_conflict_table(ctx.get("build_conflicts", pd.DataFrame())),
         "<h3>Version-tracking flags</h3>",
         _shame_list_html(ctx.get("version_flags", []),
                          "No mixed-truth or unversioned records."),
