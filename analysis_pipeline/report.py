@@ -358,6 +358,37 @@ def _evidence_generation_html(summary: dict[str, Any] | None) -> str:
             f"{detail}.{note}</p>")
 
 
+def _accuracy_tier_html(ctx: dict[str, Any]) -> str:
+    """Name the accuracy tier's missing input wherever a tier is shown (issue #133).
+
+    The tier is permanently empty (ADR 0010): no ground-truth ``review`` value is a
+    positive human attestation, so ``truthFramesVerified`` is 0 by construction rather
+    than by corpus shortfall. Nothing renders an *empty* accuracy row — the tier simply
+    produces none — so a reader sees only agreement rows and has to infer why. That
+    inference has been made wrong repeatedly across baselines, reading a missing input
+    as a detection problem.
+
+    Printed beside every tier-bearing section rather than once at the top, for the reason
+    issue #89 established and ADR 0009 reaffirmed: a number read out of the middle of the
+    report must carry its own provenance. Fails open — if verified frames ever appear, it
+    reports them instead of asserting the tier is empty.
+    """
+    verified = int(ctx.get("verified_frames_total") or 0)
+    if verified:
+        records = int(ctx.get("verified_records") or 0)
+        return (f"<p class='sub'><span class='flag tier'>accuracy: {verified} verified "
+                f"frame(s)</span> across {records} record(s), scored against "
+                f"human-attested truth.</p>")
+    return (
+        "<p class='sub'><span class='flag tier'>accuracy: NOT COMPUTABLE</span> "
+        "0 verified truth frames, so every value in this section is "
+        "<strong>agreement</strong> — scored against the unchallenged ViTPose scaffold, "
+        "not against reality. The accuracy tier is permanently empty by decision "
+        "(ADR 0010): no ground-truth <code>review</code> value is a positive human "
+        "attestation. This is a <em>missing input</em>, not a detection failure.</p>"
+    )
+
+
 def _basis_banner_html(ctx: dict[str, Any]) -> str:
     """Declare the frozen basis once at the top, in addition to per-section (issue #131).
 
@@ -1793,7 +1824,9 @@ def build_report_html(ctx: dict[str, Any]) -> str:
     parts += [
         "<h2>Evaluation trend accounting</h2>",
         "<p class='sub'>Two-tier accounting from committed evaluation records. "
-        "Every value is explicitly tagged as agreement or accuracy. Records superseded "
+        "Every value is explicitly tagged as agreement or accuracy — and the accuracy "
+        "tier is permanently empty, which each section states rather than leaving to "
+        "inference (ADR 0010, #133). Records superseded "
         "by a newer evidence generation for the same video+truth pairing are dropped "
         "before any of this (#89) and listed in the shame lists below.</p>",
         # The #15 gate has two roles and they point opposite ways (#132). Say which is
@@ -1822,6 +1855,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
             (str(ctx.get("verified_frames_total", 0)), "verified truth frames [accuracy]"),
             (str(ctx.get("verified_records", 0)), "records with verified truth"),
         ]),
+        _accuracy_tier_html(ctx),
 
         "<h2>Low-confidence truth (visible-joint measurement)</h2>",
         "<p class='sub'>An <code>occluded</code> truth joint means ViTPose was not "
@@ -1897,6 +1931,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         trusted_evidence,
         _version_overview_table(ctx.get("version_overview", pd.DataFrame())),
         _version_delta_table(ctx.get("version_deltas", pd.DataFrame())),
+        _accuracy_tier_html(ctx),
         "<h3>Build-identity conflicts</h3>",
         "<p class='sub'>One <code>appVersion</code> covering runs that executed "
         "different detector code — the signature of a hot reload that left the stamp "
@@ -1916,6 +1951,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         quarantine_note,
         trusted_evidence,
         _joint_ranking_table(ctx.get("joint_rank", pd.DataFrame())),
+        _accuracy_tier_html(ctx),
 
         "<h2>Within-video frame-level conditions vs error</h2>",
         "<p class='sub'>Frame/joint rows are grouped into quantile bands by condition; "
@@ -1928,12 +1964,14 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         quarantine_note,
         trusted_evidence,
         _condition_table(ctx.get("condition_bands", pd.DataFrame())),
+        _accuracy_tier_html(ctx),
 
         "<h2>Cross-video descriptive splits</h2>",
         f"<p class='sub'>{_esc(ctx.get('confound_caveat', ''))}</p>",
         quarantine_note,
         trusted_evidence,
         _cross_video_split_table(ctx.get("cross_video_splits", pd.DataFrame())),
+        _accuracy_tier_html(ctx),
 
         "<h2>Shame lists</h2>",
         "<h3>Superseded records (#89 evidence-generation dedup)</h3>",
