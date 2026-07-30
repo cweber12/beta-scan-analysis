@@ -42,9 +42,10 @@ Excluded frames stay in ``truthFramesTotal`` and surface in
 ``counts.review`` reports the per-category breakdown. Legacy ground-truth without a
 ``review`` field degrades gracefully: every frame is treated as ``auto``. Presence
 is always ViTPose's ``state`` — never the manual flag. The accuracy tier is
-structurally present but empty: no current review value is a trustworthy human
-attestation (second-model verification is issue #12). Never gate on the ground-truth
-``verified`` flag — under auto-accept it means "nobody objected".
+structurally present and **permanently** empty: no review value is a positive human
+attestation, and second-model verification was retired rather than built (ADR 0010).
+Never gate on the ground-truth ``verified`` flag — under auto-accept it means
+"nobody objected".
 """
 
 from __future__ import annotations
@@ -507,10 +508,11 @@ class TruthFrame:
 
     @property
     def verified(self) -> bool:
-        """Accuracy-tier eligible — a trustworthy human attestation. Nothing
-        qualifies today: ADR 0005 retired manual-absent as evidence and joints are
-        never hand-attested, so the accuracy tier stays empty until second-model
-        verification lands (issue #12)."""
+        """Accuracy-tier eligible — a trustworthy human attestation. Nothing ever
+        qualifies: ADR 0005 retired manual-absent as evidence, joints are never
+        hand-attested, and ADR 0010 retired second-model verification rather than
+        building it. The accuracy tier is permanently empty by decision, and reports
+        itself as not computable rather than rendering an empty band."""
         return False
 
 
@@ -2215,7 +2217,8 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
             continue
         absence_reasons[p.truth.absence_reason or ABSENCE_UNKNOWN] += 1
     # Flag classes and out-of-scope frames are all excluded from scoring (ADR 0005,
-    # issue #101); accuracy has no trustworthy attestation source yet, so it stays empty.
+    # issue #101); accuracy has no attestation source and never will, so it stays
+    # permanently empty (ADR 0010).
     agreement_pairs = [p for p in pairs if not p.truth.excluded]
     accuracy_pairs = [p for p in pairs if p.truth.verified]
     truth_step = _median_step([tf.timestamp for tf in truth.frames])

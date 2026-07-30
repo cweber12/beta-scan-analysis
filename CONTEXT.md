@@ -57,10 +57,19 @@ not a spec — it carries no implementation detail.
 - **Ground Truth** (`ground-truth.json`) — beta-scanner's per-frame pose truth
   artifact, authored from the ViTPose scaffold plus human flags. New artifacts carry
   top-level `setupHash` and per-frame `review` provenance. `review: "auto"` is
-  agreement-tier evidence only; human-flagged frames are the accuracy-tier evidence.
+  agreement-tier evidence; human-flagged frames are excluded from every tier's
+  scoring, so **no `review` value is accuracy-tier evidence** — the accuracy tier
+  has no attestation source and stays empty.
   Ground Truth stays **pure keypoints**: per-frame metadata derived by the harness
   (the **absence reason**, the climb window) lives on the calibration or in the
-  evaluation record, never in the truth artifact. See `docs/adr/0004`.
+  evaluation record, never in the truth artifact. See `docs/adr/0004`, `docs/adr/0005`.
+- **Agreement tier** — pose scoring of a Run against unchallenged ViTPose scaffold
+  truth. It measures distance from an independently-seeded *scaffold*, never from
+  reality: the scaffold is unverified, so agreement is not accuracy.
+- **Accuracy tier** — pose scoring against human-attested truth. Structurally present
+  and **permanently empty**: no `review` value is a positive attestation. It is kept,
+  and reported as explicitly *not computable*, so an unmeasured quantity can never be
+  read as a measured-and-poor one.
 - **Video Stats** (`video-stats.json` + `metadata.json.video_stats`) — computed
   image-statistic Predictors, two-phased: whole-frame *source stats* stamped into
   `metadata.json` at download/import (never stale), and crop-aware *region stats*
