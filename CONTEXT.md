@@ -179,6 +179,22 @@ not a spec — it carries no implementation detail.
   listed by name in the report. Every pooled report section states the
   generation(s) it aggregates, because a pool can still legitimately span
   generations across *different* videos.
+- **Build identity** — which scanner code produced a run, and the unit every
+  cross-batch comparison groups by. Two fields, both from the pose diagnostics:
+  `appVersion` is the commit the dev server was *started* from, and
+  `detectorCodeHash` is a digest of the detector source that actually executed.
+  They differ because `NEXT_PUBLIC_APP_VERSION` resolves once at server start, so
+  a hot reload moves the code and not the stamp — the defect that left the
+  07-25/26 batch stamped `c305954` while running a later build. Grouping is
+  **hash-first**: the `detectorCodeHash` where one exists, falling back to
+  `appVersion` where it doesn't. That way two commits sharing a hash are one
+  group (a commit that did not touch detection — pooling them *increases* usable
+  n), while one stamp covering two hashes splits into the groups it really is.
+  A **build-identity conflict** is that second case, and is reported over *every*
+  pose run on disk rather than the scored subset — the corpus's only conflict
+  sits entirely in runs no evaluation record scored. A missing hash is *unknown
+  provenance*, never a conflict, and never merged with a hashed group: it might
+  be the same code, but nothing on disk says so.
 
 ## The condition → detection vocabulary
 

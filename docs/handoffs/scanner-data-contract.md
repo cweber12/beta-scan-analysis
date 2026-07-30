@@ -426,9 +426,42 @@ Rules:
 - **`setupHash` inside each pose run's `data`** — the harness refuses to compare a
   run against truth from a different setup, and reports the mismatch. (This
   already caught one stale bundle.)
-- **`appVersion` in `diagnostics`** — the harness groups evaluation records by
-  scanner version to report per-joint regressions/improvements over time
-  ("did the tracking fix improve ankle PCK?"). Keep it a real git sha.
+- **`appVersion` in `diagnostics`** — the human-readable anchor for a run: which
+  build the dev server was *started* from. Keep it a real git sha. It is **no
+  longer the provenance guarantee** — `NEXT_PUBLIC_APP_VERSION` resolves once at
+  server start, so a hot reload moves the executing code without moving this
+  field. That is not hypothetical; it is how the 07-25/26 batch came to be
+  stamped `c305954` while behaviourally running a later build, and it cost the
+  01-only control window permanently. `detectorCodeHash` carries provenance now;
+  `appVersion` stays as the label a human recognises.
+- **`detectorCodeHash` in `diagnostics`** — per-run build identity (#130), the
+  field that cannot decouple from the executing code. Contract:
+  - `string | null`, **key always present**. `null` is your documented
+    "derivation failed" value.
+  - Lowercase hex. The harness treats it as **opaque**: never parsed, never
+    length-checked, never reconstructed, only compared for equality. Change its
+    length or encoding freely — nothing here breaks.
+  - **Fail-open.** Absent or `null` reads as *unknown provenance*, never as a
+    conflict, and degrades to `appVersion`-only behaviour. 495 of the 499 runs
+    on disk when this landed predate the field.
+  - The pair *(same `appVersion`, different `detectorCodeHash`)* is a **flagged
+    conflict** — one stamp covering more than one detector build. The inverse,
+    *(different `appVersion`, same hash)*, is a commit that did not touch
+    detection: those runs are pooled as one behavioural group, so the field
+    increases usable n as well as protecting attribution.
+
+  **How the hash is derived is yours, not ours** — see scanner ADR 0025 and
+  [scanner-per-run-build-identity.md](scanner-per-run-build-identity.md) for the
+  properties that were asked for. Do not restate the derivation here; this records only what
+  the harness depends on. What actually keeps the two repos from drifting is the
+  opacity and the fail-open above, not either document: a consumer that never
+  parses the value cannot be broken by a change to how it is produced.
+
+  One thing that *would* break attribution silently: changing **what the hash
+  covers**. Adding or moving a file inside the hashed set rebases every hash at
+  once, which from this side is indistinguishable from "every run's behaviour
+  changed" and splits pooling groups that are genuinely identical. If the covered
+  set changes, say so — that is a handoff, not a silent refactor.
 - **Per-keypoint `score` thinning** — the harness counts a missing joint as a
   coverage failure, not a skip, so thinned output is measured, not hidden.
 
@@ -445,8 +478,12 @@ always from the truth skeleton. Under ADR 0005 both `human-flagged-wrong` and
 record's `counts.review` + `counts.agreementSkipped`; the `accuracy` tier is
 present but **empty** (no trustworthy human attestation exists yet). Trend reports
 correlate error with frame-level conditions (climber size, movement speed, edge
-proximity) and track appVersion deltas. A future phase adds a second independent
-pose model so cross-model agreement can populate the accuracy tier (issue #12).
+proximity) and delta consecutive **build identities** — grouped on
+`detectorCodeHash` where you emit one, falling back to `appVersion` where you
+don't, so two commits sharing a hash stay one group and one stamp covering two
+hashes splits into the groups it really is. A future phase adds a second
+independent pose model so cross-model agreement can populate the accuracy tier
+(issue #12).
 
 ---
 
