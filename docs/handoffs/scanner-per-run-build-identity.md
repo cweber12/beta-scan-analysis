@@ -140,6 +140,53 @@ is "does the hash on screen match the last run's".
   matters. Emit the field in **both** anyway, so the harness never has to special-case
   which one it is reading.
 
+### Where to start looking
+
+These come from cross-repo notes, not from reading your codebase — **verify each against
+the actual tree** rather than trusting them:
+
+- **`NEXT_PUBLIC_APP_VERSION`** — find every use. One of them assembles the scan record's
+  `diagnostics`; that is where the new field goes.
+- **`REACQUIRE_LADDER_SCALES`** — a detector constant. Grepping it should land you in the
+  module cluster the hash needs to cover.
+- **`app/api/dev/shared.ts`** — `hasGroundTruth` / `truthStale` live here, for §3.
+
+---
+
+## How to prove it works
+
+Unit tests on the hash function are necessary and do not demonstrate the fix. The
+harness's own rule applies here (`CLAUDE.md`: green tests do not show that a change did
+anything) — run this end-to-end and include the output in your report:
+
+1. Start the dev server. Run a scan. Record `appVersion` and `detectorCodeHash`.
+2. **Without restarting**, edit a detector module so its behaviour changes — nudge a
+   ladder scale constant. Let it hot-reload. Run another scan.
+   → `appVersion` **unchanged**, `detectorCodeHash` **differs**. This is the `c305954`
+   case, now detectable.
+3. Revert the edit, let it hot-reload, run a third scan.
+   → `detectorCodeHash` returns to **exactly** its step-1 value.
+4. Restart the server, change nothing, run a fourth scan.
+   → `detectorCodeHash` unchanged from step 3. Proves it is not keyed to server lifetime.
+
+**Steps 3 and 4 are the ones to be stubborn about.** A hash keyed to a timestamp, a build
+id, or an absolute path passes step 2, looks correct in a diff, and makes every run
+unpoolable — the failure mode in the pitfalls above, which only steps 3 and 4 catch. A
+hash that only ever moves forward is not build identity.
+
+## Report back
+
+The harness cannot write its reader until it knows what you landed. Include:
+
+1. **Final field name** and where in the record it sits.
+2. **What the hash covers** — the module list, or the rule that selects it — and what it
+   deliberately excludes.
+3. **When it is computed**, and how you know a hot reload moves it.
+4. **The four-step output above, verbatim.**
+5. Anything in this doc you rejected, and why. The properties in §2 are firm; the
+   mechanism, the field name, and the surfacing in §3 are yours, and pushback on those is
+   useful rather than unwelcome.
+
 ---
 
 ## What the harness does with it
