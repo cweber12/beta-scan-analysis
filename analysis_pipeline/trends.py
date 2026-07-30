@@ -85,6 +85,30 @@ def _pct_ci(samples: list[float], alpha: float = 0.05) -> tuple[float, float]:
     return (s[lo_i], s[hi_i])
 
 
+def _pool_total(df: pd.DataFrame, col: str) -> int:
+    """Sum a count column over a pooled frame, tolerating a column that isn't there.
+
+    An absent column is a genuine case, not a caller error: a corpus with no reacquire
+    evidence has no reacquire columns at all, and it must total zero rather than raise —
+    ``DataFrame.get`` on a missing key returns a bare ``nan`` that has no ``.fillna``."""
+
+    if df.empty or col not in df.columns:
+        return 0
+    return int(pd.to_numeric(df[col], errors="coerce").fillna(0).sum())
+
+
+def _pool_rates(df: pd.DataFrame, col: str) -> pd.Series:
+    """The non-null values of a rate column, tolerating a column that isn't there.
+
+    Unlike ``_pool_total`` a missing rate is dropped rather than zeroed: a run that never
+    attempted a reacquire has no success *rate*, and counting it as 0.0 would report a
+    failure the run never had."""
+
+    if df.empty or col not in df.columns:
+        return pd.Series(dtype=float)
+    return pd.to_numeric(df[col], errors="coerce").dropna()
+
+
 def _p90(values: pd.Series) -> float | None:
     return float(np.quantile(values.to_numpy(dtype=float), 0.9)) if len(values) else None
 
@@ -1011,6 +1035,7 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord],
         attempt_evidence = "unknown" if attempts is None else "attempts"
         loose = bool(rec.data.get("loosePaired"))
         conforming = record_conforms(rec.data)
+        cause = record_nonconformance_cause(rec.data)
         for e in fq.get("frames") or []:
             cls = str(e.get("class") or "ok")
             t = e.get("t")
@@ -1054,6 +1079,7 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord],
                 "crop": e.get("crop"),
                 "loose": loose,
                 "conforming": conforming,
+                "nonconformance_cause": cause,
                 **_attempt_frame_context(attempt, attempt_evidence),
                 **{f"vs_{k}": v for k, v in conds.items()},
             })
@@ -1292,6 +1318,7 @@ def _crop_quality_rows(recs: list[EvalRecord]) -> pd.DataFrame:
             continue
         loose = bool(rec.data.get("loosePaired"))
         conforming = record_conforms(rec.data)
+        cause = record_nonconformance_cause(rec.data)
         for e in cq.get("frames") or []:
             bbox = e.get("truthBbox") or {}
             rows.append({
@@ -1317,6 +1344,7 @@ def _crop_quality_rows(recs: list[EvalRecord]) -> pd.DataFrame:
                     and isinstance(bbox.get("h"), (int, float)) else None),
                 "loose": loose,
                 "conforming": conforming,
+                "nonconformance_cause": cause,
             })
     return pd.DataFrame(rows)
 
@@ -1455,6 +1483,7 @@ def _detection_error_attempt_run_rows(
             "run_ts": rec.run_ts,
             "loose": bool(rec.data.get("loosePaired")),
             "conforming": record_conforms(rec.data),
+            "nonconformance_cause": record_nonconformance_cause(rec.data),
             "detected_frames": detected,
             "flagged_frames": flagged,
             "flagged_rate": flagged / detected if detected else None,
@@ -1562,7 +1591,8 @@ def _attempt_funnel_runs(run_df: pd.DataFrame) -> pd.DataFrame:
     sub = run_df[run_df["attempt_evidence"].astype("string") == EVIDENCE_ATTEMPTS]
     if sub.empty:
         return pd.DataFrame()
-    cols = ["route_folder", "video_key", "run_ts", "conforming", "loose", "attempt_count"]
+    cols = ["route_folder", "video_key", "run_ts", "conforming", "nonconformance_cause",
+            "loose", "attempt_count"]
     for status in DETECTOR_ATTEMPT_STATUS_ORDER:
         cols.extend(_status_columns(status))
     cols += [
@@ -1592,7 +1622,7 @@ def _attempt_funnel_status_table(funnel_df: pd.DataFrame) -> pd.DataFrame:
         if count_col not in funnel_df.columns:
             continue
         counts = pd.to_numeric(funnel_df[count_col], errors="coerce").fillna(0)
-        shares = pd.to_numeric(funnel_df.get(rate_col), errors="coerce").dropna()
+        shares = _pool_rates(funnel_df, rate_col)
         n = int(counts.sum())
         rows.append({
             "status": status,
@@ -1700,13 +1730,12 @@ def _attempt_funnel_totals(funnel_df: pd.DataFrame,
                 "missing_share_run_median": None, "tail_runs_missing": 0}
 
     def total(name: str) -> int:
-        return int(pd.to_numeric(funnel_df.get(name), errors="coerce").fillna(0).sum())
+        return _pool_total(funnel_df, name)
 
     by_status = status_df.set_index("status") if not status_df.empty else pd.DataFrame()
     attempted = total("attempt_reacquire_attempted_count")
     succeeded = total("attempt_reacquire_succeeded_count")
-    run_success = pd.to_numeric(
-        funnel_df.get("attempt_reacquire_success_rate"), errors="coerce").dropna()
+    run_success = _pool_rates(funnel_df, "attempt_reacquire_success_rate")
     return {
         "runs": int(len(funnel_df)),
         "attempts": total("attempt_count"),
@@ -1800,6 +1829,182 @@ def _crop_totals(crop_df: pd.DataFrame) -> dict[str, Any]:
         "miss_cause_counts": {
             c: int((causes == c).sum()) for c in MISS_CAUSES},
     }
+
+
+# --------------------------------------------------------------------------- #
+# Conformance as a covariate, not a filter (issue #132)
+#
+# The #15 gate exists to keep runs whose truth does not fit out of *truth-fit* metrics —
+# accuracy, agreement, PCK, normDist — where a bad fit makes the number meaningless. On
+# *failure-mode* metrics (the attempt funnel, miss causes, rejection correctness, crop
+# placement) the same gate does active harm: it selects on the very failure being
+# measured. The `sparse-match` cause is the clearest case — by its own definition it is
+# the detector supplying too little to fit, so gating on conformance removes the worst
+# detector failures from the pool by construction.
+#
+# So the failure-mode pools stay over **all** runs (they already did), and conformance is
+# reported here as a *dimension* instead. Two columns carry the argument:
+# ``share_of_attempts`` (how much of the corpus a population is) against the population's
+# own failure rate — a population holding half the attempts and nearly all the misses is
+# the gate's selectivity made visible. Without this breakout the pooled number is still
+# right but silently re-weights every batch, which is why cross-batch numbers have not
+# lined up.
+#
+# Every breakout is built by running the section's *existing* totals function once per
+# population, so the ``all`` row is by construction the same arithmetic as the section's
+# headline tiles and the two can never disagree.
+# --------------------------------------------------------------------------- #
+
+CONFORMANCE_POOL_ALL = "all"
+CONFORMANCE_POOL_CONFORMING = "conforming"
+CONFORMANCE_POOL_NONCONFORMING = "non-conforming"
+
+# ``pool`` rows partition the corpus at the gate; ``cause`` rows partition the
+# non-conforming pool by *why* it failed. Kept as a column so a reader (and the report's
+# renderer) can tell a total from a breakdown of a total without parsing the label.
+CONFORMANCE_ROW_POOL = "pool"
+CONFORMANCE_ROW_CAUSE = "cause"
+
+
+def _conformance_pools(df: pd.DataFrame) -> list[tuple[str, str, pd.DataFrame]]:
+    """``(population, kind, subset)`` for every conformance population worth reporting.
+
+    Always leads with ``all`` — the pooled population is the headline, and the splits are
+    there to explain it, not to replace it. The per-cause rows appear only once something
+    is actually quarantined, but then *every* cause is emitted even at zero: "no
+    suspected mis-tracks tripped the gate this batch" is a result, and an omitted row
+    would leave it to be inferred from an absence.
+
+    A frame with no ``conforming`` column (a pool built before the covariate existed)
+    yields the ``all`` row alone rather than a fabricated split."""
+
+    if df.empty or "conforming" not in df.columns:
+        return [(CONFORMANCE_POOL_ALL, CONFORMANCE_ROW_POOL, df)]
+    conforming = df["conforming"].fillna(True).astype(bool)
+    pools = [
+        (CONFORMANCE_POOL_ALL, CONFORMANCE_ROW_POOL, df),
+        (CONFORMANCE_POOL_CONFORMING, CONFORMANCE_ROW_POOL, df[conforming]),
+        (CONFORMANCE_POOL_NONCONFORMING, CONFORMANCE_ROW_POOL, df[~conforming]),
+    ]
+    if bool((~conforming).any()) and "nonconformance_cause" in df.columns:
+        causes = df["nonconformance_cause"].astype("string")
+        for cause in NONCONFORMANCE_CAUSES:
+            pools.append((cause, CONFORMANCE_ROW_CAUSE, df[causes == cause]))
+    return pools
+
+
+def _attempt_funnel_conformance(funnel_df: pd.DataFrame) -> pd.DataFrame:
+    """The attempt funnel broken out by conformance population (issue #132).
+
+    ``share_of_attempts`` and ``share_of_missing`` are the pair to read together: they
+    are what shows a population carrying a small slice of the corpus and a large slice of
+    its failures. The per-status shares are *within* the population, so each row is a
+    self-contained funnel, and the run-unit missing columns ride along because the Run is
+    the unit of inference — a population's pooled missing share can be one collapsed run
+    or every run missing a quarter of its attempts."""
+
+    if funnel_df.empty:
+        return pd.DataFrame()
+    missing_count_col, missing_rate_col = _status_columns("missing")
+    corpus_attempts = _pool_total(funnel_df, "attempt_count")
+    corpus_missing = _pool_total(funnel_df, missing_count_col)
+    rows: list[dict[str, Any]] = []
+    for population, kind, sub in _conformance_pools(funnel_df):
+        attempts = _pool_total(sub, "attempt_count")
+        missing = _pool_total(sub, missing_count_col)
+        rates = _pool_rates(sub, missing_rate_col)
+        row: dict[str, Any] = {
+            "population": population,
+            "kind": kind,
+            "runs": int(len(sub)),
+            "attempts": attempts,
+            "share_of_attempts": (attempts / corpus_attempts) if corpus_attempts else None,
+            "missing_attempts": missing,
+            "share_of_missing": (missing / corpus_missing) if corpus_missing else None,
+        }
+        for status in DETECTOR_ATTEMPT_STATUS_ORDER:
+            count_col, _ = _status_columns(status)
+            row[f"{_slug(status)}_share"] = (
+                (_pool_total(sub, count_col) / attempts) if attempts else None)
+        row["missing_share_run_median"] = float(rates.median()) if len(rates) else None
+        row["missing_share_run_p90"] = _p90(rates)
+        row["tail_runs_missing"] = (
+            int((rates > ATTEMPT_FUNNEL_TAIL_SHARE).sum()) if len(rates) else 0)
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def _miss_cause_conformance(crop_df: pd.DataFrame) -> pd.DataFrame:
+    """The miss-cause mix broken out by conformance population (issue #132).
+
+    This is the distortion the issue was opened on: the cause mix read off the conforming
+    pool is not the corpus's cause mix, because the quarantined runs hold most of the
+    misses. Shares are within the population so the mix reads as a mix; ``share_of_misses``
+    says how much of the corpus's misses that mix speaks for."""
+
+    if crop_df.empty or "miss_cause" not in crop_df.columns:
+        return pd.DataFrame()
+    scored = crop_df[crop_df["miss_cause"].notna()]
+    if scored.empty:
+        return pd.DataFrame()
+    corpus_misses = int(len(scored))
+    rows: list[dict[str, Any]] = []
+    for population, kind, sub in _conformance_pools(scored):
+        n = int(len(sub))
+        causes = sub["miss_cause"].astype("string") if n else pd.Series(dtype="string")
+        runs = (int(sub.groupby(["route_folder", "video_key", "run_ts"]).ngroups)
+                if n else 0)
+        row: dict[str, Any] = {
+            "population": population,
+            "kind": kind,
+            "runs": runs,
+            "misses": n,
+            "share_of_misses": (n / corpus_misses) if corpus_misses else None,
+        }
+        for cause in MISS_CAUSES:
+            row[f"{_slug(cause)}_share"] = (int((causes == cause).sum()) / n) if n else None
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def _rejection_conformance(run_df: pd.DataFrame) -> pd.DataFrame:
+    """Rejection correctness broken out by conformance population (issue #132).
+
+    Built by running ``_rejection_totals`` per population rather than re-deriving the
+    arithmetic, so the ``all`` row is the section's headline by construction."""
+
+    if run_df.empty:
+        return pd.DataFrame()
+    keep = ("rejected_attempts", "good_pose_rejected", "bad_pose_rejected",
+            "truth_absent", "truth_checkable", "truth_present_checkable",
+            "over_rejection_rate", "over_rejection_rate_truth_present",
+            "over_rejection_rate_run_mean", "runs_with_checkable_rejections")
+    rows: list[dict[str, Any]] = []
+    for population, kind, sub in _conformance_pools(run_df):
+        totals = _rejection_totals(sub)
+        rows.append({"population": population, "kind": kind, "runs": int(len(sub)),
+                     **{k: totals.get(k) for k in keep}})
+    return pd.DataFrame(rows)
+
+
+def _crop_conformance(crop_df: pd.DataFrame) -> pd.DataFrame:
+    """Crop placement broken out by conformance population (issue #132).
+
+    Same construction as the rejection breakout: ``_crop_totals`` per population. The
+    nested ``miss_cause_counts`` is dropped here — the cause mix has its own breakout, and
+    duplicating it would give two places for the same number to drift."""
+
+    if crop_df.empty:
+        return pd.DataFrame()
+    keep = ("matched_attempts", "missing_attempts", "crop_containment_scored",
+            "crop_missed_truth", "crop_missed_truth_rate",
+            "median_initial_crop_containment", "median_initial_search_region_iou")
+    rows: list[dict[str, Any]] = []
+    for population, kind, sub in _conformance_pools(crop_df):
+        totals = _crop_totals(sub)
+        rows.append({"population": population, "kind": kind,
+                     **{k: totals.get(k) for k in keep}})
+    return pd.DataFrame(rows)
 
 
 def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
@@ -1966,6 +2171,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     fq_attempt_runs = _detection_error_attempt_run_rows(analysis_root, all_recs, pose_cache)
     fq_attempt_bands = _detection_error_attempt_bands(fq_attempt_runs)
     rejection_totals = _rejection_totals(fq_attempt_runs)
+    rejection_conformance = _rejection_conformance(fq_attempt_runs)
 
     # Detector Attempt funnel (issue #87): scanner behavior before truth is consulted,
     # over the attempt-backed records only — a legacy run has no attempt stream to funnel.
@@ -1979,12 +2185,15 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     funnel_run_stats = _attempt_funnel_run_stats(funnel_runs)
     funnel_flags = _attempt_funnel_flag_rows(analysis_root, funnel_recs, pose_cache)
     funnel_totals = _attempt_funnel_totals(funnel_runs, funnel_status)
+    funnel_conformance = _attempt_funnel_conformance(funnel_runs)
     evidence_funnel = _evidence_generation_summary(funnel_recs, "attempt funnel")
 
     # Crop placement + miss causes (issue #86), pooled over the same all-records set.
     crop_df = _crop_quality_rows(all_recs)
     miss_causes = _miss_cause_table(crop_df)
     crop_totals = _crop_totals(crop_df)
+    crop_conformance = _crop_conformance(crop_df)
+    miss_cause_conformance = _miss_cause_conformance(crop_df)
 
     verified_total = 0
     verified_records = 0
@@ -2035,6 +2244,12 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "detection_error_attempt_runs": fq_attempt_runs,
         "detection_error_attempt_bands": fq_attempt_bands,
         "rejection_correctness": rejection_totals,
+        # Issue #132: conformance as a reported dimension on every failure-mode section.
+        # These pool over all runs; the gate stays a quarantine only on truth-fit metrics.
+        "rejection_conformance": rejection_conformance,
+        "attempt_funnel_conformance": funnel_conformance,
+        "crop_quality_conformance": crop_conformance,
+        "crop_quality_miss_cause_conformance": miss_cause_conformance,
         "attempt_funnel_runs": funnel_runs,
         "attempt_funnel_status": funnel_status,
         "attempt_funnel_run_stats": funnel_run_stats,
@@ -2090,6 +2305,11 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_detection_error_attempt_runs.csv": ctx.get("detection_error_attempt_runs"),
         "eval_detection_error_attempt_bands.csv": ctx.get("detection_error_attempt_bands"),
         "eval_attempt_funnel_status.csv": ctx.get("attempt_funnel_status"),
+        "eval_attempt_funnel_conformance.csv": ctx.get("attempt_funnel_conformance"),
+        "eval_rejection_conformance.csv": ctx.get("rejection_conformance"),
+        "eval_crop_quality_conformance.csv": ctx.get("crop_quality_conformance"),
+        "eval_crop_quality_miss_cause_conformance.csv": ctx.get(
+            "crop_quality_miss_cause_conformance"),
         "eval_attempt_funnel_runs.csv": ctx.get("attempt_funnel_runs"),
         "eval_attempt_funnel_run_stats.csv": ctx.get("attempt_funnel_run_stats"),
         "eval_attempt_funnel_flags.csv": ctx.get("attempt_funnel_flags"),
