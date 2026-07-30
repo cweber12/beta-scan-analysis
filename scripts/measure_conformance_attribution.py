@@ -2,7 +2,7 @@
 
 `conformance.cause` is computed from a per-axis fit of ``scanner = a*truth + b``.
 A poor fit proves scanner and truth disagree; it **cannot** say which of them is
-wrong. ``suspected-mistrack`` names a side anyway. This script measures how often
+wrong. ``suspected-mistrack`` named a side anyway. This script measures how often
 that side is the wrong one, by grading the cause against the only human-attested
 truth-defect labels the corpus has: ``human-flagged-wrong`` frames.
 
@@ -33,6 +33,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from analysis_pipeline.evaluate import (  # noqa: E402
+    LEGACY_SUSPECTED_MISTRACK as LEGACY_DIVERGENCE,
+    NONCONFORMANCE_TRAJECTORY_DIVERGENCE as DIVERGENCE,
     REVIEW_AUTO,
     REVIEW_FLAGGED_ABSENT,
     REVIEW_FLAGGED_WRONG,
@@ -169,10 +171,10 @@ def report(analysis_root: Path) -> None:
     # signature. #16 loosened the x floor blaming narrow horizontal spread; the two
     # explanations have never been distinguished (#148 H2).
     _rule()
-    print("failing axis, suspected-mistrack only:")
+    print(f"failing axis, {DIVERGENCE} only:")
     axes: Counter = Counter()
     for row in rows:
-        if row["cause"] == "suspected-mistrack":
+        if row["cause"] in (DIVERGENCE, LEGACY_DIVERGENCE):
             axes[(side(row["bundle"]), row["axis"])] += 1
     print(f"  {'side':<28} {'both':>6} {'x-only':>7} {'y-only':>7} {'other':>6}")
     for s in (ATTESTED_CLEAN, TRUTH_SIDE):

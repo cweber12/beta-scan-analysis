@@ -709,10 +709,15 @@ _NONCONFORMANCE_CAUSE_BLURB = {
         "exported onto, so most truth frames were never looked at and read as absent. "
         "Neither the truth nor the detector is at fault — <strong>regenerate the "
         "scaffold</strong> at the truth's sampling rate and re-export."),
-    "suspected-mistrack": (
-        "Ample accepted detections and the fit still misses identity — the #19 "
-        "appearance-stitch signature. <strong>This is the truth-repair worklist</strong> "
-        "(#21/#34): re-seed these bundles' Ground Truth."),
+    "trajectory-divergence": (
+        "Ample accepted detections and the fit still diverges. <strong>This says the "
+        "scanner and the truth disagree; it does not say which one is wrong.</strong> "
+        "Read the <em>attribution</em> column, never this cause, to decide whether a "
+        "bundle belongs on the truth-repair worklist (#21/#34) — re-seeding a bundle "
+        "whose truth is sound repairs nothing. Renamed from "
+        "<code>suspected-mistrack</code> in v15 (#147), which asserted the truth side: "
+        "measured against the human-attested flags, 112 of its 123 firings landed on "
+        "truth attested free of identity error."),
     "sparse-match": (
         "The detector supplied too little to fit — too few matched-present frames, or "
         "too small a share of present attempts accepted. A detector failure tripping a "
@@ -748,7 +753,7 @@ _CONFORMANCE_POPULATION_BLURB = {
     "conforming": "passed the #15 gate",
     "non-conforming": "failed the #15 gate",
     "sparse-match": "of non-conforming: detector supplied too little to fit",
-    "suspected-mistrack": "of non-conforming: ample detections, fit still misses identity",
+    "trajectory-divergence": "of non-conforming: ample detections, fit still diverges",
     "rate-mismatch": "of non-conforming: scaffold sampled coarser than the truth grid",
 }
 
@@ -1999,7 +2004,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "gate as a run whose truth mis-tracked, and only the second is a truth problem. "
         f"Truth-repair worklist: {ctx.get('truth_repair_count', 0)} record(s), exported "
         "as <code>eval_truth_repair_worklist.csv</code>. Records written before the split "
-        "carry no annotation and default to <code>suspected-mistrack</code> (their "
+        "carry no annotation and default to <code>trajectory-divergence</code> (their "
         "pre-#88 place) with empty evidence columns — re-run <code>evaluate</code> to "
         "classify them.</p>",
         _quarantine_table(ctx.get("quarantined_bundles", [])),

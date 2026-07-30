@@ -49,7 +49,9 @@ from .evaluate import (
     EVIDENCE_GENERATIONS,
     MISS_CAUSES,
     NONCONFORMANCE_CAUSES,
-    NONCONFORMANCE_SUSPECTED_MISTRACK,
+    NONCONFORMANCE_TRAJECTORY_DIVERGENCE,
+    ATTRIBUTION_TRUTH_IDENTITY,
+    record_attribution,
     SCHEMA_VERSION,
     _dist,
     _iter_pose_runs,
@@ -2235,7 +2237,10 @@ def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
 
     Each row carries the issue #88 ``cause`` and the evidence behind it, so the section
     can be read cause-first: a sparse-match row is a detector problem that happens to trip
-    a truth gate, and only a suspected-mistrack row is a truth problem."""
+    a truth gate. It also carries the issue #147 ``attribution`` — the cause says what the
+    fit found, the attribution says whether anyone can name a side. **Only a row attributed
+    ``truth-identity`` is established as a truth problem**; a ``trajectory-divergence``
+    cause on its own is not, which is what #34's worklist got wrong."""
 
     rows: list[dict[str, Any]] = []
     for rec in recs:
@@ -2248,6 +2253,9 @@ def _quarantined_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
             "video_key": rec.video_key,
             "run_ts": rec.run_ts,
             "cause": record_nonconformance_cause(rec.data),
+            "attribution": record_attribution(rec.data),
+            "flagged_wrong_frames": (
+                conf.get("attributionEvidence") or {}).get("flaggedWrongFrames"),
             "reasons": ", ".join(conf.get("reasons") or []),
             "n": conf.get("n"),
             "fit_frames": evidence.get("fitFrames"),
@@ -2306,11 +2314,21 @@ def _rate_mismatch_records(recs: list[EvalRecord]) -> list[dict[str, Any]]:
 def _truth_repair_worklist(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The subset of quarantined records worth re-seeding truth for (issues #21/#34).
 
-    Scoped to ``suspected-mistrack`` by issue #88: a sparse-match record fails the gate
-    because the detector found almost nothing, and re-seeding its Ground Truth would burn
-    review effort on a bundle whose truth may be fine."""
+    Issue #88 scoped this to the divergence cause, on the reasoning that a sparse-match
+    record fails the gate because the detector found almost nothing. That was right about
+    sparse-match and wrong about the rest: **the cause cannot identify a side**, so the
+    worklist filled with bundles whose truth was sound. #34 was built from this list and
+    named 12 bundles, of which one had a truth defect; regenerating the other eleven
+    would have burned GPU hours rewriting good scaffolds.
 
-    return [r for r in rows if r.get("cause") == NONCONFORMANCE_SUSPECTED_MISTRACK]
+    From v15 the worklist requires *positive* truth-side evidence — a human-attested
+    wrong-person stretch — not merely a cause that used to imply one (issue #147). A
+    divergent record nobody can attribute is not a truth-repair candidate; it is an open
+    question, and it stays visible in the quarantine table where it can be read as one."""
+
+    return [r for r in rows
+            if r.get("cause") == NONCONFORMANCE_TRAJECTORY_DIVERGENCE
+            and r.get("attribution") == ATTRIBUTION_TRUTH_IDENTITY]
 
 
 def _loose_rows(recs: list[EvalRecord]) -> list[dict[str, Any]]:
