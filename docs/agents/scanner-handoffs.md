@@ -55,8 +55,22 @@ it. `scanner-truth-scaffold-provenance.md` is the reference example.
   tradition on every field in this contract; state the null guards.
 - **What the harness does with it** — what already ships, what is waiting. Marks clearly
   which half is *not* the scanner's work.
+- **An acceptance procedure, not just acceptance criteria.** The concrete steps that
+  demonstrate the change works against reality, and — where they exist — the steps that
+  distinguish a real fix from one that passes tests while being useless. Same rule as
+  CLAUDE.md's "green tests do not demonstrate that a change did anything", applied across
+  the repo boundary. This is the section most often missing, and the one that decides
+  whether what comes back is actually the thing you asked for.
+- **What to report back**, and why the harness needs it. Usually the final field name and
+  semantics, so the reader can be written against what actually shipped rather than what
+  was proposed. Say which parts of the spec are open to pushback.
 - **Not in scope** — the adjacent asks you deliberately excluded, and why. Prevents the
   handoff growing scope in the scanner's hands.
+
+**Write it to be self-sufficient.** The repo is public, so a complete handoff can be
+handed to a scanner-side agent as a one-line prompt — *"fetch \<raw URL\> and implement it
+in this repo"* — with nothing re-pasted and nothing to drift. If a prompt has to carry
+context the doc omits, that context belongs in the doc.
 
 ## Replies are handoffs too
 
