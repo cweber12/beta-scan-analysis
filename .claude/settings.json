@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(python -m analysis_pipeline analysis*)",
+      "Bash(python -m analysis_pipeline evaluate*)",
+      "Bash(python -m analysis_pipeline --help)",
+      "Bash(python -m analysis_pipeline.tests.test_smoke)",
+      "Bash(python -m analysis_pipeline.tests.test_detector_attempts)",
+      "Bash(python -m tests.test_api)",
+      "Bash(python -m tests.test_video_stats)",
+      "Bash(python -m pytest analysis_pipeline/tests/*)",
+      "Bash(.venv/Scripts/python.exe test_vitpose_job.py)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git branch*)",
+      "Bash(git show*)",
+      "Bash(git fetch*)",
+      "Bash(git ls-remote*)",
+      "Bash(git rev-list*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(gh issue list*)",
+      "Bash(gh issue view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr view*)",
+      "Bash(gh label list*)",
+      "Edit(.claude/skills/detector-attempt-analysis/**)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  }
+}

@@ -4,6 +4,10 @@ __pycache__/
 *.pt
 downloads/
 
+# Machine-local agent permission overrides. The shared, reviewed rules live in
+# the tracked .claude/settings.json; anything one-off stays untracked here.
+.claude/settings.local.json
+
 # Derived analysis outputs (report.html + features CSVs).
 reports/
 
