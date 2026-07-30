@@ -21,7 +21,7 @@ import math
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -308,16 +308,33 @@ def _evidence_generation_summary(recs: list[EvalRecord], pool: str) -> dict[str,
     }
 
 
-# One bundle's pose runs: ``run_ts -> (appVersion, pose frames, detector attempts|None)``.
-PoseRun = tuple[str, list[dict[str, Any]], list[dict[str, Any]] | None]
-# ...and the corpus-wide cache of them, keyed ``(route_folder, video_key)``. Four
-# derivations below need the same pose files; one cache threaded through them all is what
-# keeps a trend build from re-reading every detection file once per derivation.
+class PoseRun(NamedTuple):
+    """One bundle run's build identity and pose evidence.
+
+    ``detector_code_hash`` is the scanner's per-run build identity (#130): a digest of
+    the detector source that actually executed, which — unlike ``app_version``, resolved
+    once at dev-server start — cannot survive a hot reload. Empty means the run predates
+    the field or the scanner's derivation failed. That is *unknown* provenance, never a
+    conflict; every consumer here fails open on it.
+    """
+
+    app_version: str
+    frames: list[dict[str, Any]]
+    attempts: list[dict[str, Any]] | None
+    detector_code_hash: str = ""
+
+
+# The corpus-wide cache of them, keyed ``(route_folder, video_key)``. Four derivations
+# below need the same pose files; one cache threaded through them all is what keeps a
+# trend build from re-reading every detection file once per derivation.
 PoseRunCache = dict[tuple[str, str], dict[str, PoseRun]]
 
 # A record whose run has no pose file at all: no appVersion, no frames, and — the part
 # that matters — *unknown* rather than empty detector attempts.
-_NO_POSE_RUN: PoseRun = ("", [], None)
+_NO_POSE_RUN = PoseRun("", [], None)
+
+# A run's build identity: ``(appVersion, detectorCodeHash)``. Either half may be empty.
+BuildId = tuple[str, str]
 
 
 def _pose_run(
@@ -337,11 +354,11 @@ def _pose_run(
 
 
 def _load_pose_runs(video_dir: Path) -> dict[str, PoseRun]:
-    """Map ``run_ts -> (scanner appVersion, pose frames)`` for one bundle.
+    """Map ``run_ts -> PoseRun`` for one bundle.
 
-    The appVersion (a scanner commit hash) lives only in the pose envelope's
-    diagnostics — evaluation records don't carry it — so version tracking
-    resolves it from the detection files at trend time.
+    Both halves of the build identity live only in the pose envelope's diagnostics —
+    evaluation records don't carry either — so version tracking resolves them from the
+    detection files at trend time.
     """
 
     out: dict[str, PoseRun] = {}
@@ -357,9 +374,16 @@ def _load_pose_runs(video_dir: Path) -> dict[str, PoseRun]:
             continue
         data = _unwrap(env)
         run_ts = str(env.get("run_ts", stem))
-        app_version = str((data.get("diagnostics") or {}).get("appVersion") or "")
+        diagnostics = data.get("diagnostics") or {}
         attempts = parse_detector_attempts(data)
-        out[run_ts] = (app_version, data.get("frames", []) or [], attempts)
+        out[run_ts] = PoseRun(
+            app_version=str(diagnostics.get("appVersion") or ""),
+            frames=data.get("frames", []) or [],
+            attempts=attempts,
+            # ``null`` is the scanner's documented "derivation failed" value, and a record
+            # predating the field has no key at all. Both land here as "".
+            detector_code_hash=str(diagnostics.get("detectorCodeHash") or ""),
+        )
     return out
 
 
@@ -410,7 +434,9 @@ def _build_frame_joint_rows(
         pose_run = _pose_run(analysis_root, rec, pose_cache)
         if pose_run is None:
             continue  # no pose file for this run_ts — nothing to score against truth
-        app_version, pose_frames, _ = pose_run
+        app_version = pose_run.app_version
+        detector_code_hash = pose_run.detector_code_hash
+        pose_frames = pose_run.frames
 
         metadata, setup = _bundle_meta(video_dir)
         source_type = str(metadata.get("source_type") or "unknown")
@@ -477,6 +503,7 @@ def _build_frame_joint_rows(
                     "video_key": rec.video_key,
                     "run_ts": rec.run_ts,
                     "app_version": app_version,
+                    "detector_code_hash": detector_code_hash,
                     "truth_hash": truth.truth_hash,
                     "source_type": source_type,
                     "resolution": resolution,
@@ -664,58 +691,163 @@ def _bootstrap_median_delta(a: list[float], b: list[float],
 _ALL_JOINTS = "(all joints)"
 
 
+def _build_identity(build: BuildId) -> str:
+    """The behavioural grouping key for a run.
+
+    The ``detectorCodeHash`` when the scanner emitted one, because that is the thing
+    that actually determines detection behaviour. Two *different* commits sharing a hash
+    did not touch detection, so they are one behavioural group and pooling them is a
+    gain in n rather than a loss of resolution — the benefit of this field that runs
+    opposite to conflict detection.
+
+    Falls back to the commit stamp when there is no hash, which is every run predating
+    #130. An unhashed group and a hashed group are never merged: they might be the same
+    code, but nothing on disk says so, and guessing is what this field exists to stop.
+    """
+
+    app_version, detector_code_hash = build
+    return detector_code_hash or app_version
+
+
+def _build_label(identity: str, builds: set[BuildId]) -> str:
+    """Display name for a behavioural group.
+
+    Unhashed groups keep the bare appVersion, so every row that existed before #130
+    renders exactly as it did. Hashed groups name both halves, and a group spanning more
+    than one commit shows all of them — that is the pooling gain made visible.
+    """
+
+    app_versions = sorted({av for av, _ in builds if av})
+    if not any(h for _, h in builds):
+        return " / ".join(app_versions)
+    if not app_versions:
+        return identity  # hashed but unstamped — name it by the hash, not "·hash"
+    return f"{'+'.join(app_versions)}·{identity}"
+
+
+def _build_identity_conflicts(pose_cache: PoseRunCache) -> tuple[pd.DataFrame, list[str]]:
+    """appVersions that stamp more than one ``detectorCodeHash`` (#130).
+
+    This is the ``c305954`` signature: one build stamp covering runs that executed
+    *different* detector code, which a Next dev hot reload produces without moving
+    ``appVersion``.
+
+    Scanned over **every** pose run in the cache, not just runs an evaluation record
+    scored. A hot reload during an unscored batch contaminates exactly as much, and the
+    contamination is most useful to know about *before* the scoring pass, not after.
+
+    An empty hash never participates in a conflict. The scanner emits ``null`` when its
+    derivation fails and records predating the field have no key at all; both mean
+    unknown provenance, and unknown-versus-known is not a contradiction.
+    """
+
+    runs_by_version: dict[str, dict[str, list[str]]] = {}
+    for runs in pose_cache.values():
+        for run_ts, run in runs.items():
+            if not run.app_version or not run.detector_code_hash:
+                continue
+            runs_by_version.setdefault(run.app_version, {}).setdefault(
+                run.detector_code_hash, []).append(run_ts)
+
+    rows: list[dict[str, Any]] = []
+    flags: list[str] = []
+    for app_version in sorted(runs_by_version):
+        by_hash = runs_by_version[app_version]
+        if len(by_hash) < 2:
+            continue
+        for detector_code_hash in sorted(by_hash, key=lambda h: min(by_hash[h])):
+            run_tss = sorted(by_hash[detector_code_hash])
+            rows.append({
+                "app_version": app_version,
+                "detector_code_hash": detector_code_hash,
+                "n_runs": len(run_tss),
+                "first_run_ts": run_tss[0],
+                "last_run_ts": run_tss[-1],
+            })
+        flags.append(
+            f"{app_version}: {len(by_hash)} distinct detectorCodeHash values across "
+            f"{sum(len(v) for v in by_hash.values())} run(s) "
+            f"({', '.join(sorted(by_hash))}) — one build stamp, more than one detector "
+            "build. Runs under this appVersion are not a single behavioural group and "
+            "are never pooled as one.")
+    return pd.DataFrame(rows), flags
+
+
 def _version_regression(
     recs: list[EvalRecord],
     frame_joint_df: pd.DataFrame,
-    app_versions: dict[tuple[str, str, str], str],
+    build_ids: dict[tuple[str, str, str], BuildId],
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
-    """Group eval records by scanner appVersion and delta consecutive versions.
+    """Group eval records by build identity and delta consecutive builds.
 
-    Versions are ordered by first-seen run timestamp. For each consecutive pair
-    the comparison pool is restricted to ``(video, truthHash)`` combos with
-    records on *both* sides — a truth revision must never masquerade as a
-    scanner change — and per-joint PCK / median-error deltas carry bootstrap
-    CIs so noise at small n reads as noise. Videos where both versions ran but
-    never under the same truth are flagged as mixed-truth and excluded.
+    The grouping key is the *pair* ``(appVersion, detectorCodeHash)``, not the stamp
+    alone (#130). A build that hot-reloaded mid-batch therefore splits into its real
+    behavioural groups instead of averaging them, and the inverse case pays off too: two
+    appVersions sharing one hash are a commit that did not touch detection, so their
+    runs stay comparable rather than reading as a version boundary.
+
+    Builds are ordered by first-seen run timestamp. For each consecutive pair the
+    comparison pool is restricted to ``(video, truthHash)`` combos with records on
+    *both* sides — a truth revision must never masquerade as a scanner change — and
+    per-joint PCK / median-error deltas carry bootstrap CIs so noise at small n reads as
+    noise. Videos where both builds ran but never under the same truth are flagged as
+    mixed-truth and excluded.
+
+    A missing hash groups on the appVersion alone rather than dropping out: fail-open is
+    the contract on both sides, and 495 of the 499 runs on disk when this landed predate
+    the field.
     """
 
     flags: list[str] = []
-    by_version: dict[str, list[EvalRecord]] = {}
+    by_build: dict[str, list[EvalRecord]] = {}
+    builds_of: dict[str, set[BuildId]] = {}
     unknown = 0
     for rec in recs:
-        av = app_versions.get((rec.route_folder, rec.video_key, rec.run_ts), "")
-        if not av:
+        build = build_ids.get((rec.route_folder, rec.video_key, rec.run_ts), ("", ""))
+        if not build[0] and not build[1]:
             unknown += 1
             continue
-        by_version.setdefault(av, []).append(rec)
+        identity = _build_identity(build)
+        by_build.setdefault(identity, []).append(rec)
+        builds_of.setdefault(identity, set()).add(build)
     if unknown:
         flags.append(
-            f"{unknown} evaluation record(s) without a scanner appVersion "
-            "(pose diagnostics missing) excluded from version tracking")
+            f"{unknown} evaluation record(s) with no build identity at all "
+            "(neither appVersion nor detectorCodeHash in the pose diagnostics) "
+            "excluded from version tracking")
 
-    ordered = sorted(by_version, key=lambda v: min(r.run_ts for r in by_version[v]))
+    ordered = sorted(by_build, key=lambda b: min(r.run_ts for r in by_build[b]))
+    labels = {b: _build_label(b, builds_of[b]) for b in ordered}
+
     overview = pd.DataFrame([{
-        "app_version": v,
-        "first_run_ts": min(r.run_ts for r in by_version[v]),
-        "last_run_ts": max(r.run_ts for r in by_version[v]),
-        "n_records": len(by_version[v]),
-        "n_videos": len({(r.route_folder, r.video_key) for r in by_version[v]}),
-    } for v in ordered])
+        "app_version": labels[b],
+        "detector_code_hash": b if any(h for _, h in builds_of[b]) else "",
+        "first_run_ts": min(r.run_ts for r in by_build[b]),
+        "last_run_ts": max(r.run_ts for r in by_build[b]),
+        "n_records": len(by_build[b]),
+        "n_videos": len({(r.route_folder, r.video_key) for r in by_build[b]}),
+    } for b in ordered])
 
     if frame_joint_df.empty:
         pool_key = pd.Series(dtype=object)
+        fj_identity = pd.Series(dtype=object)
     else:
         pool_key = pd.Series(
             list(zip(frame_joint_df["route_folder"], frame_joint_df["video_key"],
                      frame_joint_df["truth_hash"])),
             index=frame_joint_df.index)
+        # Same hash-first rule as _build_identity, vectorised over the frame rows.
+        fj_identity = frame_joint_df["detector_code_hash"].where(
+            frame_joint_df["detector_code_hash"].astype(bool),
+            frame_joint_df["app_version"])
 
     delta_rows: list[dict[str, Any]] = []
-    for va, vb in zip(ordered, ordered[1:]):
+    for build_a, build_b in zip(ordered, ordered[1:]):
+        va, vb = labels[build_a], labels[build_b]
         truths: list[dict[tuple[str, str], set[str]]] = []
-        for version in (va, vb):
+        for build in (build_a, build_b):
             per_video: dict[tuple[str, str], set[str]] = {}
-            for r in by_version[version]:
+            for r in by_build[build]:
                 if r.truth_hash:
                     per_video.setdefault((r.route_folder, r.video_key), set()).add(r.truth_hash)
             truths.append(per_video)
@@ -739,8 +871,10 @@ def _version_regression(
 
         n_videos = len({(r, k) for r, k, _ in comparable})
         in_pool = pool_key.isin(comparable)
-        sub_a = frame_joint_df[(frame_joint_df["app_version"] == va) & in_pool]
-        sub_b = frame_joint_df[(frame_joint_df["app_version"] == vb) & in_pool]
+        # Select on the behavioural identity, not the label — a group can span more than
+        # one commit, and the frame rows carry both halves raw.
+        sub_a = frame_joint_df[(fj_identity == build_a) & in_pool]
+        sub_b = frame_joint_df[(fj_identity == build_b) & in_pool]
         for tier in ("agreement", "accuracy"):
             ta = sub_a[sub_a["tier"] == tier]
             tb = sub_b[sub_b["tier"] == tier]
@@ -1030,7 +1164,7 @@ def _frame_quality_rows(analysis_root: Path, recs: list[EvalRecord],
             vs_cache[vid] = _video_stats_conditions(
                 analysis_root / rec.route_folder / rec.video_key)
         conds = vs_cache[vid]
-        _, _, attempts = _pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN
+        attempts = (_pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN).attempts
         attempt_index = _attempts_by_timestamp(attempts)
         attempt_evidence = "unknown" if attempts is None else "attempts"
         loose = bool(rec.data.get("loosePaired"))
@@ -1476,7 +1610,7 @@ def _detection_error_attempt_run_rows(
             1 for e in frames
             if str((e or {}).get("class") or "ok") in _FQ_FLAGGED
         )
-        _, _, attempts = _pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN
+        attempts = (_pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN).attempts
         rows.append({
             "route_folder": rec.route_folder,
             "video_key": rec.video_key,
@@ -1682,7 +1816,7 @@ def _attempt_funnel_flag_rows(
     for rec in recs:
         if record_evidence_generation(rec.data) != EVIDENCE_ATTEMPTS:
             continue
-        _, _, attempts = _pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN
+        attempts = (_pose_run(analysis_root, rec, pose_cache) or _NO_POSE_RUN).attempts
         run_tally: dict[tuple[str, str], list[int]] = {}
         for attempt in attempts or []:
             raw_status = attempt.get("status")
@@ -2134,15 +2268,20 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     pose_cache: PoseRunCache = {}
     for rec in all_recs:
         _pose_run(analysis_root, rec, pose_cache)
-    app_versions = {
-        (route, key, run_ts): av
+    build_ids = {
+        (route, key, run_ts): (run.app_version, run.detector_code_hash)
         for (route, key), runs in pose_cache.items()
-        for run_ts, (av, _, _) in runs.items()
+        for run_ts, run in runs.items()
     }
+    # Conflicts are derived from every cached pose run, including runs no evaluation
+    # record scored — see _build_identity_conflicts. They lead the version flags because
+    # a conflict invalidates the grouping the rest of the section rests on.
+    build_conflicts, conflict_flags = _build_identity_conflicts(pose_cache)
     frame_joint_df = _build_frame_joint_rows(analysis_root, recs, pose_cache)
     joint_rank = _joint_ranking(frame_joint_df)
     version_overview, version_deltas, version_flags = _version_regression(
-        recs, frame_joint_df, app_versions)
+        recs, frame_joint_df, build_ids)
+    version_flags = conflict_flags + version_flags
     cond_df = pd.concat(
         [
             _condition_bands(frame_joint_df, "size_frac"),
@@ -2227,6 +2366,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "version_overview": version_overview,
         "version_deltas": version_deltas,
         "version_flags": version_flags,
+        "build_conflicts": build_conflicts,
         "truthless_bundles": no_truth,
         "stale_truth_bundles": stale_truth,
         "stale_truth_count": len(stale_truth),
@@ -2291,6 +2431,7 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_cross_video_splits.csv": ctx.get("cross_video_splits"),
         "eval_version_overview.csv": ctx.get("version_overview"),
         "eval_version_deltas.csv": ctx.get("version_deltas"),
+        "eval_build_identity_conflicts.csv": ctx.get("build_conflicts"),
         "eval_low_confidence_worklist.csv": ctx.get("low_conf_worklist"),
         "eval_quarantined_bundles.csv": quarantined_df,
         "eval_truth_repair_worklist.csv": truth_repair_df,

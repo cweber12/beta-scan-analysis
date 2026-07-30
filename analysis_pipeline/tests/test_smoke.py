@@ -333,10 +333,15 @@ def _kp_list(joints: dict) -> list:
 def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list,
                     app_version: str = "",
                     detector_attempts: list[dict] | None = None,
-                    config: dict | None = None) -> None:
+                    config: dict | None = None,
+                    detector_code_hash: str | None = None) -> None:
     det = video_dir / "detections"
     det.mkdir(parents=True, exist_ok=True)
     diagnostics = {"appVersion": app_version} if app_version else {}
+    if detector_code_hash is not None:
+        # None omits the key (a record predating #130); "" writes an explicit null, the
+        # scanner's "derivation failed" value. Both must read as unknown provenance.
+        diagnostics["detectorCodeHash"] = detector_code_hash or None
     if config is not None:
         diagnostics["config"] = config
     data = {"setupHash": setup_hash, "diagnostics": diagnostics, "frames": frames}
@@ -3258,7 +3263,8 @@ def test_analysis_report_includes_eval_trend_sections():
             "Low-confidence truth (visible-joint measurement)",
             "Per-frame detection quality (auto-flagged classes)",
             "Detector Attempt funnel (run unit)",
-            "Scanner version regression (appVersion run-over-run)",
+            "Scanner version regression (build identity run-over-run)",
+            "Build-identity conflicts",
             "Per-joint failure ranking (frame/joint unit)",
             "Within-video frame-level conditions vs error",
             "Cross-video descriptive splits",
@@ -3441,6 +3447,177 @@ def test_version_regression_never_deltas_across_truth_revisions():
         assert ctx["version_deltas"].empty
         assert any("mixed truth" in f for f in ctx["version_flags"])
         assert any("routeW/vidW" in f for f in ctx["version_flags"])
+
+
+# --------------------------------------------------------------------------- #
+# per-run build identity: detectorCodeHash (issue #130)
+# --------------------------------------------------------------------------- #
+
+def test_build_identity_conflict_detected_on_runs_no_record_scored():
+    """One appVersion stamping two detectorCodeHash values is flagged — and is found
+    on runs that no evaluation record scored, which is where the real corpus's only
+    conflict lives. A detector reading scored records alone would fire on nothing."""
+
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeH" / "vidH"
+        _write_bundle_meta(vdir, setup_hash="sh_h")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+
+        # One scored run so the bundle enters the pose cache at all...
+        _write_pose_run(vdir, "20260101-000001", "sh_h", _scanner_frames_for_pck(),
+                        app_version="aaa1111", detector_code_hash="1111aaaa1111")
+        # ...then the hot-reload pair, deliberately setup-stale so evaluate skips them.
+        # Same stamp, different code: the c305954 signature.
+        _write_pose_run(vdir, "20260101-000002", "sh_STALE", _scanner_frames_for_pck(),
+                        app_version="aaa1111", detector_code_hash="2222bbbb2222")
+        _write_pose_run(vdir, "20260101-000003", "sh_STALE", _scanner_frames_for_pck(),
+                        app_version="aaa1111", detector_code_hash="1111aaaa1111")
+        summary = _evaluate(root)
+        assert len(summary.written) == 1  # only the sh_h run scored
+
+        ctx = trends.build_trend_context(root)
+        conflicts = ctx["build_conflicts"]
+        assert not conflicts.empty
+        assert set(conflicts["app_version"]) == {"aaa1111"}
+        assert set(conflicts["detector_code_hash"]) == {"1111aaaa1111", "2222bbbb2222"}
+        # Run counts come from every pose run on disk, not the scored subset.
+        assert conflicts.set_index("detector_code_hash").loc["1111aaaa1111", "n_runs"] == 2
+        assert conflicts.set_index("detector_code_hash").loc["2222bbbb2222", "n_runs"] == 1
+        assert any("2 distinct detectorCodeHash" in f for f in ctx["version_flags"])
+
+
+def test_build_identity_absent_hash_is_never_a_conflict():
+    """Fail-open: null and missing hashes are unknown provenance, not contradiction.
+    A stamp covering one hashed run and one unhashed run must not be flagged."""
+
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeN" / "vidN"
+        _write_bundle_meta(vdir, setup_hash="sh_n")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+
+        _write_pose_run(vdir, "20260101-000001", "sh_n", _scanner_frames_for_pck(),
+                        app_version="aaa1111", detector_code_hash="1111aaaa1111")
+        # Explicit null — the scanner's "derivation failed" value.
+        _write_pose_run(vdir, "20260101-000002", "sh_STALE", _scanner_frames_for_pck(),
+                        app_version="aaa1111", detector_code_hash="")
+        # Key absent entirely — a record predating the field.
+        _write_pose_run(vdir, "20260101-000003", "sh_STALE", _scanner_frames_for_pck(),
+                        app_version="aaa1111")
+        _evaluate(root)
+
+        ctx = trends.build_trend_context(root)
+        assert ctx["build_conflicts"].empty
+        assert not any("detectorCodeHash" in f for f in ctx["version_flags"])
+
+
+def test_version_regression_splits_one_appversion_by_detector_code_hash():
+    """A stamp that hot-reloaded mid-batch splits into its real behavioural groups
+    instead of averaging them — the grouping half of #130."""
+
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeS" / "vidS"
+        _write_bundle_meta(vdir, setup_hash="sh_s")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+
+        bad = dict(_TRUTH_JOINTS)
+        bad["nose"] = (0.5, 0.4)
+        frames_v1 = [{"timestamp": t, "keypoints": _kp_list(bad)} for t in (1.0, 2.0, 9.0)]
+        frames_v2 = [{"timestamp": t, "keypoints": _kp_list(_TRUTH_JOINTS)}
+                     for t in (1.0, 2.0, 9.0)]
+        # One appVersion, two detector builds — the stamp alone would pool these and
+        # average a real behavioural delta into nothing.
+        _write_pose_run(vdir, "20260101-000001", "sh_s", frames_v1,
+                        app_version="aaa1111", detector_code_hash="1111aaaa1111")
+        _write_pose_run(vdir, "20260102-000001", "sh_s", frames_v2,
+                        app_version="aaa1111", detector_code_hash="2222bbbb2222")
+        summary = _evaluate(root)
+        assert len(summary.written) == 2
+
+        ctx = trends.build_trend_context(root)
+        overview = ctx["version_overview"]
+        assert list(overview["app_version"]) == [
+            "aaa1111·1111aaaa1111", "aaa1111·2222bbbb2222"]
+        assert list(overview["n_records"]) == [1, 1]
+
+        # The injected one-joint improvement survives as a delta between the two
+        # builds; grouping by the stamp alone would have shown no transition at all.
+        deltas = ctx["version_deltas"]
+        assert not deltas.empty
+        assert (deltas["from_version"] == "aaa1111·1111aaaa1111").all()
+        assert (deltas["to_version"] == "aaa1111·2222bbbb2222").all()
+        nose = deltas.set_index("joint").loc["nose"]
+        assert nose["pck_from"] == 0.0 and nose["pck_to"] == 1.0
+
+
+def test_version_regression_pools_two_commits_sharing_one_hash():
+    """The benefit that runs the other way: different appVersion, same
+    detectorCodeHash is a commit that did not touch detection, so its runs stay one
+    behavioural group instead of reading as a version boundary."""
+
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeP2" / "vidP2"
+        _write_bundle_meta(vdir, setup_hash="sh_p2")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+
+        frames = _scanner_frames_for_pck()
+        _write_pose_run(vdir, "20260101-000001", "sh_p2", frames,
+                        app_version="aaa1111", detector_code_hash="1111aaaa1111")
+        _write_pose_run(vdir, "20260102-000001", "sh_p2", frames,
+                        app_version="bbb2222", detector_code_hash="1111aaaa1111")
+        summary = _evaluate(root)
+        assert len(summary.written) == 2
+
+        ctx = trends.build_trend_context(root)
+        overview = ctx["version_overview"]
+        # One row, not two: both commits pooled, and the label names both.
+        assert len(overview) == 1
+        assert overview.iloc[0]["app_version"] == "aaa1111+bbb2222·1111aaaa1111"
+        assert overview.iloc[0]["n_records"] == 2
+        # No transition to delta, because no behavioural boundary exists.
+        assert ctx["version_deltas"].empty
+        assert ctx["build_conflicts"].empty
+
+
+def test_version_regression_unhashed_corpus_renders_exactly_as_before():
+    """The 495-of-499 case. With no hash anywhere, labels stay bare appVersions and
+    the section is byte-identical to its pre-#130 output."""
+
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = root / "routeL" / "vidL"
+        _write_bundle_meta(vdir, setup_hash="sh_l2")
+        (vdir / "ground-truth.json").write_text(
+            json.dumps(_ground_truth_doc(setup_hash=None)), encoding="utf-8")
+
+        frames = _scanner_frames_for_pck()
+        _write_pose_run(vdir, "20260101-000001", "sh_l2", frames, app_version="aaa1111")
+        _write_pose_run(vdir, "20260102-000001", "sh_l2", frames, app_version="bbb2222")
+        _evaluate(root)
+
+        ctx = trends.build_trend_context(root)
+        overview = ctx["version_overview"]
+        assert list(overview["app_version"]) == ["aaa1111", "bbb2222"]
+        assert list(overview["detector_code_hash"]) == ["", ""]
+        assert ctx["build_conflicts"].empty
+        assert ctx["version_flags"] == []
 
 
 # --------------------------------------------------------------------------- #
@@ -3723,7 +3900,12 @@ def _run_all():
            test_analysis_report_includes_eval_trend_sections,
            test_low_confidence_visible_measurement_and_worklist,
            test_version_regression_delta_isolated_to_injected_joint,
-           test_version_regression_never_deltas_across_truth_revisions]
+           test_version_regression_never_deltas_across_truth_revisions,
+           test_build_identity_conflict_detected_on_runs_no_record_scored,
+           test_build_identity_absent_hash_is_never_a_conflict,
+           test_version_regression_splits_one_appversion_by_detector_code_hash,
+           test_version_regression_pools_two_commits_sharing_one_hash,
+           test_version_regression_unhashed_corpus_renders_exactly_as_before]
     assert set(_legacy_order) <= set(fns), "a listed test vanished from the module"
     for fn in fns:
         fn()
