@@ -358,6 +358,91 @@ def _evidence_generation_html(summary: dict[str, Any] | None) -> str:
             f"{detail}.{note}</p>")
 
 
+def _basis_banner_html(ctx: dict[str, Any]) -> str:
+    """Declare the frozen basis once at the top, in addition to per-section (issue #131).
+
+    The per-section lines are what stop two sections being compared; this is what tells a
+    reader arriving at the report which baseline cycle they are looking at, without having
+    to scroll to a pooled section to find out."""
+
+    summary = ctx.get("measurement_basis_frames") or ctx.get("measurement_basis_trusted")
+    if not isinstance(summary, dict):
+        return ""
+    frozen = summary.get("frozen_schema")
+    writer = summary.get("writer_schema")
+    if summary.get("cycle_broken"):
+        return (f"<div class='banner'>BASIS BROKEN — the evaluation writer is at "
+                f"<code>v{_esc(writer)}</code> but this baseline cycle is frozen at "
+                f"<code>v{_esc(frozen)}</code>. Re-score the whole compared population "
+                f"(<code>evaluate --mode all</code>) before reading any number here against "
+                f"an earlier batch.</div>")
+    return (f"<p class='sub'>Measurement basis: schema frozen at <code>v{_esc(frozen)}</code> "
+            f"for this baseline cycle (#131). Every pooled section below states the schema "
+            f"versions and build identities it rests on.</p>")
+
+
+def _measurement_basis_html(summary: dict[str, Any] | None) -> str:
+    """State the measurement basis a pooled section rests on (issue #131).
+
+    Two sections resting on different schema versions or different build sets are not
+    comparable, and before this the reader had no way to tell from the numbers. Printed on
+    every pooled section for the same reason the evidence-generation line is: provenance
+    travels with the number, not with the report.
+
+    Three escalating conditions, loudest first — a mid-cycle schema bump (the whole
+    compared population needs re-scoring), a pool spanning schema versions, and a pool
+    spanning builds. Each is named rather than refused; see ``_measurement_basis``."""
+
+    if not isinstance(summary, dict) or not summary.get("n_records"):
+        return "<p class='muted'>measurement basis: no records in this pool.</p>"
+
+    counts = summary.get("schema_counts") or {}
+    versions = summary.get("schema_versions") or []
+    schema_mixed = bool(summary.get("schema_mixed"))
+    frozen = summary.get("frozen_schema")
+    n = int(summary.get("n_records") or 0)
+
+    badge = ("<span class='flag tier'>basis: MIXED SCHEMA</span>" if schema_mixed
+             else f"<span class='flag tier'>basis: {_esc(summary.get('schema_label'))}</span>")
+    detail = ", ".join(
+        f"{counts.get(v, 0)} × <code>"
+        f"{'schemaVersion ' + str(v) if v != 'unknown' else 'unstamped'}</code>"
+        for v in versions
+    )
+
+    notes: list[str] = []
+    if summary.get("cycle_broken"):
+        notes.append(
+            f"<strong>MID-CYCLE SCHEMA BUMP.</strong> The writer is at "
+            f"<code>v{_esc(summary.get('writer_schema'))}</code> while the baseline cycle is "
+            f"frozen at <code>v{_esc(frozen)}</code>. Any comparison against an earlier "
+            "batch is invalid until the <em>whole</em> compared population is re-scored "
+            "with <code>python -m analysis_pipeline evaluate --mode all</code> — scoring "
+            "only the new batch leaves the population straddling two bases.")
+    if schema_mixed:
+        off = int(summary.get("off_basis") or 0)
+        notes.append(
+            f"This pool spans more than one schema version: {off} of {n} record(s) are "
+            f"<em>not</em> on the frozen <code>v{_esc(frozen)}</code> basis. Numbers here "
+            "blend bases — do not read them against a single-basis section, and re-score "
+            "with <code>--mode all</code> before comparing batches.")
+    if summary.get("build_mixed"):
+        notes.append(
+            f"Collected across {_esc(summary.get('n_builds'))} build identities: "
+            f"{_esc(summary.get('build_label'))}. Comparable as a corpus-wide number, not "
+            "as a statement about any one build.")
+    elif summary.get("builds"):
+        notes.append(f"Single build identity: <code>{_esc(summary.get('build_label'))}</code>.")
+    elif not summary.get("build_set_known"):
+        notes.append("Build set not established for this pool.")
+
+    body = f"{badge} {n} record(s): {detail}."
+    if notes:
+        body += " " + " ".join(notes)
+    cls = "warn" if (schema_mixed or summary.get("cycle_broken")) else "sub"
+    return f"<p class='{cls}'>{body}</p>"
+
+
 def _superseded_table(rows: list[dict[str, Any]]) -> str:
     """Records dropped from pooling because the same video+truth pairing also has an
     attempt-backed record (issue #89). Still on disk and readable — only the aggregation
@@ -1607,6 +1692,9 @@ th{color:var(--ink2);font-weight:600}
 .flag{display:inline-block;background:color-mix(in srgb,var(--accent) 16%,transparent);border:1px solid var(--accent);border-radius:6px;padding:1px 6px;font-size:11px;margin:2px 4px 0 0}
 .flag.tier{text-transform:uppercase;letter-spacing:0.03em;font-weight:700}
 .sig-good{color:#1baf7a;font-weight:700}.sig-bad{color:#e34948;font-weight:700}
+/* A basis problem (#131): a pool blending schema versions, or a mid-cycle bump. Reads
+   like .sub but cannot be skimmed past, because the numbers beside it are not comparable. */
+.warn{color:var(--ink2);margin:0 0 18px;background:color-mix(in srgb,#e34948 10%,transparent);border-left:3px solid #e34948;border-radius:4px;padding:8px 12px}
 .tl{display:flex;align-items:center;gap:10px;margin:3px 0}.tl-label{font-size:11px;color:var(--ink2);width:180px;flex:0 0 180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 footer{margin-top:40px;color:var(--muted);font-size:12px}
 """
@@ -1636,6 +1724,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "inference; per-frame coefficients are summarised across runs, not pooled. Per-frame "
         "outcomes (<code>kp_count</code>, <code>mean_score</code>) are a post-processed PROXY, "
         "not raw detector output. Treat effect sizes as directional, not significant.</div>",
+        _basis_banner_html(ctx),
         "<div class='card'>"
         f"<span class='stat'><b>{n_runs}</b>distinct runs</span>"
         f"<span class='stat'><b>{ctx['n_videos']}</b>videos</span>"
@@ -1678,6 +1767,10 @@ def build_report_html(ctx: dict[str, Any]) -> str:
 
     trusted_evidence = _evidence_generation_html(ctx.get("evidence_generation_trusted"))
     frames_evidence = _evidence_generation_html(ctx.get("evidence_generation_frames"))
+    # Issue #131: the basis line sits immediately under the evidence line on every pooled
+    # section, so schema + build set travel with the number the same way generation does.
+    trusted_basis = _measurement_basis_html(ctx.get("measurement_basis_trusted"))
+    frames_basis = _measurement_basis_html(ctx.get("measurement_basis_frames"))
 
     # Issue #132: every truth-fit section says out loud that it quarantines, and how much
     # it is quarantining. These metrics are measured *against* Ground Truth, so a run whose
@@ -1717,6 +1810,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "(quarantined) pool; each failure-mode section carries its own conformance "
         "breakout.</p>",
         trusted_evidence,
+        trusted_basis,
         _stat_tiles([
             (str(ctx.get("eval_count", 0)), "trusted records [pooled]"),
             (str(ctx.get("quarantined_count", 0)), "quarantined records [#15 gate]"),
@@ -1750,6 +1844,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "the frames most worth fixing — an independent pool from the trusted metrics. "
         "Classes are provisional (thresholds not yet fit against verified labels).</p>",
         frames_evidence,
+        frames_basis,
         _frame_quality_html(ctx),
 
         "<h2>Detector Attempt funnel (run unit)</h2>",
@@ -1763,6 +1858,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "with no Ground Truth have no evaluation record and so are not in this funnel; "
         "they are accounted for in the truthless-bundle shame list below.</p>",
         _evidence_generation_html(ctx.get("evidence_generation_funnel")),
+        _measurement_basis_html(ctx.get("measurement_basis_funnel")),
         _attempt_funnel_html(ctx),
 
         "<h2>Detection Errors × Detector Attempts</h2>",
@@ -1776,6 +1872,7 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "second rate drops them and judges the gates on frames where a pose was "
         "actually there to keep.</p>",
         frames_evidence,
+        frames_basis,
         _detection_error_attempt_html(ctx),
 
         "<h2>Scanner version regression (build identity run-over-run)</h2>",

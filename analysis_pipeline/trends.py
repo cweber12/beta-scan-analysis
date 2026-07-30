@@ -43,12 +43,14 @@ from .evaluate import (
     RATE_MISMATCH_MIN_RATIO,
     ABSENCE_REASONS,
     ABSENCE_UNKNOWN,
+    BASELINE_CYCLE_SCHEMA,
     COCO_CORE_JOINTS,
     EVIDENCE_ATTEMPTS,
     EVIDENCE_GENERATIONS,
     MISS_CAUSES,
     NONCONFORMANCE_CAUSES,
     NONCONFORMANCE_SUSPECTED_MISTRACK,
+    SCHEMA_VERSION,
     _dist,
     _iter_pose_runs,
     _nearest_within,
@@ -58,6 +60,7 @@ from .evaluate import (
     record_conforms,
     record_evidence_generation,
     record_nonconformance_cause,
+    record_schema_version,
     record_trusted,
     torso_length,
 )
@@ -305,6 +308,91 @@ def _evidence_generation_summary(recs: list[EvalRecord], pool: str) -> dict[str,
         "generations": present,
         "mixed": len(present) > 1,
         "label": " + ".join(present) if present else "none",
+    }
+
+
+SCHEMA_UNKNOWN = "unknown"
+
+
+def _measurement_basis(
+    recs: list[EvalRecord],
+    pool: str,
+    build_ids: dict[tuple[str, str, str], BuildId] | None = None,
+) -> dict[str, Any]:
+    """The measurement basis one pooled set of records rests on (issue #131).
+
+    Two things make a pooled number comparable to another pooled number: the **schema** it
+    was scored under and the **build set** it was collected from. The records stamp
+    ``schemaVersion``, so the basis was always *recorded* — but nothing stated it next to
+    the numbers, so nothing stopped two sections resting on different bases from being read
+    against each other. This states it.
+
+    Printed per pool rather than once at the top, for the same reason
+    ``_evidence_generation_summary`` is (#89): a number read out of the middle of the report
+    has to carry its own provenance.
+
+    Mixture is *flagged, not refused*. A corpus mid-migration legitimately spans bases, and
+    refusing to report would destroy the accounting that shows what the mixture is. This
+    follows the fail-open-and-name-it convention the rest of the module uses — the failure
+    being prevented is a silent blend, not a blend.
+
+    ``build_ids`` is optional so a caller with no pose cache still gets the schema half;
+    an absent build set reports as unknown rather than as empty, which would read as
+    "no builds" instead of "not established".
+    """
+
+    schema_counts: dict[str, int] = {}
+    for rec in recs:
+        version = record_schema_version(rec.data)
+        key = SCHEMA_UNKNOWN if version is None else str(version)
+        schema_counts[key] = schema_counts.get(key, 0) + 1
+    # Numeric ascending, with unknown last: it is not a version and must not sort among
+    # them, but it is the most important cell to see when present.
+    present = sorted(
+        (k for k in schema_counts if k != SCHEMA_UNKNOWN), key=int
+    ) + ([SCHEMA_UNKNOWN] if SCHEMA_UNKNOWN in schema_counts else [])
+    on_basis = schema_counts.get(str(BASELINE_CYCLE_SCHEMA), 0)
+
+    builds: list[dict[str, Any]] = []
+    if build_ids is not None:
+        by_identity: dict[str, set[BuildId]] = {}
+        counts_by_identity: dict[str, int] = {}
+        for rec in recs:
+            build = build_ids.get((rec.route_folder, rec.video_key, rec.run_ts))
+            if build is None:
+                continue
+            identity = _build_identity(build)
+            by_identity.setdefault(identity, set()).add(build)
+            counts_by_identity[identity] = counts_by_identity.get(identity, 0) + 1
+        builds = [
+            {
+                "identity": identity,
+                "label": _build_label(identity, by_identity[identity]),
+                "n_records": counts_by_identity[identity],
+            }
+            for identity in sorted(by_identity, key=lambda i: (-counts_by_identity[i], i))
+        ]
+
+    return {
+        "pool": pool,
+        "n_records": len(recs),
+        "schema_counts": schema_counts,
+        "schema_versions": present,
+        "schema_mixed": len(present) > 1,
+        "schema_label": " + ".join(f"v{v}" if v != SCHEMA_UNKNOWN else v for v in present)
+                        or "none",
+        # The frozen basis for this cycle, and how much of the pool actually sits on it.
+        "frozen_schema": BASELINE_CYCLE_SCHEMA,
+        "on_basis": on_basis,
+        "off_basis": len(recs) - on_basis,
+        # A writer/freeze disagreement is the mid-cycle bump: what forces a full re-score.
+        "writer_schema": SCHEMA_VERSION,
+        "cycle_broken": SCHEMA_VERSION != BASELINE_CYCLE_SCHEMA,
+        "builds": builds,
+        "build_set_known": build_ids is not None,
+        "n_builds": len(builds),
+        "build_mixed": len(builds) > 1,
+        "build_label": " + ".join(b["label"] for b in builds) if builds else SCHEMA_UNKNOWN,
     }
 
 
@@ -2277,6 +2365,12 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     # record scored — see _build_identity_conflicts. They lead the version flags because
     # a conflict invalidates the grouping the rest of the section rests on.
     build_conflicts, conflict_flags = _build_identity_conflicts(pose_cache)
+    # Issue #131: state the basis — schema + build set — behind each pooled population.
+    # Derived after ``build_ids`` because the build half needs the pose cache, and named
+    # per pool so the three sections that pool different populations each carry their own.
+    basis_trusted = _measurement_basis(recs, "trusted pooled metrics", build_ids)
+    basis_frames = _measurement_basis(
+        all_recs, "per-frame / attempt pools (all records)", build_ids)
     frame_joint_df = _build_frame_joint_rows(analysis_root, recs, pose_cache)
     joint_rank = _joint_ranking(frame_joint_df)
     version_overview, version_deltas, version_flags = _version_regression(
@@ -2326,6 +2420,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     funnel_totals = _attempt_funnel_totals(funnel_runs, funnel_status)
     funnel_conformance = _attempt_funnel_conformance(funnel_runs)
     evidence_funnel = _evidence_generation_summary(funnel_recs, "attempt funnel")
+    basis_funnel = _measurement_basis(funnel_recs, "attempt funnel", build_ids)
 
     # Crop placement + miss causes (issue #86), pooled over the same all-records set.
     crop_df = _crop_quality_rows(all_recs)
@@ -2352,6 +2447,8 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "superseded_count": len(superseded),
         "evidence_generation_trusted": evidence_trusted,
         "evidence_generation_frames": evidence_frames,
+        "measurement_basis_trusted": basis_trusted,
+        "measurement_basis_frames": basis_frames,
         "quarantined_bundles": quarantined,
         "quarantined_count": len(quarantined),
         "quarantine_cause_counts": quarantine_causes,
@@ -2396,6 +2493,7 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "attempt_funnel_flags": funnel_flags,
         "attempt_funnel": funnel_totals,
         "evidence_generation_funnel": evidence_funnel,
+        "measurement_basis_funnel": basis_funnel,
         "crop_quality_attempts": crop_df,
         "crop_quality_miss_causes": miss_causes,
         "crop_quality": crop_totals,

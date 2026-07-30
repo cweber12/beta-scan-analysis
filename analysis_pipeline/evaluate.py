@@ -119,6 +119,25 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 #    a frame written before this reads as ``unknown``, never as confirmed.
 SCHEMA_VERSION = 14
 
+# The schema a baseline cycle is *scored on*, frozen for one full cycle — collect →
+# score → analyse → act — rather than moving whenever a bump is convenient (issue #131).
+#
+# Why the freeze exists: the basis moved v8 → v11 → v12 → v13 → v14 in about two weeks.
+# Each bump was individually justified, but the cumulative effect was that no two
+# baselines were ever scored on the same basis, so "improvement" and "regression" across
+# batches were largely uninterpretable. That was not a theoretical cost — the miss split
+# "88% no-candidates / 12% identity-gated" survived four baselines, was used to argue the
+# direction of the scanner's search ladder, and then turned out to be a pooling artifact.
+#
+# Frozen 2026-07-29 at v14, on the post-reset sweep scored in PR #128 (85 records).
+#
+# Bumping SCHEMA_VERSION without moving this constant is the *mid-cycle bump* case, and it
+# is deliberately not an error — a real contract change can force one. What it must not be
+# is silent. While the two differ, every pooled section of the report carries a re-score
+# demand, because scoring only the new batch leaves the compared population straddling two
+# bases; the whole population has to be re-scored with ``evaluate --mode all``.
+BASELINE_CYCLE_SCHEMA = 14
+
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
 # ``auto``, so old truth degrades gracefully to agreement-tier evidence.
@@ -2121,6 +2140,24 @@ def record_evidence_generation(record: dict[str, Any]) -> str:
     if marker in (EVIDENCE_ATTEMPTS, EVIDENCE_LEGACY_FRAMES):
         return str(marker)
     return EVIDENCE_UNKNOWN
+
+
+def record_schema_version(record: dict[str, Any]) -> int | None:
+    """The schema an on-disk record was written under, or ``None`` if it doesn't say.
+
+    ``None`` is a real answer, not a failure: records predating the field exist, and a
+    pooled reader must be able to distinguish "written on an unknown basis" from "written
+    on the frozen basis". Collapsing the two would let the exact mixture issue #131 exists
+    to surface read as clean. A non-integer value normalizes to ``None`` for the same
+    reason — an unparseable basis is an unknown one."""
+
+    raw = record.get("schemaVersion")
+    if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def record_trusted(record: dict[str, Any]) -> bool:
