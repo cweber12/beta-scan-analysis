@@ -54,6 +54,19 @@ not a spec — it carries no implementation detail.
   them — repairable by re-tapping or widening the seed region). Only the repairable
   classes are worth spending effort on; the audit behind #101 found only 5 of 15
   truthless Bundles were genuinely hard.
+- **Climber Identity** — which of the people in a frame is *the Climber*, held across the
+  whole clip. Anchored by the **seed tap** and propagated both forwards and backwards
+  from it. Identity is a separate question from pose quality, and the two fail
+  independently: a frame can carry an accurate skeleton on the wrong person. That — not
+  joint error — is the dominant truth defect in this corpus, and the only one the human
+  review loop is asked to catch.
+- **Appearance signature** — the clothing-colour description of a tracked person,
+  compared frame to frame to hold **Climber Identity** where position alone is ambiguous.
+  It is none of the crops: not the **Climber Crop** (a Video Stats input, decoupled from
+  seeding by ADR 0006) and not the scanner's **Adaptive Crop** (a search region). Only
+  the signature carries identity. A candidate with no signature scores neutrally, so a
+  Bundle where signatures are weak or absent degrades to nearest-box association — which
+  is how a trajectory latches onto a bystander at the base of the wall.
 - **Ground Truth** (`ground-truth.json`) — beta-scanner's per-frame pose truth
   artifact, authored from the ViTPose scaffold plus human flags. New artifacts carry
   top-level `setupHash` and per-frame `review` provenance. `review: "auto"` is
