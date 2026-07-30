@@ -3284,10 +3284,50 @@ def test_analysis_report_includes_eval_trend_sections():
         # version regression, joint ranking, condition bands, cross-video splits.
         assert html_text.count("Truth-fit metric — quarantined pool") == 4
 
+        # Issue #133: the same four, plus the trend-accounting header, each name the
+        # accuracy tier's missing input. A tier-bearing section read on its own must not
+        # leave "why is everything tagged agreement?" to inference.
+        assert html_text.count("accuracy: NOT COMPUTABLE") == 5
+        assert "missing input" in html_text
+
         assert "routeT/vidNoTruth" in html_text
         assert "routeT/vidStale" in html_text  # stale shame list + loose table
         assert (out / "eval_joint_ranking.csv").exists()
         assert (out / "eval_low_confidence_worklist.csv").exists()
+
+
+def test_empty_accuracy_tier_names_its_missing_input():
+    """Issue #133: an unmeasured accuracy tier must never read as a measured-and-poor one.
+
+    Nothing renders an *empty* accuracy row — the tier produces none at all — so without
+    this the reader sees only agreement rows and infers a detection problem. ADR 0010
+    made the emptiness permanent and structural, so the note states the cause rather
+    than leaving it to be re-derived.
+
+    The verified branch must still work: the note is a report of the corpus, not an
+    assertion about it, so if attested frames ever appear it says so.
+    """
+
+    from analysis_pipeline import report
+
+    empty = report._accuracy_tier_html({"verified_frames_total": 0, "verified_records": 0})
+    assert "NOT COMPUTABLE" in empty
+    # It must name the *input*, not just the absence — that distinction is the issue.
+    assert "0 verified truth frames" in empty
+    assert "missing input" in empty
+    assert "ADR 0010" in empty
+    # And it must say what the surviving numbers actually are.
+    assert "agreement" in empty and "scaffold" in empty
+
+    # Absent/None ctx keys degrade to the empty branch rather than raising.
+    assert "NOT COMPUTABLE" in report._accuracy_tier_html({})
+    assert "NOT COMPUTABLE" in report._accuracy_tier_html({"verified_frames_total": None})
+
+    # Fails open: verified truth is reported, never overridden by the ADR 0010 wording.
+    scored = report._accuracy_tier_html(
+        {"verified_frames_total": 12, "verified_records": 3})
+    assert "NOT COMPUTABLE" not in scored
+    assert "12 verified frame(s)" in scored and "3 record(s)" in scored
 
 
 def test_low_confidence_visible_measurement_and_worklist():
