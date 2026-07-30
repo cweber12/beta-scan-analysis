@@ -195,6 +195,21 @@ not a spec — it carries no implementation detail.
   sits entirely in runs no evaluation record scored. A missing hash is *unknown
   provenance*, never a conflict, and never merged with a hashed group: it might
   be the same code, but nothing on disk says so.
+- **Measurement basis** — what a pooled number rests on, and therefore what it can be
+  compared against: the **schema version(s)** the records were scored under (what was
+  counted) plus the **build identity** set they were collected from (what was measured).
+  The basis is *frozen* for one baseline cycle — collect → score → analyse → act —
+  because the schema moved v8 → v11 → v12 → v13 → v14 in about two weeks and no two
+  baselines were ever scored on the same one; the "88% no-candidates" miss split survived
+  four of them before turning out to be a pooling artifact. `BASELINE_CYCLE_SCHEMA`
+  declares the frozen basis, and `SCHEMA_VERSION` moving away from it is a **mid-cycle
+  bump**: permitted, never silent, and it demands re-scoring the *whole* compared
+  population (`evaluate --mode all`) rather than just the new batch. Every pooled section
+  states its own basis, for the same reason it states its **evidence generation** — a
+  number read out of the middle of the report carries its own provenance. A pool spanning
+  versions is **flagged, not refused** (a corpus mid-migration legitimately spans bases),
+  and a record that does not stamp one reads as `unknown`, never as the frozen version.
+  See `docs/adr/0009`.
 
 ## The condition → detection vocabulary
 

@@ -3856,6 +3856,214 @@ def test_evaluate_mode_unanalyzed_prune_interaction():
         assert (eval_dir / history_name).exists()
 
 
+def _basis_corpus(root: Path, versions_by_run: dict[str, int | None] | None = None,
+                  builds: dict[str, tuple[str, str | None]] | None = None) -> None:
+    """A two-run corpus for the #131 basis tests, optionally with the on-disk
+    ``schemaVersion`` rewritten per run to stage a mixed-basis pool.
+
+    Rewriting after evaluation rather than faking a record wholesale keeps the fixture
+    honest: every record is one the pipeline actually wrote, and only the basis stamp
+    differs — which is exactly the real case (records written under an older schema, still
+    on disk, still pooled)."""
+
+    present = {n: {"x": x, "y": y, "occluded": False} for n, (x, y) in _TRUTH_JOINTS.items()}
+    exact = _kp_list(_TRUTH_JOINTS)
+    crop = {"x": 0.2, "y": 0.1, "w": 0.6, "h": 0.9}
+    frames = [1, 2, 3]
+    attempts = [
+        {"timestamp": float(i), "status": "accepted", "initialSearchRegion": crop,
+         "detectionRegion": crop, "rawKeypoints": exact, "acceptedKeypoints": exact,
+         "candidateCount": 1, "selectionMethod": "tracked"}
+        for i in frames
+    ]
+    builds = builds or {"20260729-100000": ("bbb2222", None),
+                        "20260729-110000": ("bbb2222", None)}
+    for i, (run_ts, (app_version, code_hash)) in enumerate(sorted(builds.items())):
+        vid = root / "routeBASIS" / f"vid{i}"
+        _write_bundle_meta(vid, setup_hash=f"sh_basis{i}")
+        (vid / "ground-truth.json").write_text(json.dumps({
+            "version": 1, "jointSet": list(_TRUTH_JOINTS),
+            "groundTruthHash": f"basis{i:03d}0000{i:04d}",
+            "frames": [{"frameIndex": f, "timestamp": float(f), "state": "present",
+                        "review": "auto", "joints": present} for f in frames],
+        }), encoding="utf-8")
+        _write_pose_run(vid, run_ts, f"sh_basis{i}",
+                        [{"timestamp": float(f), "keypoints": exact} for f in frames],
+                        app_version=app_version, detector_attempts=attempts,
+                        detector_code_hash=code_hash)
+
+    _evaluate(root)
+
+    if versions_by_run:
+        for path in root.glob("*/*/evaluations/*.json"):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            run_ts = str(data.get("runTs") or "")
+            if run_ts not in versions_by_run:
+                continue
+            version = versions_by_run[run_ts]
+            if version is None:
+                data.pop("schemaVersion", None)
+            else:
+                data["schemaVersion"] = version
+            path.write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_measurement_basis_names_schema_and_build_set():
+    """Issue #131: every pooled section states the schema version(s) and build
+    identities behind it, and a clean single-basis pool says so without warning.
+
+    The acceptance is that a reader cannot compare two sections resting on different
+    bases without being told — so the basis has to be *in* the section, not inferable."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # Two builds, one hashed and one not: the build set is genuinely plural, which is
+        # the corpus's real condition and must be named rather than averaged away.
+        _basis_corpus(root, builds={
+            "20260729-100000": ("bbb2222", None),
+            "20260729-110000": ("ccc3333", "feda64515c1b"),
+        })
+        ctx = trends.build_trend_context(root)
+
+        for key in ("measurement_basis_trusted", "measurement_basis_frames",
+                    "measurement_basis_funnel"):
+            basis = ctx[key]
+            assert basis["n_records"] == 2, key
+            # Records the pipeline just wrote are on the frozen basis by construction.
+            assert basis["schema_versions"] == [str(ev.BASELINE_CYCLE_SCHEMA)], key
+            assert basis["schema_mixed"] is False, key
+            assert basis["on_basis"] == 2 and basis["off_basis"] == 0, key
+            assert basis["cycle_broken"] is False, key
+            # The build set is established and plural, and names both halves of the
+            # hashed identity (#130's _build_label).
+            assert basis["build_set_known"] is True, key
+            assert basis["n_builds"] == 2 and basis["build_mixed"] is True, key
+            assert "ccc3333·feda64515c1b" in basis["build_label"], key
+            assert "bbb2222" in basis["build_label"], key
+
+        html = report._measurement_basis_html(ctx["measurement_basis_trusted"])
+        assert f"schemaVersion {ev.BASELINE_CYCLE_SCHEMA}" in html
+        assert "MIXED SCHEMA" not in html
+        assert "class='sub'" in html  # clean basis renders calm, not as a warning
+        assert "2 build identities" in html
+
+        # ...and the top-of-report declaration names the frozen cycle.
+        banner = report._basis_banner_html(ctx)
+        assert f"v{ev.BASELINE_CYCLE_SCHEMA}" in banner and "BASIS BROKEN" not in banner
+
+
+def test_mixed_schema_pool_is_loudly_flagged():
+    """Issue #131 acceptance: a pooled population spanning schema versions is loudly
+    flagged rather than silently averaged.
+
+    Flagged, not refused — a corpus mid-migration legitimately spans bases, and refusing
+    to report would destroy the accounting that shows what the mixture is. What must not
+    happen is the blend being invisible, which is how the 88/12 miss split survived four
+    baselines."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    older = ev.BASELINE_CYCLE_SCHEMA - 1
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _basis_corpus(root, versions_by_run={"20260729-100000": older})
+        ctx = trends.build_trend_context(root)
+
+        basis = ctx["measurement_basis_trusted"]
+        assert basis["n_records"] == 2
+        assert basis["schema_versions"] == [str(older), str(ev.BASELINE_CYCLE_SCHEMA)]
+        assert basis["schema_mixed"] is True
+        assert basis["on_basis"] == 1 and basis["off_basis"] == 1
+        assert basis["schema_counts"] == {str(older): 1, str(ev.BASELINE_CYCLE_SCHEMA): 1}
+        # The cycle itself is not broken — the *writer* still matches the freeze. A mixed
+        # pool and a mid-cycle bump are different failures and must not be conflated.
+        assert basis["cycle_broken"] is False
+
+        html = report._measurement_basis_html(basis)
+        assert "MIXED SCHEMA" in html
+        assert "class='warn'" in html          # cannot be skimmed past
+        assert "1 of 2 record(s) are" in html   # names how much is off-basis
+        assert "--mode all" in html             # ...and what to do about it
+
+        # The mixture is stated on every pooled section, not just the first.
+        for key in ("measurement_basis_frames", "measurement_basis_funnel"):
+            assert ctx[key]["schema_mixed"] is True, key
+            assert "MIXED SCHEMA" in report._measurement_basis_html(ctx[key]), key
+
+
+def test_mid_cycle_schema_bump_demands_a_full_rescore():
+    """Issue #131: bumping the writer's schema without moving the cycle freeze is
+    permitted but never silent — it demands a re-score of the *whole* compared
+    population, because scoring only the new batch leaves it straddling two bases."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _basis_corpus(root)
+        # Simulate the bump at the writer while the cycle freeze stays put. Patched on
+        # trends, which binds the value at import.
+        original = trends.SCHEMA_VERSION
+        trends.SCHEMA_VERSION = ev.BASELINE_CYCLE_SCHEMA + 1
+        try:
+            ctx = trends.build_trend_context(root)
+        finally:
+            trends.SCHEMA_VERSION = original
+
+        basis = ctx["measurement_basis_trusted"]
+        assert basis["cycle_broken"] is True
+        assert basis["writer_schema"] == ev.BASELINE_CYCLE_SCHEMA + 1
+        assert basis["frozen_schema"] == ev.BASELINE_CYCLE_SCHEMA
+
+        html = report._measurement_basis_html(basis)
+        assert "MID-CYCLE SCHEMA BUMP" in html
+        assert "evaluate --mode all" in html
+        assert "class='warn'" in html
+
+        banner = report._basis_banner_html(ctx)
+        assert "BASIS BROKEN" in banner and "--mode all" in banner
+
+        # Unpatched, the same corpus is clean — the flag tracks the constants, not the data.
+        assert trends.build_trend_context(root)["measurement_basis_trusted"]["cycle_broken"] is False
+
+
+def test_unstamped_record_reads_as_unknown_basis_never_as_frozen():
+    """Issue #131: a record that does not say what basis it was written on reads as
+    *unknown*, and an unknown basis is itself a mixture when pooled with a stamped one.
+
+    Collapsing unknown into the frozen version would let the exact contamination this
+    slice exists to surface read as clean."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    # The reader normalizes anything unparseable to None rather than guessing.
+    assert ev.record_schema_version({"schemaVersion": 14}) == 14
+    assert ev.record_schema_version({"schemaVersion": "14"}) == 14
+    assert ev.record_schema_version({}) is None
+    assert ev.record_schema_version({"schemaVersion": None}) is None
+    assert ev.record_schema_version({"schemaVersion": "v14"}) is None
+    assert ev.record_schema_version({"schemaVersion": True}) is None
+    assert ev.record_schema_version({"schemaVersion": {"n": 14}}) is None
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _basis_corpus(root, versions_by_run={"20260729-100000": None})
+        basis = trends.build_trend_context(root)["measurement_basis_trusted"]
+
+        assert basis["schema_mixed"] is True
+        # unknown sorts last: it is not a version and must not sort among them.
+        assert basis["schema_versions"] == [str(ev.BASELINE_CYCLE_SCHEMA), "unknown"]
+        assert basis["schema_counts"]["unknown"] == 1
+        assert basis["on_basis"] == 1 and basis["off_basis"] == 1
+        assert "unstamped" in report._measurement_basis_html(basis)
+
+
 def _run_all():
     """Every ``test_*`` in this module, discovered rather than listed.
 
