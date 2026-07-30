@@ -556,7 +556,12 @@
     "start": 0.0
   },
   "conformance": {
-    "cause": "suspected-mistrack",
+    "attribution": "unattributed",
+    "attributionEvidence": {
+      "flaggedWrongFrames": 0,
+      "truthFrames": 579
+    },
+    "cause": "trajectory-divergence",
     "causeEvidence": {
       "acceptedAttempts": 138,
       "acceptedShare": 0.722513,
@@ -187529,7 +187534,7 @@
   "routeFolder": "brown-power",
   "runTs": "20260725-194447",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "setupHash": "effd8b4e0d7dcb810e8869a1cbd7270c8456e3098a47f14febd80f3c9118b163",
   "truthHash": "58c1dc8ef279241abfbc15c5794315a3ec4fb2a6ec6642667dbb4ff5129a8f9c",
   "truthSetupHashSource": "truth",

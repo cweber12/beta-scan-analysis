@@ -556,7 +556,12 @@
     "start": 0.0
   },
   "conformance": {
-    "cause": "suspected-mistrack",
+    "attribution": "unattributed",
+    "attributionEvidence": {
+      "flaggedWrongFrames": 0,
+      "truthFrames": 852
+    },
+    "cause": "trajectory-divergence",
     "causeEvidence": {
       "acceptedAttempts": 0,
       "acceptedShare": null,
@@ -7571,7 +7576,7 @@
   "routeFolder": "slashface",
   "runTs": "20260723-092606",
   "scannerFrameIntervalSec": 0.20000000000000284,
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "setupHash": "e1dcc589b37d4912e51361f05c1feff4b90b0b0a58e7843f16d26a687af66378",
   "truthHash": "675a969dccf0bdce5845e5ffef9561ac85098d75eb68179fa42b8b420832e6f8",
   "truthSetupHashSource": "truth",

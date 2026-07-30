@@ -556,7 +556,12 @@
     "start": 0.0
   },
   "conformance": {
-    "cause": "suspected-mistrack",
+    "attribution": "unattributed",
+    "attributionEvidence": {
+      "flaggedWrongFrames": 0,
+      "truthFrames": 76
+    },
+    "cause": "trajectory-divergence",
     "causeEvidence": {
       "acceptedAttempts": 0,
       "acceptedShare": null,
@@ -2510,7 +2515,7 @@
   "routeFolder": "burden-of-dreams",
   "runTs": "20260724-080756",
   "scannerFrameIntervalSec": 0.10000000000000003,
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "setupHash": "a0800f443b2dc539853e32244382de5a8cf982dbc0336ec02fd0554a22f26c41",
   "truthHash": "a711ffea1130db2ce6996fc6cc6d8c7728e9f779b1c56d416dd8886cb2f79a23",
   "truthSetupHashSource": "truth",
