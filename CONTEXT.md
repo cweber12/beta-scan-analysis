@@ -9,7 +9,8 @@ not a spec — it carries no implementation detail.
 - **Bundle** — a self-contained per-video record at
   `analysis/<route_folder>/<video_key>/`: the video, `final_frame.png`,
   `metadata.json`, `setup.json`, and timestamped detection files. May also carry a
-  `vitpose.json` **scaffold** (below). The unit of ingest.
+  `vitpose.json` **scaffold** (below) and a `mediapipe.status.json` **MediaPipe job
+  status** (below). The unit of ingest.
 - **ViTPose scaffold** (`vitpose.json`) — per-frame ViTPose++ Climber keypoints the
   downloader writes to seed beta-scanner's human-authored Ground Truth. A *seed, not
   truth*: the human still corrects and owns it. It is **not** a detection Run — no
@@ -116,6 +117,27 @@ not a spec — it carries no implementation detail.
   `<run_ts>_pose.json` + `<run_ts>_orb.json`. **The Run is the unit of
   statistical inference** — coefficients are summarized across Runs, not pooled
   across frames.
+- **Experimental Run** — a Run this harness produced by running MediaPipe itself
+  (`mediapipe_job.py`), rather than one the scanner posted. Same *shape* as any other
+  Run — written through the same writer, read unchanged by evaluation, the conformance
+  gate, the tiers and the report — and deliberately different in *provenance*:
+  `diagnostics.origin` is `harness-mediapipe`. The two must never pool, because whether
+  a browser-WASM run and a Python run agree is the open **parity** question, not an
+  assumption. Its ORB half is an explicit `notComputed` artifact: this module has no
+  cross-match to compute, and an honest empty beats a fabricated one. See `docs/adr/0012`
+  and PRD #156.
+- **Arm** — one experimental condition: a detection mode, an ordered list of
+  preprocessing steps and their parameters, a crop policy, and the module version,
+  hashed into a `configHash` stamped in every Run it produced. **Two Runs differing in
+  any factor must not share an arm stamp**, or they pool as one and the experiment
+  degrades back into the observational corpus it exists to escape (issue #149's failure
+  mode, on the detection side). Repeats within an arm share the stamp and differ only in
+  `passIndex` — that is what makes them a variance floor rather than two arms.
+- **MediaPipe job status** (`mediapipe.status.json`) — the sidecar recording an
+  experimental batch's `running` → `done` / `error`, on the `vitpose.status.json` model.
+  A failure carries the exception type and traceback, and a batch that dies part-way
+  still names the Runs that reached disk, so a partial batch is never mistaken for a
+  complete one.
 - **Detector Attempt** — one scanner-owned MediaPipe attempt on the sampled
   100 ms analysis timeline: the initial search region, whether full-frame
   reacquire ran, the selected raw Climber pose when MediaPipe returned one, the

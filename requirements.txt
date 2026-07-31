@@ -8,11 +8,25 @@ pandas>=2.2
 opencv-python>=4.10
 
 # ViTPose++ Ground Truth scaffold endpoint (POST /api/vitpose; see docs/adr/0003).
-# This is the repo's one heavyweight exception to the lean-footprint rule: the
-# downloader now runs a person detector + tracker + top-down pose model to seed
-# beta-scanner's human-authored Ground Truth. Kept out of the analysis_pipeline
-# import path so `python -m analysis_pipeline` stays lean.
+# The first heavyweight exception to the lean-footprint rule: the downloader runs a
+# person detector + tracker + top-down pose model to seed beta-scanner's human-authored
+# Ground Truth. Kept out of the analysis_pipeline import path so
+# `python -m analysis_pipeline` stays lean.
 torch>=2.2
 transformers>=4.48  # VitPoseForPoseEstimation was added in 4.48
 scipy>=1.11         # transformers' ViTPose image processor warps boxes via scipy
 ultralytics>=8.3
+
+# Harness-side MediaPipe detection runs (mediapipe_job.py; see docs/adr/0012).
+# The SECOND heavyweight exception, and a deliberate amendment to ADR 0003's "one
+# exception" — see that ADR's amendment note. It exists so detection becomes an
+# experiment this repo controls end to end (PRD #156) rather than an observation it
+# receives from the scanner. Quarantined the same way: imported lazily, only inside
+# MediaPipeDetector, and absent from the analysis_pipeline import graph, so
+# `python -m analysis_pipeline` still runs with mediapipe uninstalled.
+#
+# 1.0 is a hard floor, not caution: it is the first release where `mp.solutions` is
+# gone and the Tasks API (PoseLandmarker + a downloaded .task bundle) is the only
+# API — which is also the API the browser scanner runs, so parity is measured across
+# runtimes rather than across two different MediaPipe APIs.
+mediapipe>=1.0

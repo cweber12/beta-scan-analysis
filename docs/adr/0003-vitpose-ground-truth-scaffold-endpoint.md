@@ -30,6 +30,15 @@ Two things make this a real decision rather than a feature bolt-on:
    to the `POST /api/vitpose` path and kept out of the `analysis_pipeline` import
    graph so `python -m analysis_pipeline` stays lean.
 
+   > **Amended 2026-07-31 by ADR 0012.** There are now **two** heavyweight
+   > exceptions, not one: `mediapipe` joined for the harness-side detection module
+   > (PRD #156), under the identical quarantine — lazy import, confined to one backend
+   > class, outside the `analysis_pipeline` import graph. Read "the repo's one
+   > heavyweight exception" above as "the first of two, each recorded in an ADR". The
+   > quarantine *property* is what this ADR was defending, and it is unchanged; the
+   > count was never the point. See
+   > `docs/adr/0012-mediapipe-is-a-second-heavyweight-dependency.md`.
+
 ## Decision
 
 > **Amended 2026-07-22 by ADR 0006.** The seed request is now `seed_tap` +
