@@ -556,7 +556,12 @@
     "start": 0.0
   },
   "conformance": {
-    "cause": "suspected-mistrack",
+    "attribution": "unattributed",
+    "attributionEvidence": {
+      "flaggedWrongFrames": 0,
+      "truthFrames": 1642
+    },
+    "cause": "trajectory-divergence",
     "causeEvidence": {
       "acceptedAttempts": 1140,
       "acceptedShare": 0.957983,
@@ -601921,7 +601926,7 @@
   "routeFolder": "atman",
   "runTs": "20260728-164354",
   "scannerFrameIntervalSec": 0.09999999999999964,
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "setupHash": "657dd389874f42e924c17949433b7fbe8378acce25d39700149a10da7c34cf62",
   "truthHash": "074da756057302d713e53424e42b05bd22cb019e6567119078daa75ffd8291b2",
   "truthSetupHashSource": "truth",

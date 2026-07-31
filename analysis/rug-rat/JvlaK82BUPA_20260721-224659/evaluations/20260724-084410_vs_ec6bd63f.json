@@ -556,7 +556,12 @@
     "start": 2.75
   },
   "conformance": {
-    "cause": "suspected-mistrack",
+    "attribution": "truth-identity",
+    "attributionEvidence": {
+      "flaggedWrongFrames": 154,
+      "truthFrames": 829
+    },
+    "cause": "trajectory-divergence",
     "causeEvidence": {
       "acceptedAttempts": 0,
       "acceptedShare": null,
@@ -14977,7 +14982,7 @@
   "routeFolder": "rug-rat",
   "runTs": "20260724-084410",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "setupHash": "f7e4bd6a983c4d064e1ba6b83001accd84bbd9d4e63c98f697382610d3161c01",
   "truthHash": "ec6bd63f55b52bfec67a30fe09e20dec4a1c220ae1b79c17eebd53f75d025a6d",
   "truthSetupHashSource": "truth",

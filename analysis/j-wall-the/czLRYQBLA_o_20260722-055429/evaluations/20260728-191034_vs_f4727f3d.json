@@ -556,7 +556,12 @@
     "start": 0.0
   },
   "conformance": {
-    "cause": "suspected-mistrack",
+    "attribution": "truth-identity",
+    "attributionEvidence": {
+      "flaggedWrongFrames": 234,
+      "truthFrames": 2527
+    },
+    "cause": "trajectory-divergence",
     "causeEvidence": {
       "acceptedAttempts": 1391,
       "acceptedShare": 0.876497,
@@ -690596,7 +690601,7 @@
   "routeFolder": "j-wall-the",
   "runTs": "20260728-191034",
   "scannerFrameIntervalSec": 0.09999999999999432,
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "setupHash": "673c8d13037cb00cb9d635428ff455734a7ac1f32aab4c14f544227a20a6e5bb",
   "truthHash": "f4727f3dd6178b5bda3de89eeca226a2be5517cf5fd8e40166e5a38f6610a82b",
   "truthSetupHashSource": "truth",

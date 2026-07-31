@@ -556,7 +556,12 @@
     "start": 5.65
   },
   "conformance": {
-    "cause": "suspected-mistrack",
+    "attribution": "truth-identity",
+    "attributionEvidence": {
+      "flaggedWrongFrames": 173,
+      "truthFrames": 508
+    },
+    "cause": "trajectory-divergence",
     "causeEvidence": {
       "acceptedAttempts": 192,
       "acceptedShare": 0.884793,
@@ -85064,7 +85069,7 @@
   "routeFolder": "lizard-therapy",
   "runTs": "20260728-170147",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "setupHash": "b5cb851e0e68c609e9b2e9e1213030a51a773d1b60e9b8700feb3be6a8775b56",
   "truthHash": "5d5a30399d949e3212cdcfa417813bbf180e2313512c7e8948b9e8703cba478e",
   "truthSetupHashSource": "truth",

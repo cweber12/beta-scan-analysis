@@ -118,7 +118,11 @@ from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 #    window, makes the truth-sufficiency floor a *gate* input rather than a failure-branch
 #    label, and adds the ``rate-mismatch`` non-conformance cause. Additive and fail-open:
 #    a frame written before this reads as ``unknown``, never as confirmed.
-SCHEMA_VERSION = 14
+# v15 (issue #147): renames the ``suspected-mistrack`` non-conformance cause to the
+#    side-neutral ``trajectory-divergence`` and adds ``conformance.attribution``, which
+#    names the side only where there is positive evidence for one. Landed at a cycle
+#    boundary, not mid-cycle, so BASELINE_CYCLE_SCHEMA moves with it.
+SCHEMA_VERSION = 15
 
 # The schema a baseline cycle is *scored on*, frozen for one full cycle — collect →
 # score → analyse → act — rather than moving whenever a bump is convenient (issue #131).
@@ -131,13 +135,16 @@ SCHEMA_VERSION = 14
 # direction of the scanner's search ladder, and then turned out to be a pooling artifact.
 #
 # Frozen 2026-07-29 at v14, on the post-reset sweep scored in PR #128 (85 records).
+# Advanced 2026-07-30 to v15 at a **cycle boundary** — the v14 cycle's analyse phase had
+# completed and produced issues #147/#148/#149/#150 — with the whole population re-scored
+# under ``--mode all``, which is what keeps this a boundary rather than a mid-cycle bump.
 #
 # Bumping SCHEMA_VERSION without moving this constant is the *mid-cycle bump* case, and it
 # is deliberately not an error — a real contract change can force one. What it must not be
 # is silent. While the two differ, every pooled section of the report carries a re-score
 # demand, because scoring only the new batch leaves the compared population straddling two
 # bases; the whole population has to be re-scored with ``evaluate --mode all``.
-BASELINE_CYCLE_SCHEMA = 14
+BASELINE_CYCLE_SCHEMA = 15
 
 # Ground-truth review provenance vocabulary (ADR 0004 / issue #5). Any value
 # outside this set — including a missing field on legacy artifacts — normalizes to
@@ -224,10 +231,15 @@ CONFORMANCE_MIN_POINTS = 20
 #   attempts miss, the surviving matched points are a thin, self-selected remnant (the
 #   frames easy enough to detect at all), and a fit over them says nothing about the truth.
 #   This is a *detector* failure wearing the gate's clothes.
-# - ``suspected-mistrack`` — the run matched plenty of accepted detections and the fit
-#   still misses identity. That is the #19 appearance-stitch signature the gate was built
-#   to catch, and the only class worth sending to the truth-repair worklist (#21/#34):
-#   re-seeding truth for a run whose detector found nothing repairs nothing.
+# - ``trajectory-divergence`` — the run matched plenty of accepted detections and the fit
+#   still misses identity. **Renamed from ``suspected-mistrack`` in v15 (issue #147).**
+#   The fit proves scanner and truth disagree; it cannot say which of them is wrong, and
+#   the old name asserted the truth side. Measured against the human-attested flags once
+#   the whole corpus had been reviewed: 112 of 123 firings landed on bundles whose truth
+#   is attested free of identity error. Reading it as a truth defect produced #34's
+#   12-bundle regeneration worklist, of which one bundle was actually mis-tracked.
+#   ``attribution`` below carries the side when — and only when — there is evidence for
+#   one. Truth-repair worklists (#21/#34) key off the attribution, never the cause.
 #
 # Both floors are evaluated over **truth-present matched frames** — the population the fit
 # is computed on — so a video where the Climber is off-screen half the time is not read as
@@ -244,7 +256,10 @@ NONCONFORMANCE_MIN_FIT_FRAMES = 20
 NONCONFORMANCE_MIN_ACCEPTED_SHARE = 0.5
 
 NONCONFORMANCE_SPARSE_MATCH = "sparse-match"
-NONCONFORMANCE_SUSPECTED_MISTRACK = "suspected-mistrack"
+NONCONFORMANCE_TRAJECTORY_DIVERGENCE = "trajectory-divergence"
+# The pre-v15 spelling. Kept only so a record written under the old vocabulary still
+# reads as the same cause instead of falling through to the fail-open default (#147).
+LEGACY_SUSPECTED_MISTRACK = "suspected-mistrack"
 # ``rate-mismatch`` (issue #101): the ViTPose scaffold sampled on a coarser grid than the
 # truth was exported onto — measured, a scaffold at 1 Hz against truth on the 0.1 s grid,
 # so nine of every ten truth frames were never sampled and read as absent. That is a data
@@ -254,7 +269,25 @@ NONCONFORMANCE_SUSPECTED_MISTRACK = "suspected-mistrack"
 # and land on a worklist that cannot fix it.
 NONCONFORMANCE_RATE_MISMATCH = "rate-mismatch"
 NONCONFORMANCE_CAUSES = [NONCONFORMANCE_RATE_MISMATCH, NONCONFORMANCE_SPARSE_MATCH,
-                         NONCONFORMANCE_SUSPECTED_MISTRACK]
+                         NONCONFORMANCE_TRAJECTORY_DIVERGENCE]
+
+# Which side the divergence is attributable to (issue #147). Deliberately two values,
+# not three. ``truth-identity`` requires *positive* evidence: the run's truth population
+# contains frames a human flagged as the wrong person. Everything else is
+# ``unattributed`` — and that emphatically does **not** mean "the scanner's fault".
+#
+# Emitting a ``scanner-side`` value would rebuild the exact defect this vocabulary
+# replaces, pointed the other way: absence of a truth flag is not evidence against the
+# truth's accuser. It is absence of evidence. The honest majority of non-conforming
+# records simply cannot be attributed today, and the record says so.
+#
+# A laterality defect — right person, left/right joints exchanged — is invisible to the
+# review that produces the flags (a consistent swap renders as the same skeleton), so it
+# lands in ``unattributed`` rather than being silently counted as scanner-side. If #148's
+# H2 measures it, it earns its own value then, on evidence.
+ATTRIBUTION_TRUTH_IDENTITY = "truth-identity"
+ATTRIBUTION_UNATTRIBUTED = "unattributed"
+ATTRIBUTIONS = [ATTRIBUTION_TRUTH_IDENTITY, ATTRIBUTION_UNATTRIBUTED]
 
 # Truth sufficiency (issue #101). ``NONCONFORMANCE_MIN_FIT_FRAMES`` already existed but was
 # read only on the *failure* branch, to label a cause; from v14 it is also a **gate input**.
@@ -1414,9 +1447,38 @@ def _score_tier(pairs: list[_FramePair]) -> dict[str, Any]:
     }
 
 
+def _attribution(all_pairs: list[_FramePair]) -> dict[str, Any]:
+    """Which side a divergence is attributable to, and the evidence for it (issue #147).
+
+    The only truth-side evidence the harness holds is the human review loop's negative
+    labelling: frames flagged ``human-flagged-wrong`` are attested to be a correct pose
+    on the *wrong person*. Their presence in a run's truth population is positive
+    evidence of a truth identity defect.
+
+    Their **absence is not evidence of anything**. It is not evidence the scanner failed,
+    and it is not evidence the truth is sound — the review criterion was "is this the
+    right climber?", so a laterality swap passes it unseen. Hence ``unattributed``
+    rather than a scanner-side verdict, which would repeat the defect this replaces.
+
+    Reads the *unfiltered* pairs on purpose: flagged frames are excluded from every
+    tier's scoring (ADR 0005), so they are absent from the fit population and counting
+    them there would always return zero.
+    """
+    flagged = sum(1 for p in all_pairs if p.truth.flagged_wrong)
+    return {
+        "attribution": (ATTRIBUTION_TRUTH_IDENTITY if flagged
+                        else ATTRIBUTION_UNATTRIBUTED),
+        "attributionEvidence": {
+            "flaggedWrongFrames": flagged,
+            "truthFrames": len(all_pairs),
+        },
+    }
+
+
 def _conformance(pairs: list[_FramePair],
                  evidence: AbsenceEvidence | None = None,
-                 truth_step: float | None = None) -> dict[str, Any]:
+                 truth_step: float | None = None,
+                 all_pairs: list[_FramePair] | None = None) -> dict[str, Any]:
     """Per-axis identity fit of scanner onto truth over the bundle's matched joints.
 
     Pools every core-joint point on a matched, climber-present, non-excluded frame
@@ -1484,6 +1546,12 @@ def _conformance(pairs: list[_FramePair],
         # explain, and a reader must never find a cause on one.
         "cause": None if conforms else _nonconformance_cause(cause_evidence),
         "causeEvidence": cause_evidence,
+        # Attribution rides alongside the cause, on conforming records too: the cause
+        # says *what* the fit found, the attribution says whether anyone can name a
+        # side. A conforming bundle whose truth carries flagged stretches is a real
+        # thing (the flags are excluded from the fit), and hiding that would put the
+        # reader back to inferring it (issue #147).
+        **_attribution(all_pairs if all_pairs is not None else pairs),
         "thresholds": {
             "slopeMin": CONFORMANCE_SLOPE_MIN,
             "slopeMax": CONFORMANCE_SLOPE_MAX,
@@ -1565,7 +1633,7 @@ def _nonconformance_cause(evidence: dict[str, Any]) -> str:
     share = evidence["acceptedShare"]
     if share is not None and share < NONCONFORMANCE_MIN_ACCEPTED_SHARE:
         return NONCONFORMANCE_SPARSE_MATCH
-    return NONCONFORMANCE_SUSPECTED_MISTRACK
+    return NONCONFORMANCE_TRAJECTORY_DIVERGENCE
 
 
 def _attempt_status_counts(pairs: list[_FramePair]) -> dict[str, int]:
@@ -2114,15 +2182,34 @@ def record_nonconformance_cause(record: dict[str, Any]) -> str | None:
     """Why an on-disk record failed the #15 gate (issue #88), or ``None`` if it passed.
 
     Fail-open in the direction that preserves the pre-#88 worklist: a non-conforming
-    record written before v11 carries no cause, and reads as ``suspected-mistrack`` —
+    record written before v11 carries no cause, and reads as ``trajectory-divergence`` —
     exactly where the truth-repair flow (#21/#34) already had it. Re-run ``evaluate`` to
-    get a real verdict instead of that default."""
+    get a real verdict instead of that default.
+
+    A pre-v15 record spells that cause ``suspected-mistrack``; it maps to the current
+    name rather than falling through to the default, so an unre-scored record reads as
+    the cause it was actually annotated with (issue #147). The rename is a vocabulary
+    change, not a change in what was measured."""
 
     if record_conforms(record):
         return None
     conf = record.get("conformance")
     cause = conf.get("cause") if isinstance(conf, dict) else None
-    return cause if cause in NONCONFORMANCE_CAUSES else NONCONFORMANCE_SUSPECTED_MISTRACK
+    if cause == LEGACY_SUSPECTED_MISTRACK:
+        return NONCONFORMANCE_TRAJECTORY_DIVERGENCE
+    return cause if cause in NONCONFORMANCE_CAUSES else NONCONFORMANCE_TRAJECTORY_DIVERGENCE
+
+
+def record_attribution(record: dict[str, Any]) -> str:
+    """Which side an on-disk record's divergence is attributable to (issue #147).
+
+    Fail-open to ``unattributed``: a record written before v15 carries no attribution,
+    and the honest reading of a record that never asked the question is that nobody
+    knows — never that the scanner was at fault."""
+
+    conf = record.get("conformance")
+    value = conf.get("attribution") if isinstance(conf, dict) else None
+    return value if value in ATTRIBUTIONS else ATTRIBUTION_UNATTRIBUTED
 
 
 def record_evidence_generation(record: dict[str, Any]) -> str:
@@ -2243,7 +2330,8 @@ def evaluate_pair(pose_frames: list[dict[str, Any]], truth: TruthDoc,
         },
         # Whole-bundle truth↔scanner conformance (issue #15), fit over the same
         # non-excluded pairs the agreement tier scores. Gates pooled metrics.
-        "conformance": _conformance(agreement_pairs, evidence, truth_step),
+        "conformance": _conformance(agreement_pairs, evidence, truth_step,
+                                    all_pairs=pairs),
         # Per-frame detection-quality classes (issue #44), over the same pairs.
         "frameQuality": _frame_quality(agreement_pairs, truth, setup_hash),
         # Crop placement + miss causation (issue #86). Its own block, not part of

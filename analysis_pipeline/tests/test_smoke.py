@@ -433,7 +433,7 @@ def test_evaluate_pck_exact_and_edge_cases():
         rec = json.loads(summary.written[0].record_path.read_text(encoding="utf-8"))
 
         # Record shape / provenance header.
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 14
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 15
         assert rec["metrics"] == ["pck@0.5-torso", "normDistMedian", "normDistP90",
                                   "presence2x2", "jointCoverage"]
         assert rec["setupHash"] == "sh_match"
@@ -534,7 +534,14 @@ def test_evaluate_pck_exact_and_edge_cases():
         # echo the module constants so a record captures the gate it was judged under.
         conf = rec["conformance"]
         assert set(conf) == {"x", "y", "n", "conforms", "reasons", "cause",
-                             "causeEvidence", "thresholds"}
+                             "causeEvidence", "thresholds",
+                             # v15 (#147): the cause says what the fit found, the
+                             # attribution says whether anyone can name a side.
+                             "attribution", "attributionEvidence"}
+        # No flagged truth in this fixture -> nobody can name a side, and the record
+        # says exactly that rather than implying the scanner.
+        assert conf["attribution"] == ev.ATTRIBUTION_UNATTRIBUTED
+        assert conf["attributionEvidence"]["flaggedWrongFrames"] == 0
         assert conf["thresholds"] == {
             "slopeMin": ev.CONFORMANCE_SLOPE_MIN, "slopeMax": ev.CONFORMANCE_SLOPE_MAX,
             "r2Min": ev.CONFORMANCE_R2_MIN, "r2MinX": ev.CONFORMANCE_R2_MIN_X,
@@ -733,14 +740,17 @@ def test_nonconformance_cause_splits_sparse_match_from_suspected_mistrack():
 
         mc = recs["vidMistrack"]["conformance"]
         assert mc["conforms"] is False  # the #15 verdict is unchanged by the split
-        assert mc["cause"] == ev.NONCONFORMANCE_SUSPECTED_MISTRACK
+        assert mc["cause"] == ev.NONCONFORMANCE_TRAJECTORY_DIVERGENCE
         assert mc["causeEvidence"] == {"fitFrames": 24, "presentAttempts": 24,
                                        "acceptedAttempts": 24, "acceptedShare": 1.0,
                                        # No scaffold on disk, so the sampling grids
                                        # cannot be compared: unknown, never "agree".
                                        "scaffoldStepSec": None, "truthStepSec": 1.0,
                                        "samplingRatio": None}
-        assert ev.record_nonconformance_cause(recs["vidMistrack"]) == "suspected-mistrack"
+        assert ev.record_nonconformance_cause(recs["vidMistrack"]) == "trajectory-divergence"
+        # Nothing here carries a human flag, so no side is nameable — and the record must
+        # say "unattributed" rather than implying the scanner by omission (#147).
+        assert mc["attribution"] == ev.ATTRIBUTION_UNATTRIBUTED
 
         sc = recs["vidSparse"]["conformance"]
         assert sc["conforms"] is False
@@ -763,7 +773,17 @@ def test_nonconformance_cause_splits_sparse_match_from_suspected_mistrack():
              "acceptedShare": 1.0}) == ev.NONCONFORMANCE_SPARSE_MATCH
         # Fail-open: a pre-v11 non-conforming record keeps its pre-#88 place.
         assert ev.record_nonconformance_cause(
-            {"conformance": {"conforms": False}}) == ev.NONCONFORMANCE_SUSPECTED_MISTRACK
+            {"conformance": {"conforms": False}}) == ev.NONCONFORMANCE_TRAJECTORY_DIVERGENCE
+        # A pre-v15 record spells the same cause the old way. It maps to the current
+        # name rather than falling through the default — the rename changed the
+        # vocabulary, not what was measured (#147).
+        assert ev.record_nonconformance_cause(
+            {"conformance": {"conforms": False, "cause": "suspected-mistrack"}}
+        ) == ev.NONCONFORMANCE_TRAJECTORY_DIVERGENCE
+        # And a pre-v15 record names no side: unknown, never "the scanner did it".
+        assert ev.record_attribution({"conformance": {"conforms": False}}) == \
+            ev.ATTRIBUTION_UNATTRIBUTED
+        assert ev.record_attribution({}) == ev.ATTRIBUTION_UNATTRIBUTED
 
         # Trend seam: the gate still quarantines both, grouped by cause, and only the
         # mis-track suspect feeds the truth-repair worklist.
@@ -771,24 +791,32 @@ def test_nonconformance_cause_splits_sparse_match_from_suspected_mistrack():
         assert ctx["quarantined_count"] == 2
         assert ctx["quarantine_cause_counts"] == {"rate-mismatch": 0,
                                                   "sparse-match": 1,
-                                                  "suspected-mistrack": 1}
-        assert ctx["truth_repair_count"] == 1
-        worklist = ctx["truth_repair_worklist"]
-        assert [r["video_key"] for r in worklist] == ["vidMistrack"]
-        assert worklist[0]["accepted_share"] == 1.0
+                                                  "trajectory-divergence": 1}
+        # v15 (#147): the worklist requires *positive* truth-side evidence, not merely a
+        # divergent fit. vidMistrack diverges but nothing attests its truth is wrong, so
+        # it is no longer a truth-repair candidate — it is an open question, and it stays
+        # visible in the quarantine table below where it reads as one. This is exactly
+        # what #34 got wrong: 12 bundles listed, one actually mis-tracked.
+        assert ctx["truth_repair_count"] == 0
+        assert ctx["truth_repair_worklist"] == []
         by_video = {r["video_key"]: r for r in ctx["quarantined_bundles"]}
         assert by_video["vidSparse"]["cause"] == "sparse-match"
         assert by_video["vidSparse"]["fit_frames"] == 24
+        # Still quarantined and still visible — attribution changes the *worklist*, not
+        # the gate's verdict.
+        assert by_video["vidMistrack"]["cause"] == "trajectory-divergence"
+        assert by_video["vidMistrack"]["attribution"] == "unattributed"
 
         csvs = trends.write_trend_tables(Path(tmp) / "reports", ctx)
-        repair_csv = pd.read_csv(csvs["eval_truth_repair_worklist.csv"])
-        assert list(repair_csv["video_key"]) == ["vidMistrack"]
+        # An empty worklist writes no CSV at all — nothing to re-seed, so no file that
+        # could be mistaken for one.
+        assert "eval_truth_repair_worklist.csv" not in csvs
         quarantine_csv = pd.read_csv(csvs["eval_quarantined_bundles.csv"])
-        assert set(quarantine_csv["cause"]) == {"sparse-match", "suspected-mistrack"}
+        assert set(quarantine_csv["cause"]) == {"sparse-match", "trajectory-divergence"}
 
         # Report seam: the section is grouped by cause and names the worklist scope.
         html = report._quarantine_table(ctx["quarantined_bundles"])
-        assert "sparse-match" in html and "suspected-mistrack" in html
+        assert "sparse-match" in html and "trajectory-divergence" in html
         assert "vidSparse" in html and "vidMistrack" in html
         assert "truth-repair worklist" in html
 
@@ -2384,7 +2412,7 @@ def test_absence_reason_is_derived_from_on_disk_evidence():
             seed_found=True)
 
         rec = json.loads(_evaluate(root).written[0].record_path.read_text(encoding="utf-8"))
-        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 14
+        assert rec["schemaVersion"] == ev.SCHEMA_VERSION == 15
         assert rec["counts"]["absenceReasons"] == {
             ev.ABSENCE_OUT_OF_SCOPE: 1, ev.ABSENCE_NOT_SAMPLED: 1,
             ev.ABSENCE_UNTRACKED: 1, ev.ABSENCE_CONFIRMED: 1, ev.ABSENCE_UNKNOWN: 0}
@@ -2930,7 +2958,7 @@ def test_conformance_is_a_covariate_on_failure_modes_not_a_filter():
     causes = out[out["kind"] == "cause"].set_index("population")
     assert set(causes.index) == set(trends.NONCONFORMANCE_CAUSES)
     assert _approx(causes.loc["sparse-match", "share_of_missing"], 180 / 188)
-    assert causes.loc["suspected-mistrack", "runs"] == 0
+    assert causes.loc["trajectory-divergence", "runs"] == 0
 
     # Construction invariant: the `all` row is the same arithmetic as the section's
     # headline tiles, so the breakout can never contradict the number above it.
@@ -2994,7 +3022,7 @@ def test_rejection_and_crop_breakouts_reuse_the_section_totals():
          "rejection_truth_absent": 2, "rejection_truth_unknown": 0,
          "over_rejection_rate": 0.4},
         {"route_folder": "r2", "video_key": "v2", "run_ts": "20260101-000000",
-         "conforming": False, "nonconformance_cause": "suspected-mistrack",
+         "conforming": False, "nonconformance_cause": "trajectory-divergence",
          "rejected_attempts": 10, "good_pose_rejected": 1, "bad_pose_rejected": 9,
          "rejection_truth_absent": 4, "rejection_truth_unknown": 0,
          "over_rejection_rate": 0.1},
@@ -3328,6 +3356,48 @@ def test_empty_accuracy_tier_names_its_missing_input():
         {"verified_frames_total": 12, "verified_records": 3})
     assert "NOT COMPUTABLE" not in scored
     assert "12 verified frame(s)" in scored and "3 record(s)" in scored
+
+
+def test_attribution_names_a_side_only_on_positive_truth_evidence():
+    """Issue #147: the fit proves scanner and truth disagree; it cannot say which is
+    wrong. Attribution names a side only where the human review loop supplied evidence.
+
+    The asymmetry is the whole point. A ``human-flagged-wrong`` frame is an attestation
+    that truth put a correct pose on the wrong person, so it earns ``truth-identity``.
+    Its *absence* earns ``unattributed`` and never a scanner-side verdict — that would
+    rebuild the defect this vocabulary replaces, pointed the other way. Corpus-wide,
+    112 of 123 firings of the old name landed on truth attested free of identity error.
+    """
+
+    from analysis_pipeline import evaluate as ev
+
+    def _pair(review):
+        tf = ev.TruthFrame(frame_index=1, timestamp=1.0, present=True, joints={},
+                           review=review)
+        return ev._FramePair(truth=tf, scanner=None, matched=True)
+
+    # No flags anywhere: nobody can name a side, and the record must say so.
+    clean = ev._attribution([_pair(ev.REVIEW_AUTO), _pair(ev.REVIEW_AUTO)])
+    assert clean["attribution"] == ev.ATTRIBUTION_UNATTRIBUTED
+    assert clean["attributionEvidence"] == {"flaggedWrongFrames": 0, "truthFrames": 2}
+
+    # One attested wrong-person frame is positive evidence, and the count rides along
+    # so a reader can judge materiality instead of trusting the label alone.
+    flagged = ev._attribution([_pair(ev.REVIEW_AUTO), _pair(ev.REVIEW_FLAGGED_WRONG)])
+    assert flagged["attribution"] == ev.ATTRIBUTION_TRUTH_IDENTITY
+    assert flagged["attributionEvidence"] == {"flaggedWrongFrames": 1, "truthFrames": 2}
+
+    # The deprecated manual absent flag is not an identity attestation (ADR 0005).
+    absent = ev._attribution([_pair(ev.REVIEW_FLAGGED_ABSENT)])
+    assert absent["attribution"] == ev.ATTRIBUTION_UNATTRIBUTED
+
+    # Flagged frames are excluded from every tier's scoring, so they are absent from the
+    # fit population. Attribution must read the *unfiltered* pairs or it always sees zero.
+    pairs = [_pair(ev.REVIEW_AUTO), _pair(ev.REVIEW_FLAGGED_WRONG)]
+    fit_population = [p for p in pairs if not p.truth.excluded]
+    assert len(fit_population) == 1
+    block = ev._conformance(fit_population, all_pairs=pairs)
+    assert block["attribution"] == ev.ATTRIBUTION_TRUTH_IDENTITY
 
 
 def test_low_confidence_visible_measurement_and_worklist():

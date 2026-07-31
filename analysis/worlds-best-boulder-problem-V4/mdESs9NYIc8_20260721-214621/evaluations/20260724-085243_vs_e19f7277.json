@@ -556,7 +556,12 @@
     "start": 0.0
   },
   "conformance": {
-    "cause": "suspected-mistrack",
+    "attribution": "unattributed",
+    "attributionEvidence": {
+      "flaggedWrongFrames": 0,
+      "truthFrames": 516
+    },
+    "cause": "trajectory-divergence",
     "causeEvidence": {
       "acceptedAttempts": 0,
       "acceptedShare": null,
@@ -10400,7 +10405,7 @@
   "routeFolder": "worlds-best-boulder-problem-V4",
   "runTs": "20260724-085243",
   "scannerFrameIntervalSec": 0.10000000000000142,
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "setupHash": "01c40c3a2c02464fcbfd3e9d10f4ceef2534269a4a9a9362a48b9584bd6bfac1",
   "truthHash": "e19f727756489b6f6670ec76468c3b4865165f6adfcff93ad978b89d1e898827",
   "truthSetupHashSource": "truth",

@@ -59,6 +59,17 @@ not a spec — it carries no implementation detail.
   them — repairable by re-tapping or widening the seed region). Only the repairable
   classes are worth spending effort on; the audit behind #101 found only 5 of 15
   truthless Bundles were genuinely hard.
+- **Trajectory divergence** — the non-conformance cause meaning the scanner's poses and
+  the truth's do not fit each other, on a run with ample accepted detections. It says the
+  two disagree; it says **nothing about which of them is wrong**. Named
+  `suspected-mistrack` until v15, which asserted the truth side and put eleven sound
+  bundles on a truth-repair worklist.
+- **Attribution** — which side a divergence is attributable to, and only where there is
+  positive evidence: `truth-identity` when the run's truth carries human-attested
+  wrong-person frames, `unattributed` otherwise. `unattributed` means *nobody knows* — it
+  is never a verdict against the scanner, and it is where a laterality defect lives
+  because the review that produces the flags cannot see one. Truth-repair worklists key
+  off the attribution, never off the cause.
 - **Climber Identity** — which of the people in a frame is *the Climber*, held across the
   whole clip. Anchored by the **seed tap** and propagated both forwards and backwards
   from it. Identity is a separate question from pose quality, and the two fail
