@@ -88,19 +88,21 @@ FRAME_MISSING = "missing"
 FRAME_UNDECODABLE = "undecodable"
 
 # MediaPipe's three Pose Landmarker model bundles, indexed by the mode swept first. The
-# mapping is 1:1, so ``mode`` alone identifies the weights *given this module version* —
-# and that qualifier is the whole point: **editing this mapping is a module change and
-# must bump MODULE_VERSION**, or two arms built from different weights would share a
-# configuration stamp and pool as one (issue #149, moved to the detection side).
+# mapping is 1:1, so ``mode`` names a bundle — but naming a bundle is not identifying
+# weights, because upstream publishes at a ``latest`` URL and can republish under it. The
+# bundle's sha256 is therefore pinned in ``models/mediapipe.lock.json`` and joins the arm
+# identity (``DetectionConfig.model_sha``), so new weights cannot arrive under an
+# unchanged stamp. Editing this *mapping* is still a module change and must bump
+# MODULE_VERSION. See ADR 0012 and ``scripts/fetch_mediapipe_models.py``.
 MODEL_BUNDLES = {0: "pose_landmarker_lite", 1: "pose_landmarker_full", 2: "pose_landmarker_heavy"}
-MODEL_URL = (
-    "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
-    "{name}/float16/latest/{name}.task"
-)
-# Cached beside the other model downloads rather than in the repo: the bundles are 6–30 MB
-# binaries, and ``analysis/`` is a data record, not a model store. Same first-run download
-# the ViTPose and YOLO checkpoints already do.
+# Repo-local and gitignored, with the lock file as the tracked record — the rule the repo
+# already applies to video binaries, ``*.pt`` weights and ``downloads/``. Nothing is
+# fetched at run time: a batch must not depend on a network round trip, and an arm must
+# not depend on what upstream was serving that afternoon.
 MODEL_DIR_ENV = "BETA_SCAN_MEDIAPIPE_MODEL_DIR"
+MODEL_DIR_DEFAULT = Path(__file__).resolve().parent / "models" / "mediapipe"
+MODEL_LOCK_PATH = Path(__file__).resolve().parent / "models" / "mediapipe.lock.json"
+FETCH_HINT = "python scripts/fetch_mediapipe_models.py"
 
 
 @dataclass(frozen=True)
@@ -139,6 +141,16 @@ class DetectionConfig:
     preprocess: tuple[PreprocessStep, ...] = ()
     crop: str = CROP_NONE
     module_version: str = MODULE_VERSION
+    # sha256 of the pinned model bundle that actually produced the run. **Derived, never
+    # caller-supplied**: ``run_mediapipe_job`` reads it off the detector it is about to
+    # build, so the stamp records what ran rather than what a caller claimed — the same
+    # discipline ``vitpose_job.stamp_model_identity`` applies for issue #149.
+    #
+    # ``mode`` names a bundle, but the bundle's *contents* are what moves the output, and
+    # upstream publishes at a ``latest`` URL. Without this field new weights could arrive
+    # under an unchanged stamp and two arms would pool as one. ``None`` means "no model
+    # identity was reported" (every stub), which keeps stub-backed hashes stable.
+    model_sha: str | None = None
 
     def identity(self) -> dict[str, Any]:
         """The canonical, order-stable description the hash is taken over.
@@ -147,13 +159,18 @@ class DetectionConfig:
         contrast-then-brightness is a different arm from brightness-then-contrast and must
         not collapse to the same stamp.
         """
-        return {
+        identity: dict[str, Any] = {
             "mode": self.mode,
             "preprocess": [s.identity() for s in self.preprocess],
             "crop": self.crop,
             "moduleVersion": self.module_version,
             "origin": ORIGIN,
         }
+        # Omitted rather than null when absent, so a stub-backed hash is byte-identical to
+        # what it was before model pinning existed and the pure-core tests stay meaningful.
+        if self.model_sha is not None:
+            identity["modelSha"] = self.model_sha
+        return identity
 
 
 def config_hash(config: DetectionConfig) -> str:
@@ -423,6 +440,32 @@ def _unique_run_ts(detections_dir: Path, candidate: str) -> str:
     return run_ts
 
 
+def stamp_model_identity(
+    request: DetectRequest, detector_factory: DetectorFactory
+) -> DetectRequest:
+    """Record which weights are about to run, read off the detector that will run them.
+
+    The arm is a function of its model, so a model change must move the arm stamp —
+    otherwise two arms pool as one and the batch measures a difference it cannot name.
+    Identity comes from a *probe* detector the factory builds, never from the caller, so
+    the stamp records what ran rather than what someone declared (issue #149's discipline,
+    as ``vitpose_job.stamp_model_identity`` applies it).
+
+    The probe is cheap: ``model_sha`` reads the lock file and loads no model. A detector
+    with no ``model_sha`` — every stub in the test suite — reports nothing and the config
+    is returned untouched, which is what keeps stub-backed hashes stable.
+
+    Note for anyone writing a factory: this means the factory is called **once more than
+    the repeat count**, and the probe never sweeps. Keep construction free of side effects
+    and of model loading; ``MediaPipeDetector`` defers both to first use.
+    """
+
+    model_sha = getattr(detector_factory(request.config), "model_sha", None)
+    if not model_sha:
+        return request
+    return replace(request, config=replace(request.config, model_sha=model_sha))
+
+
 def run_mediapipe_job(
     analysis_root: Path,
     request: DetectRequest,
@@ -452,6 +495,10 @@ def run_mediapipe_job(
     # unscoreable, and the cost of discovering that is a whole batch.
     if not request.setup_hash:
         request = replace(request, setup_hash=read_setup_hash(bundle_dir))
+
+    # ...and the model identity, before the arm hash is computed for anything: the status
+    # sidecar, the run ids and every written stamp must all name the same arm.
+    request = stamp_model_identity(request, detector_factory)
 
     base = {
         "jobId": job_id,
@@ -561,32 +608,51 @@ def run_mediapipe_job(
 # --------------------------------------------------------------------------- #
 
 def model_dir() -> Path:
-    return Path(os.environ.get(MODEL_DIR_ENV) or (Path.home() / ".cache" / "beta-scan-mediapipe"))
+    return Path(os.environ.get(MODEL_DIR_ENV) or MODEL_DIR_DEFAULT)
 
 
-def ensure_model_bundle(mode: int) -> Path:
-    """The ``.task`` bundle for one mode, downloaded on first use and cached.
-
-    Same first-run download the ViTPose checkpoint and the YOLO weights already do; the
-    bundles are versioned by MediaPipe at a ``latest`` URL, which is why the *module*
-    version — not the URL — is what a reader can pin an arm to.
-    """
+def pinned_model(mode: int) -> dict[str, Any]:
+    """The lock entry for one mode: the sha256 and size this arm is defined against."""
 
     name = MODEL_BUNDLES.get(mode)
     if name is None:
         raise ValueError(f"Unknown detection mode {mode!r}; expected one of {DETECTION_MODES}.")
-    target = model_dir() / f"{name}.task"
-    if target.is_file() and target.stat().st_size > 0:
-        return target
-    from urllib.request import urlopen  # lazy — only the download path needs it
+    entry = (_read_json(MODEL_LOCK_PATH).get("models") or {}).get(name)
+    if not isinstance(entry, dict) or not entry.get("sha256"):
+        raise FileNotFoundError(
+            f"No pin for {name} in {MODEL_LOCK_PATH.name}. The lock file is the tracked "
+            f"record of which weights an arm means; without it a run cannot be attributed "
+            f"to a model. Re-pin with `{FETCH_HINT} --update`."
+        )
+    return entry
 
-    target.parent.mkdir(parents=True, exist_ok=True)
-    url = MODEL_URL.format(name=name)
-    _log(f"downloading {name} -> {target}")
-    partial = target.with_suffix(".task.part")
-    with urlopen(url, timeout=300) as response, partial.open("wb") as handle:
-        handle.write(response.read())
-    partial.replace(target)
+
+def resolve_model_bundle(mode: int) -> Path:
+    """The local ``.task`` bundle for one mode, **verified against the lock**.
+
+    Never downloads. A missing or altered bundle fails here, loudly, rather than at the
+    other end of a sweep: a run produced by weights the lock does not describe is a run
+    that cannot be attributed to an arm, which is the whole failure PRD #156 exists to
+    stop happening again.
+    """
+
+    name = MODEL_BUNDLES[mode]
+    entry = pinned_model(mode)
+    target = model_dir() / f"{name}.task"
+    if not target.is_file():
+        raise FileNotFoundError(
+            f"Model bundle {target} is missing. The .task binaries are gitignored; the "
+            f"lock file is the tracked record. Fetch them with `{FETCH_HINT}`."
+        )
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    if digest != entry["sha256"]:
+        raise ValueError(
+            f"Model bundle {target} does not match the pin: expected "
+            f"{entry['sha256'][:16]}, found {digest[:16]}. Refusing to run — the arm "
+            f"stamp would name weights that did not produce the run. Restore with "
+            f"`{FETCH_HINT}`, or adopt the change deliberately with `{FETCH_HINT} "
+            f"--update` (which makes prior runs non-comparable)."
+        )
     return target
 
 
@@ -616,6 +682,17 @@ class MediaPipeDetector:
     def model_id(self) -> str:
         return f"mediapipe-pose-landmarker:{MODEL_BUNDLES[self._mode]}"
 
+    @property
+    def model_sha(self) -> str:
+        """The pinned sha256 of the weights this detector will run.
+
+        Read from the lock file, so it costs nothing and is available *before* the model
+        is loaded — which is what lets the job stamp the arm identity up front rather than
+        discovering the model's identity after the first pass has already been written.
+        """
+
+        return pinned_model(self._mode)["sha256"]
+
     def _ensure_model(self):
         with self._load_lock:
             if self._landmarker is None:
@@ -626,7 +703,7 @@ class MediaPipeDetector:
                 self._landmarker = vision.PoseLandmarker.create_from_options(
                     vision.PoseLandmarkerOptions(
                         base_options=BaseOptions(
-                            model_asset_path=str(ensure_model_bundle(self._mode))
+                            model_asset_path=str(resolve_model_bundle(self._mode))
                         ),
                         running_mode=vision.RunningMode.IMAGE,
                         num_poses=1,

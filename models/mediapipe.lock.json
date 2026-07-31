@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "note": "Pinned MediaPipe Pose Landmarker bundles. sha256 joins every experimental arm's configHash, so adopting new weights (via --update) deliberately makes prior runs non-comparable. See docs/adr/0012 and scripts/fetch_mediapipe_models.py.",
+  "urlTemplate": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/{name}/float16/latest/{name}.task",
+  "models": {
+    "pose_landmarker_lite": {
+      "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+      "size": 5777746,
+      "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+      "pinnedAt": "2026-07-31"
+    },
+    "pose_landmarker_full": {
+      "sha256": "4eaa5eb7a98365221087693fcc286334cf0858e2eb6e15b506aa4a7ecdcec4ad",
+      "size": 9398198,
+      "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task",
+      "pinnedAt": "2026-07-31"
+    },
+    "pose_landmarker_heavy": {
+      "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+      "size": 30664242,
+      "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task",
+      "pinnedAt": "2026-07-31"
+    }
+  }
+}

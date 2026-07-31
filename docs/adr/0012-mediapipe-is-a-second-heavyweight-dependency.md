@@ -53,18 +53,38 @@ the Tasks API, a divergence is attributable to the *runtime* (Python CPU vs brow
 WASM) rather than to two different MediaPipe APIs, which would be an uninteresting
 confound sitting directly on top of the interesting question.
 
-**The model bundles are downloaded on first use and cached outside the repo**
-(`~/.cache/beta-scan-mediapipe`, overridable via `BETA_SCAN_MEDIAPIPE_MODEL_DIR`). Same
-pattern as the ViTPose checkpoint and the YOLO weights: `analysis/` is a data record,
-not a model store, and the bundles are 6–30 MB binaries.
+**The model bundles are pinned locally, and nothing is fetched at run time.** MediaPipe
+publishes its bundles at a **`latest`** URL. Resolving that during a job would mean the
+weights behind an arm could change without anything in the repo moving — and since the
+arm's `configHash` is what makes two experimental runs comparable, two arms built from
+different weights would share a stamp and pool as one. That is issue #149 verbatim: a
+hash that omitted model identity turned a model change into a measured null.
 
-**The mode → model-bundle mapping is a module-version concern.** `mode` 0/1/2 resolves
-to `pose_landmarker_lite`/`full`/`heavy`, so mode alone identifies the weights *given a
-module version*. Editing that mapping therefore requires bumping `MODULE_VERSION` —
-otherwise two arms built from different weights would share a configuration stamp and
-pool as one. This is issue #149's failure mode (a seed hash that omitted model identity
-turned a model change into a measured null) stated on the detection side, and it is
-recorded here because it is the one factor the hash covers only *indirectly*.
+So:
+
+- `models/mediapipe.lock.json` is the **tracked record**, pinning each bundle's sha256,
+  size, source URL and pin date. The `.task` binaries are **gitignored** — the rule the
+  repo already applies to video binaries, `*.pt` weights and `downloads/`.
+- `scripts/fetch_mediapipe_models.py` fetches and verifies against the lock. It
+  **refuses** a bundle whose sha256 has moved rather than adopting it; `--update` is the
+  deliberate act of re-pinning, and `--check` verifies without writing.
+- At run time `mediapipe_job` reads the local file, verifies it against the lock, and
+  fails loudly if it is missing or altered. There is no download path in the module at
+  all, and a test asserts that (`urlopen` must not appear in it). A batch must not depend
+  on a network round trip, and an arm must not depend on what upstream was serving that
+  afternoon.
+- **The pinned sha256 joins the arm identity** (`DetectionConfig.model_sha`), derived by
+  the job from the detector it is about to build rather than supplied by a caller — the
+  discipline `vitpose_job.stamp_model_identity` already applies. Adopting new weights
+  therefore changes every arm's `configHash` automatically, which correctly makes runs
+  from before and after non-comparable instead of silently pooling them.
+
+Drift is detected by CI polling upstream and **notifying**, never by adopting silently.
+
+**The mode → model-bundle mapping remains a module-version concern.** `mode` 0/1/2
+resolves to `pose_landmarker_lite`/`full`/`heavy`. The *contents* of each bundle are now
+covered by `model_sha`, but editing the mapping itself — pointing a mode at a different
+bundle — still requires bumping `MODULE_VERSION`.
 
 ## Consequences
 
@@ -80,6 +100,12 @@ recorded here because it is the one factor the hash covers only *indirectly*.
   they do not, that is a recorded finding and the experimental design changes.
 - The bundle vocabulary gains `mediapipe.status.json`, on the `vitpose.status.json`
   model. See `CONTEXT.md` → **Bundle**.
+- A fresh clone needs one `python scripts/fetch_mediapipe_models.py` before the module
+  can run — the same shape as needing the video binaries, which are also not in git.
+- Re-pinning the models is a **corpus event, not a maintenance chore**. Every arm's
+  `configHash` moves, so runs made before and after cannot be pooled. Prefer re-pinning
+  between experimental cycles rather than inside one, for the same reason ADR 0009
+  freezes the evaluation schema for a cycle.
 
 ## Alternatives considered
 

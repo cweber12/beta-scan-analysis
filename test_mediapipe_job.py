@@ -14,6 +14,7 @@ side.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -293,10 +294,14 @@ def test_each_pass_is_a_fresh_detector_and_its_own_detection_sweep():
     try:
         bundle = _bundle(tmp)
         run_mediapipe_job(tmp / "analysis", _job_request(repeats=3), _stub_factory())
-        assert len(StubDetector.builds) == 3, "one detector per pass, never a shared one"
-        assert all(len(d.calls) == 1 for d in StubDetector.builds), "one sweep per pass"
+        # Asserted on *sweeps*, not on how many detectors were constructed: the job also
+        # builds one throwaway probe to read model identity, and the contract that matters
+        # is "three independent detection passes", not the factory's call count.
+        swept = [d for d in StubDetector.builds if d.calls]
+        assert len(swept) == 3, "one detector per pass, never a shared one"
+        assert all(len(d.calls) == 1 for d in swept), "one sweep per pass"
         # Distinct objects, not the same detector handed back three times.
-        assert len({id(d) for d in StubDetector.builds}) == 3
+        assert len({id(d) for d in swept}) == 3
 
         wrists = [
             env["data"]["frames"][0]["keypoints"][0]["x"] for env in _pose_runs(bundle)
@@ -461,14 +466,17 @@ def test_a_mid_batch_failure_still_names_the_runs_that_reached_disk():
     next reader cannot tell a partial batch from a complete one."""
 
     class FailsOnThirdPass:
-        built = 0
+        """Counts *sweeps*, not constructions — the job builds a throwaway probe for
+        model identity, so counting builds would target the wrong pass."""
+
+        sweeps = 0
 
         def __init__(self, config):
-            FailsOnThirdPass.built += 1
-            self.mine = FailsOnThirdPass.built
+            pass
 
         def detect(self, video_path, timestamps, config):
-            if self.mine == 3:
+            FailsOnThirdPass.sweeps += 1
+            if FailsOnThirdPass.sweeps == 3:
                 raise RuntimeError("pass 3 died")
             return {t: [Keypoint("nose", 0.5, 0.5, 0.9)] for t in timestamps}
 
@@ -570,6 +578,104 @@ def test_unknown_detection_mode_is_refused_at_construction():
     except ValueError:
         return
     raise AssertionError("an unknown mode must not silently pick a model bundle")
+
+
+# --------------------------------------------------------------------------- #
+# Model pinning — the weights are part of the arm, and are never fetched at run time
+# --------------------------------------------------------------------------- #
+
+def test_model_sha_moves_the_config_hash():
+    """`mode` names a bundle; it does not identify weights. Upstream publishes at a
+    `latest` URL, so without the sha in the arm identity a republished bundle would arrive
+    under an unchanged stamp and two arms built from different weights would pool as one —
+    issue #149 verbatim, on the detection side."""
+
+    base = config_hash(_config())
+    assert config_hash(replace(_config(), model_sha="a" * 64)) != base
+    assert config_hash(replace(_config(), model_sha="b" * 64)) != \
+           config_hash(replace(_config(), model_sha="a" * 64))
+
+
+def test_absent_model_sha_is_omitted_so_stub_hashes_stay_stable():
+    """Omitted, not null: a stub-backed arm hashes exactly as it did before pinning
+    existed, which is what keeps the pure-core tests meaningful."""
+
+    assert "modelSha" not in _config().identity()
+    assert mj.MODEL_LOCK_PATH.name == "mediapipe.lock.json"
+
+
+def test_every_mode_is_pinned_in_the_lock_file():
+    """A mode that resolves to no pin is a mode whose runs cannot be attributed to
+    weights. All three must be pinned before any sweep, not discovered mid-batch."""
+
+    for mode in mj.DETECTION_MODES:
+        entry = mj.pinned_model(mode)
+        assert len(entry["sha256"]) == 64, mode
+        assert entry["size"] > 0, mode
+
+
+def test_the_job_stamps_model_identity_from_the_detector_not_the_caller():
+    """Read off the detector that will run, so the stamp records what ran rather than
+    what someone declared — the discipline vitpose_job applies for issue #149."""
+
+    class Pinned(StubDetector):
+        model_sha = "c" * 64
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        bundle = _bundle(tmp)
+        StubDetector.builds = []
+        run_mediapipe_job(tmp / "analysis", _job_request(repeats=1), lambda c: Pinned(c))
+        stamped = json.loads(
+            (bundle / mj.STATUS_NAME).read_text())["config"]
+        assert stamped["modelSha"] == "c" * 64
+        experiment = _pose_runs(bundle)[0]["data"]["diagnostics"]["experiment"]
+        assert experiment["config"]["modelSha"] == "c" * 64
+        # The run id, the sidecar and the artifact must all name the same arm.
+        assert experiment["configHash"] == config_hash(
+            replace(_config(), model_sha="c" * 64))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_a_bundle_that_does_not_match_its_pin_is_refused():
+    """Never adopt silently. A run produced by weights the lock does not describe cannot
+    be attributed to an arm, which is the failure the whole pinning scheme prevents."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        name = mj.MODEL_BUNDLES[1]
+        (tmp / f"{name}.task").write_bytes(b"not the pinned weights")
+        os.environ[mj.MODEL_DIR_ENV] = str(tmp)
+        try:
+            mj.resolve_model_bundle(1)
+        except ValueError as exc:
+            assert "does not match the pin" in str(exc)
+            assert "fetch_mediapipe_models" in str(exc)
+        else:
+            raise AssertionError("an unpinned bundle must be refused, not run")
+        # ...and an absent bundle names the fetch step rather than silently downloading.
+        (tmp / f"{name}.task").unlink()
+        try:
+            mj.resolve_model_bundle(1)
+        except FileNotFoundError as exc:
+            assert "fetch_mediapipe_models" in str(exc)
+        else:
+            raise AssertionError("a missing bundle must be refused, not downloaded")
+    finally:
+        os.environ.pop(mj.MODEL_DIR_ENV, None)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_nothing_is_fetched_at_run_time():
+    """A batch must not depend on a network round trip, and an arm must not depend on
+    what upstream happened to be serving that afternoon."""
+
+    source = Path("mediapipe_job.py").read_text(encoding="utf-8")
+    assert "urlopen" not in source, (
+        "mediapipe_job must not download; fetching lives in "
+        "scripts/fetch_mediapipe_models.py so an arm is pinned before it runs"
+    )
 
 
 def test_module_imports_and_runs_without_mediapipe_installed():
