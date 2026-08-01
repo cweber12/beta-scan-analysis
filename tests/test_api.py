@@ -616,6 +616,7 @@ def _run_all():
         test_mediapipe_batch_sweeps_a_preprocessing_arm,
         test_mediapipe_batch_rejects_an_arm_it_could_not_run,
         test_mediapipe_batch_names_the_cycle_it_falls_inside,
+        test_the_batch_sidecar_records_the_cycle_the_sweep_ran_inside,
         test_mediapipe_batch_refuses_a_second_batch_while_one_runs,
         test_mediapipe_batch_rejects_an_impossible_arm,
         test_mediapipe_batch_with_no_eligible_bundles_fails_synchronously,
@@ -624,6 +625,24 @@ def _run_all():
         fn()
         print(f"PASS {fn.__name__}")
     print("all api smoke tests passed")
+
+
+def _stub_factory():
+    """A detector behind the same Protocol the batch takes, so a sweep runs with no
+    MediaPipe and no video decode. Deliberately minimal — the tests using it are about
+    what the *batch* records, not about detection."""
+
+    import mediapipe_job
+
+    class _Stub:
+        def __init__(self, config):
+            self.config = config
+
+        def detect(self, video_path, timestamps, config, crop_track=None):
+            return {t: [mediapipe_job.Keypoint("left_wrist", 0.4, 0.5, 0.9)]
+                    for t in timestamps}
+
+    return _Stub
 
 
 def _mp_bundle(root, key, *, wrong=0):
@@ -707,7 +726,12 @@ def test_mediapipe_batch_rejects_an_arm_it_could_not_run():
 
 def test_mediapipe_batch_names_the_cycle_it_falls_inside():
     """Reported, never gated. The link is what lets a published comparison be checked
-    against the cycle whose manifest certified it."""
+    against the cycle whose manifest certified it.
+
+    Issue #176: it is also handed to the sweep, so the association outlives the response.
+    It used to exist *only* in the 202 body — an operator watching an eight-hour batch
+    through the sidecar had no way to see which cycle it belonged to, and neither did
+    anyone reading the sidecar afterwards."""
 
     import cycle_integrity
 
@@ -717,9 +741,37 @@ def test_mediapipe_batch_names_the_cycle_it_falls_inside():
         cycle_integrity.write_cycle(root, {
             "cycleId": "cycle-20260731-000000", "status": cycle_integrity.STATUS_OPEN})
         with patch.object(app_module, "ANALYSIS_DIR", root):
-            with patch.object(app_module.threading, "Thread"):
+            with patch.object(app_module.threading, "Thread") as thread:
                 response = start_mediapipe_batch(MediaPipeBatchRequest(mode=1))
         assert json.loads(response.body)["cycle"] == "cycle-20260731-000000"
+        # Resolved before the thread starts and passed to it, so the two cannot disagree.
+        assert thread.call_args.kwargs["args"][2] == "cycle-20260731-000000"
+
+
+def test_the_batch_sidecar_records_the_cycle_the_sweep_ran_inside():
+    """Issue #176. A timestamp window is the only durable join between a run and its Cycle,
+    and this is the operator's half of that gap: while a sweep is in flight the sidecar is
+    the only thing being watched, and "which cycle is this?" was unanswerable from it."""
+
+    import mediapipe_job
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _mp_bundle(root, "a")
+        mediapipe_job.run_batch(
+            root, mediapipe_job.DetectionConfig(mode=1), _stub_factory(),
+            cycle_id="cycle-20260731-000000")
+        status = json.loads(
+            mediapipe_job.batch_status_path(root).read_text(encoding="utf-8"))
+        assert status["cycleId"] == "cycle-20260731-000000"
+
+        # A batch outside a cycle is legitimate — a probe, a one-off re-run — and records
+        # a null rather than nothing, so "not in a cycle" reads differently from "an older
+        # sidecar that predates the field".
+        mediapipe_job.run_batch(root, mediapipe_job.DetectionConfig(mode=1), _stub_factory())
+        status = json.loads(
+            mediapipe_job.batch_status_path(root).read_text(encoding="utf-8"))
+        assert status["cycleId"] is None
 
 
 def test_mediapipe_batch_refuses_a_second_batch_while_one_runs():

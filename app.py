@@ -617,7 +617,8 @@ class MediaPipeBatchRequest(BaseModel):
             preprocess=mediapipe_job.preprocess_from_options(self.contrast, self.brightness))
 
 
-def _run_batch_safely(request: MediaPipeBatchRequest, job_id: str) -> None:
+def _run_batch_safely(request: MediaPipeBatchRequest, job_id: str,
+                      cycle_id: str | None) -> None:
     # Failures are already recorded to the batch sidecar inside run_batch; this only stops
     # a daemon thread's traceback from going nowhere.
     try:
@@ -629,6 +630,7 @@ def _run_batch_safely(request: MediaPipeBatchRequest, job_id: str) -> None:
             if request.bundles is not None else None,
             repeats=request.repeats,
             job_id=job_id,
+            cycle_id=cycle_id,
         )
     except Exception:  # noqa: BLE001 — surfaced via mediapipe-batch.status.json
         pass
@@ -663,16 +665,21 @@ def start_mediapipe_batch(payload: MediaPipeBatchRequest) -> JSONResponse:
             },
         )
 
-    job_id = uuid.uuid4().hex
-    threading.Thread(
-        target=_run_batch_safely, args=(payload, job_id), daemon=True
-    ).start()
-
     # Which cycle this sweep will fall inside, or null (issue #168). Reported, never
     # gated: a batch outside a cycle is legitimate — a probe, a one-off re-run — it simply
     # cannot be certified against drift afterwards, and that is worth knowing before the
     # sweep rather than when someone tries to publish the comparison.
+    #
+    # Resolved *before* the thread starts and handed to it, so the 202 and the batch
+    # sidecar cannot disagree about which cycle the sweep belongs to — and so the
+    # association survives the response, which is where it used to end (issue #176).
     cycle = cycle_integrity.open_cycle_doc(ANALYSIS_DIR)
+    cycle_id = cycle["cycleId"] if cycle else None
+
+    job_id = uuid.uuid4().hex
+    threading.Thread(
+        target=_run_batch_safely, args=(payload, job_id, cycle_id), daemon=True
+    ).start()
 
     return JSONResponse(status_code=202, content={
         "jobId": job_id,
@@ -682,5 +689,5 @@ def start_mediapipe_batch(payload: MediaPipeBatchRequest) -> JSONResponse:
         "repeats": payload.repeats,
         "selection": selection.as_dict(),
         "statusPath": str(mediapipe_job.batch_status_path(ANALYSIS_DIR)),
-        "cycle": cycle["cycleId"] if cycle else None,
+        "cycle": cycle_id,
     })
