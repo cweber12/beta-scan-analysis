@@ -229,12 +229,17 @@ def test_orb_half_is_explicitly_not_computed():
 # Repeats — the variance floor has to be produced, not hoped for
 # --------------------------------------------------------------------------- #
 
-def test_repeats_default_to_a_floor_producing_count():
-    """Issue #134: the historical corpus has six genuine repeat groups and therefore no
-    usable floor. A batch must produce its own by default, not on request."""
+def test_repeats_default_to_one_because_the_detector_is_deterministic():
+    """Reverses the original PRD decision, on measurement.
 
-    assert mj.DEFAULT_REPEATS >= 3
-    assert _request().repeats == mj.DEFAULT_REPEATS or _request().repeats == 3
+    #134 mandated three repeats, but it measured the *scanner's* detector, which genuinely
+    scatters (PCK 0.0055 median). This one is bit-deterministic — three passes produce
+    byte-identical output across all modes, videos and processes — so its floor is exactly
+    0 and repeats buy provably nothing at N× the cost. Drift detection moved to the
+    byte-identical canary (#168). Repeats stay a parameter for the day determinism breaks."""
+
+    assert mj.DEFAULT_REPEATS == 1
+    assert _request(repeats=5).repeats == 5, "a caller may still ask for more"
 
 
 def test_repeat_passes_are_enumerated_and_distinguishable():
@@ -814,6 +819,297 @@ def test_the_crop_path_never_reads_truth():
     # ...and the tracker seed in the job comes from calibration, by name.
     job = Path("mediapipe_job.py").read_text(encoding="utf-8")
     assert "climberPoint" in job, "the tracker must seed from the setup tap"
+
+
+# --------------------------------------------------------------------------- #
+# Frame sampling (issue #159) — 12·√n, deterministic, never contiguous
+# --------------------------------------------------------------------------- #
+
+def test_sampling_keeps_twelve_root_n_frames():
+    """Measured across 55 Bundles at median 0.0017 / p90 0.0056 |dPCK| against the full
+    grid — a p90 essentially equal to #134's 0.0055 noise floor, which is what makes it a
+    principled stopping point rather than a taste call."""
+
+    import math
+    for n in (76, 331, 701, 1811, 5977):
+        kept = mj.sample_timestamps(tuple(float(i) for i in range(n)))
+        assert len(kept) == min(n, int(12 * math.sqrt(n))), n
+    # A short Bundle keeps everything rather than being padded or truncated.
+    assert len(mj.sample_timestamps(tuple(range(76)))) == 76
+
+
+def test_the_frame_set_is_a_pure_function_of_the_bundle():
+    """Mode batches run on different days. A frame set chosen at batch time would hand the
+    three modes three different frame sets, reintroducing across batches exactly the
+    confound the design removes within one."""
+
+    grid = tuple(round(i * 0.1, 1) for i in range(701))
+    first = mj.sample_timestamps(grid)
+    second = mj.sample_timestamps(tuple(list(grid)))
+    assert first == second
+    # ...and it is stable across separately-constructed requests, which is how a batch
+    # actually reaches it.
+    a = _request(frames=mj.sample_timestamps(grid))
+    b = _request(frames=mj.sample_timestamps(grid))
+    assert a.frames == b.frames
+
+
+def test_sampling_spans_the_whole_grid_and_is_never_contiguous():
+    """Eight contiguous 300-frame windows of one Bundle — same run, same truth — produced
+    PCK from 0.104 to 0.839. That 0.735 spread is ~130x the noise floor, so a contiguous
+    sample would swamp the experiment with frame-choice noise wearing an arm's name."""
+
+    grid = tuple(float(i) for i in range(2000))
+    kept = mj.sample_timestamps(grid)
+    assert kept[0] == grid[0] and kept[-1] == grid[-1], "must span the full climb"
+    gaps = {round(b - a, 6) for a, b in zip(kept, kept[1:])}
+    assert min(gaps) > 1.0, "consecutive frames would be a contiguous stretch"
+    # Evenly spread, not stride-and-truncate — which silently drops the video's tail.
+    assert max(gaps) - min(gaps) <= 1.0
+
+
+def test_sampling_handles_degenerate_grids():
+    assert mj.sample_timestamps(()) == ()
+    assert mj.sample_timestamps((4.0,)) == (4.0,)
+
+
+# --------------------------------------------------------------------------- #
+# Bundle selection (issue #159) — thresholded exclusion, every drop recorded
+# --------------------------------------------------------------------------- #
+
+def _truth(bundle: Path, n: int = 10, wrong: int = 0) -> None:
+    frames = [{"frameIndex": i, "timestamp": i * 0.1, "state": "present",
+               "review": "human-flagged-wrong" if i < wrong else "auto", "joints": {}}
+              for i in range(n)]
+    (bundle / "ground-truth.json").write_text(json.dumps({"frames": frames}))
+
+
+def _selectable(tmp: Path, route: str, key: str, *, wrong: int = 0, truth: bool = True,
+                video: bool = True, setup: bool = True) -> Path:
+    bundle = tmp / "analysis" / route / key
+    bundle.mkdir(parents=True)
+    if video:
+        (bundle / f"{key}.mp4").write_bytes(b"v")
+    if setup:
+        (bundle / "setup.json").write_text(json.dumps({"setupHash": f"sh-{key}"}))
+    if truth:
+        _truth(bundle, 10, wrong)
+    return bundle
+
+
+def test_selection_excludes_only_badly_wrong_truth_and_says_why():
+    """A threshold, not all seven. `evaluate` already drops human-flagged-wrong frames from
+    scoring (ADR 0004/0005), so excluding whole Bundles would discard ~9,990 good truth
+    frames to remove 2,113 bad ones. But not zero either: wrong-*person* truth points at a
+    specific other human, so an arm latching onto the same bystander gets rewarded — the
+    one error that does not cancel between arms."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        _selectable(tmp, "r", "clean")
+        _selectable(tmp, "r", "slightly", wrong=1)     # 10% — kept
+        _selectable(tmp, "r", "badly", wrong=6)        # 60% — dropped
+        sel = mj.select_bundles(tmp / "analysis")
+        assert ("r", "clean") in sel.included
+        assert ("r", "slightly") in sel.included, "10% wrong must not cost the whole Bundle"
+        assert ("r", "badly") not in sel.included
+        dropped = {e["videoKey"]: e for e in sel.excluded}
+        assert dropped["badly"]["reason"] == "wrong-person-truth"
+        assert dropped["badly"]["wrongShare"] == 0.6
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_selection_records_every_reason_a_bundle_cannot_run():
+    """A batch that silently skipped a Bundle would produce a pooled number over a
+    population nobody can reconstruct."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        _selectable(tmp, "r", "ok")
+        _selectable(tmp, "r", "notruth", truth=False)
+        _selectable(tmp, "r", "novideo", video=False)
+        _selectable(tmp, "r", "nosetup", setup=False)
+        sel = mj.select_bundles(tmp / "analysis")
+        reasons = {e["videoKey"]: e["reason"] for e in sel.excluded}
+        assert reasons == {"notruth": "no-truth", "novideo": "no-video",
+                           "nosetup": "no-setup-hash"}
+        assert sel.as_dict()["includedCount"] == 1
+        assert sel.as_dict()["excludedCount"] == 3
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_an_explicit_subset_is_still_filtered_and_a_missing_bundle_is_named():
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        _selectable(tmp, "r", "ok")
+        _selectable(tmp, "r", "badly", wrong=9)
+        sel = mj.select_bundles(tmp / "analysis",
+                                only=[("r", "ok"), ("r", "badly"), ("r", "ghost")])
+        assert sel.included == (("r", "ok"),)
+        reasons = {e["videoKey"]: e["reason"] for e in sel.excluded}
+        assert reasons == {"badly": "wrong-person-truth", "ghost": "no-bundle"}
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------- #
+# The batch — single-flight, per-Bundle isolation, progress
+# --------------------------------------------------------------------------- #
+
+def test_run_ids_carry_the_experiment_prefix():
+    """So a detections/ listing is self-describing, a selective wipe is a glob rather than
+    a JSON scan, and every aggregation has a trivially correct segregation key."""
+
+    run_ts = mj.pass_run_ts("20260801-120000", _config(), 0)
+    assert run_ts.startswith(mj.RUN_ID_PREFIX)
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        bundle = _bundle(tmp)
+        run_mediapipe_job(tmp / "analysis", _job_request(repeats=1), _stub_factory())
+        # Visible in the envelope run_ts, not only the filename — evaluate reads the
+        # envelope, and a prefix that lived only in the filename would not segregate.
+        assert _pose_runs(bundle)[0]["run_ts"].startswith(mj.RUN_ID_PREFIX)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_a_batch_sweeps_every_eligible_bundle_and_records_its_selection():
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        for key in ("a", "b"):
+            _selectable(tmp, "r", key)
+        _selectable(tmp, "r", "badly", wrong=9)
+        result = mj.run_batch(tmp / "analysis", _config(), _stub_factory(), repeats=1)
+        assert result["status"] == "done"
+        assert result["bundlesRun"] == 2 and result["bundlesFailed"] == 0
+        assert result["runsWritten"] == 2
+        # The exclusion is visible in the batch's own record, not just in a log line.
+        assert result["selection"]["excludedCount"] == 1
+        assert result["selection"]["excluded"][0]["reason"] == "wrong-person-truth"
+        # The batch reports the arm actually *written*, not the config it was handed —
+        # model sha and crop trajectory are stamped per Bundle inside the job, so the
+        # requested config is not yet an arm.
+        assert result["armsWritten"] == [config_hash(_config())]
+        assert result["armsMixed"] is False
+        status = json.loads((tmp / "analysis" / mj.BATCH_STATUS_NAME).read_text())
+        assert status["status"] == "done"
+        assert [b["videoKey"] for b in status["bundles"]] == ["a", "b"]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_each_bundle_is_sampled_to_twelve_root_n():
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        bundle = _selectable(tmp, "r", "a")
+        _truth(bundle, 400)
+        result = mj.run_batch(tmp / "analysis", _config(), _stub_factory(), repeats=1)
+        entry = result["bundles"][0]
+        assert entry["truthFrames"] == 400
+        assert entry["sampledFrames"] == len(mj.sample_timestamps(tuple(range(400))))
+        assert entry["sampledFrames"] < 400, "the whole point is not sampling everything"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_a_batch_flags_when_its_bundles_did_not_share_one_arm():
+    """More than one arm in a batch means the Bundles did not share a trajectory or a
+    model, so the runs are not one experimental condition. Surfaced by the batch rather
+    than discovered at analysis time, where it would look like a real arm difference."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        for key in ("a", "b"):
+            _selectable(tmp, "r", key)
+
+        class Drifting(StubDetector):
+            """Reports a different model per Bundle — the shape of a mid-batch re-pin.
+
+            Keyed on ``index // 2`` because each Bundle builds two detectors: a probe the
+            job reads model identity from, then the one that actually sweeps.
+            """
+            @property
+            def model_sha(self):
+                return ("a" if self.index // 2 == 0 else "b") * 64
+
+        StubDetector.builds = []
+        result = mj.run_batch(tmp / "analysis", _config(),
+                              lambda c: Drifting(c), repeats=1)
+        assert len(result["armsWritten"]) == 2
+        assert result["armsMixed"] is True
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_one_bad_bundle_does_not_cost_the_rest_of_the_sweep():
+    """A sweep takes hours. One unreadable video must not end it."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        for key in ("a", "boom", "c"):
+            _selectable(tmp, "r", key)
+
+        def factory(config):
+            det = StubDetector(config)
+            real = det.detect
+
+            def detect(video_path, timestamps, config, crop_track=None):
+                if "boom" in str(video_path):
+                    raise RuntimeError("unreadable video")
+                return real(video_path, timestamps, config, crop_track)
+
+            det.detect = detect
+            return det
+
+        StubDetector.builds = []
+        result = mj.run_batch(tmp / "analysis", _config(), factory, repeats=1)
+        assert result["status"] == "done", "the batch itself completes"
+        assert result["bundlesRun"] == 2 and result["bundlesFailed"] == 1
+        failed = [b for b in result["bundles"] if b["status"] == "error"][0]
+        assert failed["videoKey"] == "boom"
+        assert failed["errorType"] == "RuntimeError"
+        assert "Traceback" in failed["traceback"]
+        # The other two still wrote their runs.
+        assert result["runsWritten"] == 2
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_a_second_batch_is_refused_while_one_is_running():
+    """Two batches would interleave writes into one Bundle, share a base timestamp, race on
+    run ids, and produce a repeat set whose members came from different arms."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        _selectable(tmp, "r", "a")
+        seen = {}
+
+        def factory(config):
+            det = StubDetector(config)
+            real = det.detect
+
+            def detect(video_path, timestamps, config, crop_track=None):
+                # Re-enter while the first batch holds the lock.
+                assert mj.batch_is_running(tmp / "analysis")
+                try:
+                    mj.run_batch(tmp / "analysis", _config(), _stub_factory(), repeats=1)
+                except RuntimeError as exc:
+                    seen["refused"] = str(exc)
+                return real(video_path, timestamps, config, crop_track)
+
+            det.detect = detect
+            return det
+
+        StubDetector.builds = []
+        mj.run_batch(tmp / "analysis", _config(), factory, repeats=1)
+        assert "already running" in seen.get("refused", "")
+        # ...and the lock is released afterwards, so the next batch can start.
+        assert not mj.batch_is_running(tmp / "analysis")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_module_imports_and_runs_without_mediapipe_installed():

@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import sys
 import threading
@@ -65,8 +66,59 @@ ORIGIN = "harness-mediapipe"
 # against.
 DETECTION_MODES = (0, 1, 2)
 
-# Issue #134: a batch must produce its own variance floor rather than hope one exists.
-DEFAULT_REPEATS = 3
+# Repeats default to **one**, and that is a reversal of the original PRD decision.
+#
+# #134 mandated three, because the historical corpus holds six genuine repeat groups and
+# therefore no usable variance floor. But #134 measured the *scanner's* detector, where
+# re-running the same video on the same build genuinely scatters (PCK 0.0055 median). This
+# detector is bit-deterministic — three passes over the same frames produce byte-identical
+# output, confirmed across all three modes, two videos and separate processes. Its floor is
+# not small, it is exactly 0, so repeats produce provably zero information at N× the cost:
+# roughly 47 of the 70.6 hours in a full three-mode sweep would have been duplicate bytes.
+#
+# Drift detection moves to the byte-identical canary (#168), which is strictly more
+# sensitive and costs about two minutes. Repeats stay a *parameter* — a caller may still
+# ask for more, and must be able to the moment the detector stops being deterministic (a
+# GPU delegate, a threading change, a MediaPipe upgrade). Only the default changed.
+DEFAULT_REPEATS = 1
+
+# Frames sampled per run: ``keep = SAMPLE_COEFFICIENT · √n`` over the Bundle's truth grid.
+#
+# Video length spans 79× across this corpus (76 to 5,977 truth frames) while the Run is the
+# unit of inference, so sampling the full grid spent 23% of all compute on 6% of the runs
+# for no extra inferential weight. Measured across 55 Bundles, this rule sits at median
+# 0.0017 / p90 0.0056 |ΔPCK| against the full-grid answer — a p90 essentially equal to
+# #134's 0.0055 PCK noise floor, which is the stopping criterion: worst-case sampling error
+# at or below noise the corpus already carries.
+#
+# A flat cap was rejected: its error concentrates on exactly the long videos, which are
+# single continuous attempts with no repeated content to spare.
+#
+# **Changing this is a module change and must bump MODULE_VERSION.** The arm identity does
+# not name the frame set — it does not need to, because the set is a deterministic function
+# of the Bundle, which is what makes sampling error common-mode across arms and cancel in a
+# delta. Change the coefficient and that stops being true: two runs on one Bundle would
+# carry the same stamp over different frames. Observed for real when #169's full-grid proof
+# run and the first sampled batch landed on one Bundle under one arm hash.
+SAMPLE_COEFFICIENT = 12
+
+# Experimental run ids carry this, so a ``detections/`` listing is self-describing, a
+# selective wipe is a glob rather than a JSON scan, and every aggregation has a trivially
+# correct segregation key.
+RUN_ID_PREFIX = "exp-"
+
+# A Bundle whose truth is this badly wrong-person is excluded from experiments (#34).
+#
+# Deliberately a threshold rather than "exclude all seven": ``evaluate`` already drops
+# ``human-flagged-wrong`` frames from every tier's scoring (ADR 0004/0005), and dropping all
+# seven Bundles would discard ~9,990 good truth frames to remove 2,113 bad ones — two of
+# them are >98.7% clean, one being the corpus's largest Bundle.
+#
+# But not zero either, because wrong-*person* truth is the one error that does **not** cancel
+# between arms. It points at a specific other human, so an arm that latches onto the same
+# bystander the truth did gets *rewarded* — and identity confusion is exactly what varies
+# between detection configs. Above this share the unflagged remainder is untrustworthy too.
+WRONG_TRUTH_MAX_SHARE = 0.20
 
 CROP_NONE = "none"
 CROP_ADAPTIVE = "adaptive"
@@ -311,6 +363,11 @@ def build_pose_payload(
                 # rather than counted as evidence of stability (#134).
                 "passIndex": pass_index,
                 "repeats": request.repeats,
+                # How many timestamps this run actually sampled. Not part of the arm hash
+                # — the frame set is a deterministic function of the Bundle — but recorded
+                # so two runs of one arm on one Bundle can be *checked* to have sampled the
+                # same frames rather than assumed to have.
+                "frameCount": len(request.frames),
             },
         },
         "setupHash": request.setup_hash,
@@ -392,6 +449,112 @@ def truth_timestamps(bundle_dir: Path) -> tuple[float, ...]:
     return ()
 
 
+def sample_timestamps(frames: Sequence[float], coefficient: int = SAMPLE_COEFFICIENT
+                      ) -> tuple[float, ...]:
+    """The timestamps one run samples: ``coefficient · √n``, evenly spread over the grid.
+
+    **A pure function of the grid**, deliberately. Mode batches run on different days, so a
+    frame set chosen at batch time would hand the three modes three different frame sets and
+    reintroduce across batches exactly the confound the design removes within one.
+
+    **Never contiguous.** Eight 300-frame contiguous windows of one Bundle — same run, same
+    truth — produced PCK from 0.104 to 0.839. That 0.735 spread is roughly 130× the noise
+    floor and 15–70× any arm effect being hunted, so sampling a *stretch* would swamp the
+    experiment with frame-choice noise wearing an arm's name.
+
+    Spread by even spacing over the whole span rather than by a stride-and-truncate, which
+    silently drops the tail of the video and reintroduces the same bias in miniature.
+    """
+
+    n = len(frames)
+    keep = min(n, int(coefficient * math.sqrt(n))) if n else 0
+    if keep <= 0:
+        return ()
+    if keep >= n:
+        return tuple(float(t) for t in frames)
+    if keep == 1:
+        return (float(frames[0]),)
+    return tuple(
+        float(frames[round(i * (n - 1) / (keep - 1))]) for i in range(keep)
+    )
+
+
+def wrong_truth_share(bundle_dir: Path) -> float:
+    """Fraction of a Bundle's truth frames flagged ``human-flagged-wrong`` (#34)."""
+
+    frames = _read_json(bundle_dir / "ground-truth.json").get("frames")
+    if not isinstance(frames, list) or not frames:
+        return 0.0
+    wrong = sum(1 for f in frames
+                if isinstance(f, dict) and f.get("review") == "human-flagged-wrong")
+    return wrong / len(frames)
+
+
+@dataclass(frozen=True)
+class BundleSelection:
+    """Which Bundles a batch will run, and why the rest were left out.
+
+    The exclusions are carried rather than silently applied: a batch that quietly skipped a
+    Bundle would produce a pooled number over a population nobody can reconstruct.
+    """
+
+    included: tuple[tuple[str, str], ...] = ()
+    excluded: tuple[dict[str, Any], ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "included": [{"route": r, "videoKey": k} for r, k in self.included],
+            "includedCount": len(self.included),
+            "excluded": list(self.excluded),
+            "excludedCount": len(self.excluded),
+        }
+
+
+def select_bundles(
+    analysis_root: Path,
+    only: Sequence[tuple[str, str]] | None = None,
+) -> BundleSelection:
+    """Every Bundle a batch can run, with each exclusion recorded and reasoned.
+
+    ``only`` restricts to an explicit subset — the smoke-batch path — and is still filtered,
+    so asking for a Bundle that cannot be run reports *why* rather than failing opaquely.
+    """
+
+    included: list[tuple[str, str]] = []
+    excluded: list[dict[str, Any]] = []
+    wanted = {(r, k) for r, k in only} if only is not None else None
+
+    for bundle_dir in sorted(p for p in analysis_root.glob("*/*") if p.is_dir()):
+        route, key = bundle_dir.parent.name, bundle_dir.name
+        if wanted is not None and (route, key) not in wanted:
+            continue
+
+        def drop(reason: str, **extra: Any) -> None:
+            excluded.append({"route": route, "videoKey": key, "reason": reason, **extra})
+
+        if not truth_timestamps(bundle_dir):
+            drop("no-truth")
+            continue
+        if resolve_bundle_video(bundle_dir) is None:
+            drop("no-video")
+            continue
+        if not read_setup_hash(bundle_dir):
+            drop("no-setup-hash")
+            continue
+        share = wrong_truth_share(bundle_dir)
+        if share > WRONG_TRUTH_MAX_SHARE:
+            drop("wrong-person-truth", wrongShare=round(share, 4))
+            continue
+        included.append((route, key))
+
+    if wanted is not None:
+        found = set(included) | {(e["route"], e["videoKey"]) for e in excluded}
+        for route, key in sorted(wanted - found):
+            excluded.append({"route": route, "videoKey": key, "reason": "no-bundle"})
+
+    return BundleSelection(tuple(included), tuple(excluded))
+
+
 def resolve_bundle_video(bundle_dir: Path) -> Path | None:
     """The Bundle's video binary: whatever ``metadata.json`` recorded, else a lone file."""
 
@@ -439,7 +602,7 @@ def pass_run_ts(base_ts: str, config: DetectionConfig, pass_index: int) -> str:
     ``detections/`` listing says which arm each run belongs to without opening it.
     """
 
-    return f"{base_ts}-{config_hash(config)[:8]}-p{pass_index}"
+    return f"{RUN_ID_PREFIX}{base_ts}-{config_hash(config)[:8]}-p{pass_index}"
 
 
 def _unique_run_ts(detections_dir: Path, candidate: str) -> str:
@@ -596,6 +759,9 @@ def run_mediapipe_job(
             undecodable = len(pass_request.frames) - len(decoded)
             written.append({
                 "passIndex": pass_index,
+                # The *resolved* arm: model sha and crop trajectory are stamped inside this
+                # function, so the config a caller handed in is not yet the arm that ran.
+                "configHash": base["configHash"],
                 "runTs": result["run_ts"],
                 "posePath": result["pose_path"],
                 "orbPath": result["orb_path"],
@@ -633,6 +799,161 @@ def run_mediapipe_job(
         })
         _log(f"job {job_id[:8]} FAILED after {len(written)} runs: {type(exc).__name__}: {exc}")
         raise
+
+
+# --------------------------------------------------------------------------- #
+# Batch — one arm across many Bundles, single-flight, per-Bundle isolation
+# --------------------------------------------------------------------------- #
+
+BATCH_STATUS_NAME = "mediapipe-batch.status.json"
+
+# Single-flight (PRD #156 user story 40). Two batches must never interleave writes into one
+# Bundle: they would share a base timestamp, race on run ids, and produce a repeat set whose
+# members came from different arms. Non-blocking on purpose — a caller that asked for a
+# second batch wants to be *told no*, not silently queued behind an hour of GPU work.
+_BATCH_LOCK = threading.Lock()
+
+
+def batch_status_path(analysis_root: Path) -> Path:
+    return analysis_root / BATCH_STATUS_NAME
+
+
+def write_batch_status(analysis_root: Path, payload: dict[str, Any]) -> Path:
+    path = batch_status_path(analysis_root)
+    body = dict(payload)
+    body["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(body, indent=2, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def batch_is_running(analysis_root: Path) -> bool:
+    return _BATCH_LOCK.locked()
+
+
+def run_batch(
+    analysis_root: Path,
+    config: DetectionConfig,
+    detector_factory: DetectorFactory,
+    only: Sequence[tuple[str, str]] | None = None,
+    repeats: int = DEFAULT_REPEATS,
+    job_id: str | None = None,
+    coefficient: int = SAMPLE_COEFFICIENT,
+) -> dict[str, Any]:
+    """Sweep one arm across many Bundles.
+
+    Three operational properties, each because its absence costs a whole sweep:
+
+    - **Single-flight.** Refuses to start while another batch holds the lock.
+    - **Per-Bundle isolation.** A Bundle that raises is recorded with its error and skipped;
+      the sweep continues and still reaches a terminal status. One bad video must not cost
+      hours of work on the other eighty-five.
+    - **Per-Bundle progress**, written to the batch sidecar as it goes, so a long sweep is
+      observable while it runs rather than only at the end.
+
+    Raises ``RuntimeError`` immediately if a batch is already in flight.
+    """
+
+    if not _BATCH_LOCK.acquire(blocking=False):
+        raise RuntimeError(
+            "A MediaPipe batch is already running. Two batches would interleave writes "
+            "into the same Bundles and produce repeat sets whose members came from "
+            "different arms — refusing rather than queueing."
+        )
+    try:
+        job_id = job_id or uuid.uuid4().hex
+        selection = select_bundles(analysis_root, only)
+        base = {
+            "jobId": job_id,
+            "status": "running",
+            "origin": ORIGIN,
+            "config": config.identity(),
+            "configHash": config_hash(config),
+            "repeats": repeats,
+            "sampleCoefficient": coefficient,
+            "selection": selection.as_dict(),
+        }
+        results: list[dict[str, Any]] = []
+        write_batch_status(analysis_root, {**base, "bundles": results})
+        _log(
+            f"batch {job_id[:8]} started: arm {base['configHash'][:8]}, "
+            f"{len(selection.included)} bundles, {repeats} repeat(s) each "
+            f"({len(selection.excluded)} excluded)"
+        )
+
+        for index, (route, key) in enumerate(selection.included, start=1):
+            bundle_dir = bundle_dir_for(analysis_root, route, key)
+            entry: dict[str, Any] = {"route": route, "videoKey": key}
+            try:
+                video = resolve_bundle_video(bundle_dir)
+                grid = truth_timestamps(bundle_dir)
+                frames = sample_timestamps(grid, coefficient)
+                entry["truthFrames"] = len(grid)
+                entry["sampledFrames"] = len(frames)
+                runs = run_mediapipe_job(
+                    analysis_root,
+                    DetectRequest(
+                        video_path=str(video),
+                        route_folder=route,
+                        video_key=key,
+                        frames=frames,
+                        config=config,
+                        repeats=repeats,
+                    ),
+                    detector_factory,
+                )
+                entry["status"] = "done"
+                entry["runs"] = [r["runTs"] for r in runs]
+                entry["framesDetected"] = [r["framesDetected"] for r in runs]
+                entry["armsWritten"] = sorted({r["configHash"] for r in runs})
+            except Exception as exc:  # noqa: BLE001 — one bad Bundle must not end the sweep
+                entry["status"] = "error"
+                entry["errorType"] = type(exc).__name__
+                entry["error"] = f"{type(exc).__name__}: {exc}"
+                entry["traceback"] = traceback.format_exc()
+                _log(f"batch {job_id[:8]} {route}/{key} FAILED: {entry['error']}")
+            results.append(entry)
+            write_batch_status(analysis_root, {**base, "bundles": results})
+            _log(
+                f"batch {job_id[:8]} [{index}/{len(selection.included)}] {route}/{key}: "
+                f"{entry['status']}"
+                + (f", {entry.get('sampledFrames')} frames sampled of "
+                   f"{entry.get('truthFrames')}" if entry["status"] == "done" else "")
+            )
+
+        failed = [e for e in results if e["status"] == "error"]
+        # The arms actually written, resolved. ``base["configHash"]`` is the *requested*
+        # config, which is not yet an arm: the model sha and the crop trajectory are stamped
+        # per Bundle inside the job. Reporting the request as if it were the arm would put a
+        # hash in the batch record that appears on none of the runs it produced.
+        arms = sorted({a for e in results for a in (e.get("armsWritten") or [])})
+        final = {
+            **base,
+            # ``done`` even with per-Bundle failures: the *batch* completed, and the
+            # failures are enumerated. ``error`` would imply nothing usable was produced.
+            "status": "done",
+            "requestedConfigHash": base["configHash"],
+            "armsWritten": arms,
+            # More than one arm in a batch means the Bundles did not share a trajectory or a
+            # model — the runs are not one experimental condition and must not be pooled as
+            # one. Surfaced here rather than discovered at analysis time.
+            "armsMixed": len(arms) > 1,
+            "bundles": results,
+            "bundlesRun": len(results) - len(failed),
+            "bundlesFailed": len(failed),
+            "runsWritten": sum(len(e.get("runs") or []) for e in results),
+        }
+        if final["armsMixed"]:
+            _log(f"batch {job_id[:8]} WARNING: {len(arms)} distinct arms written {arms} — "
+                 "these Bundles do not share a trajectory or model and must not pool")
+        write_batch_status(analysis_root, final)
+        _log(
+            f"batch {job_id[:8]} done: {final['runsWritten']} runs over "
+            f"{final['bundlesRun']} bundles ({final['bundlesFailed']} failed)"
+        )
+        return final
+    finally:
+        _BATCH_LOCK.release()
 
 
 # --------------------------------------------------------------------------- #

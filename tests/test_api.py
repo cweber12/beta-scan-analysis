@@ -28,6 +28,7 @@ import app as app_module
 import video_stats
 from app import (
     DetectionRequest,
+    MediaPipeBatchRequest,
     DownloadRequest,
     ImportRequest,
     VideoStatsRequest,
@@ -41,6 +42,7 @@ from app import (
     homepage,
     list_route_folders,
     push_detections,
+    start_mediapipe_batch,
     start_vitpose_job,
 )
 
@@ -49,11 +51,17 @@ from app import (
 # Helpers
 # --------------------------------------------------------------------------- #
 
-def _expect_raises(exc_type, fn) -> None:
+def _expect_raises(exc_type, fn):
+    """Assert ``fn`` raises ``exc_type``, and hand the exception back.
+
+    Returning it lets a caller assert on the *content* of the failure — a 409 that says
+    "already running" is a different contract from a 409 that says anything else — without
+    every test rewriting the same try/except.
+    """
     try:
         fn()
-    except exc_type:
-        return
+    except exc_type as exc:
+        return exc
     raise AssertionError(f"expected {exc_type.__name__} to be raised")
 
 
@@ -604,11 +612,102 @@ def _run_all():
         test_video_stats_payload_overrides_and_camelcase,
         test_video_stats_decode_failure_maps_500,
         test_schema_validation_rejects_bad_payloads,
+        test_mediapipe_batch_returns_202_with_its_selection,
+        test_mediapipe_batch_refuses_a_second_batch_while_one_runs,
+        test_mediapipe_batch_rejects_an_impossible_arm,
+        test_mediapipe_batch_with_no_eligible_bundles_fails_synchronously,
     ]
     for fn in fns:
         fn()
         print(f"PASS {fn.__name__}")
     print("all api smoke tests passed")
+
+
+def _mp_bundle(root, key, *, wrong=0):
+    bundle = root / "r" / key
+    bundle.mkdir(parents=True)
+    (bundle / f"{key}.mp4").write_bytes(b"v")
+    (bundle / "setup.json").write_text(json.dumps({"setupHash": f"sh-{key}"}))
+    frames = [{"frameIndex": i, "timestamp": i * 0.1, "state": "present",
+               "review": "human-flagged-wrong" if i < wrong else "auto", "joints": {}}
+              for i in range(20)]
+    (bundle / "ground-truth.json").write_text(json.dumps({"frames": frames}))
+    return bundle
+
+
+def test_mediapipe_batch_returns_202_with_its_selection():
+    """Issue #159: the sweep is offloaded, so the caller gets a job id immediately. The
+    selection rides in the response because a batch that silently skipped a Bundle would
+    produce a pooled number over a population nobody can reconstruct."""
+
+    import mediapipe_job
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _mp_bundle(root, "a")
+        _mp_bundle(root, "badly", wrong=18)      # 90% wrong-person truth
+        payload = MediaPipeBatchRequest(mode=1)
+        with patch.object(app_module, "ANALYSIS_DIR", root):
+            with patch.object(app_module.threading, "Thread") as thread:
+                response = start_mediapipe_batch(payload)
+        assert response.status_code == 202
+        assert thread.called, "the sweep must not block the response"
+        body = json.loads(response.body)
+        assert body["status"] == "accepted" and body["jobId"]
+        # Repeats default to 1 — the detector is deterministic (see DEFAULT_REPEATS).
+        assert body["repeats"] == 1 == mediapipe_job.DEFAULT_REPEATS
+        assert body["configHash"] == mediapipe_job.config_hash(
+            mediapipe_job.DetectionConfig(mode=1))
+        assert body["selection"]["includedCount"] == 1
+        excluded = body["selection"]["excluded"][0]
+        assert excluded["videoKey"] == "badly"
+        assert excluded["reason"] == "wrong-person-truth"
+
+
+def test_mediapipe_batch_refuses_a_second_batch_while_one_runs():
+    """Two batches would interleave writes into one Bundle and produce repeat sets whose
+    members came from different arms. Refused with 409 rather than queued: the caller
+    wants to be told no, not parked behind an hour of GPU work."""
+
+    import mediapipe_job
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _mp_bundle(root, "a")
+        payload = MediaPipeBatchRequest()
+        with patch.object(app_module, "ANALYSIS_DIR", root):
+            assert mediapipe_job._BATCH_LOCK.acquire(blocking=False)
+            try:
+                exc = _expect_raises(
+                    HTTPException, lambda: start_mediapipe_batch(payload))
+            finally:
+                mediapipe_job._BATCH_LOCK.release()
+        assert exc.status_code == 409
+        assert "already running" in exc.detail
+
+
+def test_mediapipe_batch_rejects_an_impossible_arm():
+    """A mode or crop policy that cannot run must fail at the schema, not halfway through
+    a sweep that has already written runs stamped with an arm nothing can produce."""
+
+    _expect_raises(ValidationError, lambda: MediaPipeBatchRequest(mode=7))
+    _expect_raises(ValidationError, lambda: MediaPipeBatchRequest(crop="wishful"))
+    _expect_raises(ValidationError, lambda: MediaPipeBatchRequest(repeats=0))
+    # ...and the arm that matters most is accepted.
+    assert MediaPipeBatchRequest(mode=2, crop="tracked", repeats=3).repeats == 3
+
+
+def test_mediapipe_batch_with_no_eligible_bundles_fails_synchronously():
+    """A 202 here would leave a poller waiting on a sweep that will do nothing."""
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _mp_bundle(root, "badly", wrong=20)
+        with patch.object(app_module, "ANALYSIS_DIR", root):
+            exc = _expect_raises(
+                HTTPException, lambda: start_mediapipe_batch(MediaPipeBatchRequest()))
+        assert exc.status_code == 400
+        assert exc.detail["selection"]["excludedCount"] == 1
 
 
 if __name__ == "__main__":
