@@ -38,9 +38,19 @@ rests on.**
 
 ### 1. `BASELINE_CYCLE_SCHEMA` declares the frozen basis
 
-A constant in `evaluate.py` beside `SCHEMA_VERSION`, frozen at **v14** as of 2026-07-29 on
-the post-reset sweep scored in PR #128. It holds for one full cycle — collect → score →
-analyse → act — rather than moving whenever a bump is convenient.
+A constant in `evaluate.py` beside `SCHEMA_VERSION`. It holds for one full cycle — collect
+→ score → analyse → act — rather than moving whenever a bump is convenient.
+
+It was frozen at **v14** when this ADR was accepted, on the post-reset sweep scored in
+PR #128 (2026-07-29). It **now reads v15**, advanced at a cycle boundary by
+[ADR 0011](0011-non-conformance-names-a-side-only-on-evidence.md) once the v14 cycle's
+analyse phase had completed. That is the mechanism below working as designed, not a drift:
+a boundary advance re-scores the population under `--mode all`, which is precisely what
+distinguishes it from the mid-cycle bump this ADR flags.
+
+**The constant in the code is the authority for the current basis, not this line.** Both
+`SCHEMA_VERSION` and `BASELINE_CYCLE_SCHEMA` live in `analysis_pipeline/evaluate.py`; read
+them there rather than trusting a version named in prose, here or elsewhere in the docs.
 
 **A mid-cycle bump is permitted but never silent.** `SCHEMA_VERSION` moving while
 `BASELINE_CYCLE_SCHEMA` stays put is a legible state, not an error: a real contract change

@@ -341,7 +341,9 @@ not a spec — it carries no implementation detail.
   because the schema moved v8 → v11 → v12 → v13 → v14 in about two weeks and no two
   baselines were ever scored on the same one; the "88% no-candidates" miss split survived
   four of them before turning out to be a pooling artifact. `BASELINE_CYCLE_SCHEMA`
-  declares the frozen basis, and `SCHEMA_VERSION` moving away from it is a **mid-cycle
+  declares the frozen basis — **read its current value from
+  `analysis_pipeline/evaluate.py`, never from prose** (it has since advanced to v15 at a
+  cycle boundary, `docs/adr/0011`) — and `SCHEMA_VERSION` moving away from it is a **mid-cycle
   bump**: permitted, never silent, and it demands re-scoring the *whole* compared
   population (`evaluate --mode all`) rather than just the new batch. Every pooled section
   states its own basis, for the same reason it states its **evidence generation** — a
