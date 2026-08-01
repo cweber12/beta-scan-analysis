@@ -541,6 +541,133 @@ def test_the_cycle_names_the_runs_it_covers_by_arm():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# --------------------------------------------------------------------------- #
+# The analysis-side reader (issue #176)
+#
+# ``analysis_pipeline.cycles`` reads this artifact rather than importing this module,
+# because importing it would drag ``mediapipe_job`` → ``youtube_core`` → ``yt_dlp`` into
+# the pipeline's import graph, which ADR 0003 and ADR 0012 exist to keep out. That trade
+# only holds while the two halves agree, and this file is the one place that may import
+# both — the same arrangement ``truth_identity`` has with ``evaluate.load_truth``.
+# --------------------------------------------------------------------------- #
+
+def test_the_pipeline_reader_agrees_with_what_this_module_writes():
+    """Field for field, over an artifact this module actually produced.
+
+    Not a shape assertion over a hand-built fixture: the failure this guards against is a
+    field being *renamed here* and the reader silently falling back to a default, which a
+    fixture written to the reader's expectations could never catch."""
+
+    from analysis_pipeline import cycles as cy
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        root = _corpus(tmp)
+        _open(root)
+        # One Bundle's truth moves, one appears late: an artifact with something in every
+        # list the reader has to split apart.
+        (root / "r" / "c" / "ground-truth.json").write_text(
+            json.dumps(_truth_doc(40, shift=0.05, gt_hash="gt-moved")), encoding="utf-8")
+        _bundle(tmp, "r", "late")
+        doc = _close(root)
+
+        scope = cy.resolve_cycle(root)
+        assert scope.posture == cy.POSTURE_CERTIFIED
+        assert scope.cycle_id == doc["cycleId"]
+        assert scope.status == doc["status"] == ci.STATUS_CERTIFIED
+        assert scope.certified is doc["certified"] is True
+        assert scope.opened_run_ts == doc["openedRunTs"]
+        assert scope.closed_run_ts == doc["closedRunTs"]
+        assert scope.module_version == doc["moduleVersion"] == mj.MODULE_VERSION
+        assert scope.sample_coefficient == doc["sampleCoefficient"] == mj.SAMPLE_COEFFICIENT
+        assert scope.model_locks == doc["modelLocks"]
+        assert scope.canary["identical"] is doc["canary"]["comparison"]["identical"] is True
+        assert scope.canary["frames_compared"] == doc["canary"]["comparison"]["framesCompared"]
+
+        # The three populations the report must never conflate.
+        assert scope.comparable == {(b["route"], b["videoKey"])
+                                    for b in doc["comparableBundles"]}
+        assert scope.bundle_state("r", "canary") == (cy.BUNDLE_COMPARABLE, "")
+        state, detail = scope.bundle_state("r", "c")
+        assert state == cy.BUNDLE_EXCLUDED and ci.REASON_TRUTH_HASH in detail
+        assert scope.bundle_state("r", "late")[0] == cy.BUNDLE_NEWLY_ELIGIBLE
+        assert scope.newly_eligible == (("r", "late"),)
+
+        # ...and the run-id join, which must accept exactly what this module's census
+        # accepts. Compared on behaviour rather than on the pattern string, which differs
+        # only by ``re.escape``: a laxer pattern in the pipeline would pool runs the
+        # cycle's own census never counted, and a stricter one would drop runs it did.
+        for run_id, base in (
+            ("exp-20260731-225432-fbd1fcab-p0", "20260731-225432"),
+            ("exp-20260731-225432-fbd1fcab-p2-1", "20260731-225432"),
+            ("20260731-124044-5672bf66-p0", None),      # pre-#160 id: neither side reads it
+            ("exp-20260731-225432-XXXXXXXX-p0", None),  # not a hex arm digest
+            ("20260101-000000", None),                  # a scanner run
+        ):
+            mine = cy.run_base_ts(run_id)
+            theirs = ci.RUN_ID_PATTERN.match(run_id)
+            assert mine == base
+            assert (theirs.group(1) if theirs else None) == base
+        for status in (ci.STATUS_OPEN, ci.STATUS_CERTIFIED, ci.STATUS_FAILED,
+                       ci.STATUS_REFUSED):
+            assert status in (cy.STATUS_OPEN, cy.STATUS_CERTIFIED, cy.STATUS_FAILED,
+                              cy.STATUS_REFUSED)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_the_pipeline_reader_refuses_a_failed_cycles_comparable_bundles():
+    """``close_cycle`` writes ``comparableBundles`` on a failed cycle too, and the artifact
+    says in as many words not to publish a comparison over them. The reader must key on
+    ``certified`` — reading the list would publish exactly what the guard forbids."""
+
+    from analysis_pipeline import cycles as cy
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        root = _corpus(tmp)
+        _open(root)
+        doc = _close(root, _factory(offset=1e-6))     # the detector moved under the cycle
+
+        assert doc["status"] == ci.STATUS_FAILED and doc["certified"] is False
+        assert doc["comparableBundles"], "the failed artifact still lists them"
+
+        scope = cy.resolve_cycle(root)
+        assert scope.posture == cy.POSTURE_UNCERTIFIED
+        assert scope.refuses is True and scope.gates is False
+        assert scope.comparable == frozenset(), "a failed cycle certifies nothing"
+        assert scope.pools("r", "canary") is False
+        assert ci.FAILURE_CANARY_DRIFT in scope.failures
+        assert scope.canary["identical"] is False
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_the_pipeline_reader_sees_an_open_cycle_as_in_flight():
+    """Mid-sweep there is no verdict, and the one thing the report must not do is render a
+    provisional comparison as a certified one."""
+
+    from analysis_pipeline import cycles as cy
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        root = _corpus(tmp)
+        doc = _open(root)
+
+        scope = cy.resolve_cycle(root)
+        assert scope.posture == cy.POSTURE_IN_FLIGHT
+        assert scope.certified is False
+        assert scope.gates is False and scope.refuses is False
+        assert scope.comparable == frozenset()
+        assert scope.closed_run_ts == ""
+        assert scope.bundle_state("r", "b")[0] == cy.BUNDLE_SNAPSHOTTED
+        # The window is open-ended, so a run landing now is inside it.
+        assert scope.place_run(f"exp-{doc['openedRunTs']}-1111aaaa-p0") == cy.RUN_INSIDE
+        assert scope.place_run("exp-19990101-000000-1111aaaa-p0") == cy.RUN_BEFORE
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_the_guard_runs_without_mediapipe_installed():
     """Same property ``test_mediapipe_job.py`` has: everything that decides whether a cycle
     is comparable is pure, and the detector is behind the same Protocol."""

@@ -26,6 +26,7 @@ from typing import Any, NamedTuple
 import numpy as np
 import pandas as pd
 
+from . import cycles
 from . import floors
 from .detector_attempts import parse_detector_attempts
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
@@ -343,6 +344,7 @@ def _measurement_basis(
     recs: list[EvalRecord],
     pool: str,
     build_ids: dict[tuple[str, str, str], BuildId] | None = None,
+    cycle: "cycles.CycleScope | None" = None,
 ) -> dict[str, Any]:
     """The measurement basis one pooled set of records rests on (issue #131).
 
@@ -364,6 +366,14 @@ def _measurement_basis(
     ``build_ids`` is optional so a caller with no pose cache still gets the schema half;
     an absent build set reports as unknown rather than as empty, which would read as
     "no builds" instead of "not established".
+
+    ``cycle`` adds the **third** thing that has to hold still for two pooled numbers to be
+    comparable, and it is the half neither of the others covers (issue #176). The schema is
+    stamped on the record and the build on the pose envelope, but ``moduleVersion``,
+    ``sampleCoefficient`` and the pinned model shas sit outside both stamps and could move
+    between the first batch of a sweep and the last with nothing to say so. #168 records
+    them on the Cycle precisely for that reason; the basis line is where a reader should
+    meet them, beside the numbers they conditioned.
     """
 
     schema_counts: dict[str, int] = {}
@@ -418,6 +428,9 @@ def _measurement_basis(
         "n_builds": len(builds),
         "build_mixed": len(builds) > 1,
         "build_label": " + ".join(b["label"] for b in builds) if builds else SCHEMA_UNKNOWN,
+        # The Cycle half (#176). Absent on the scanner pools, which predate the instrument
+        # entirely and must not grow a line implying otherwise.
+        "cycle": cycle.as_dict() if cycle is not None else None,
     }
 
 
@@ -770,6 +783,14 @@ def _arm_outcomes(data: dict[str, Any]) -> dict[str, Any]:
         "miss_identity_gated_share": _share(misses, "identity-gated"),
         "miss_climber_absent_share": _share(misses, "climber-absent"),
     }
+
+
+def _distinct_bundles(per_bundle: pd.DataFrame | None) -> int:
+    """How many videos a per-(arm, Bundle) frame covers, not how many rows it holds."""
+
+    if per_bundle is None or per_bundle.empty:
+        return 0
+    return int(per_bundle[["route_folder", "video_key"]].drop_duplicates().shape[0])
 
 
 def _pose_run_cached(rec: EvalRecord, pose_cache: PoseRunCache) -> PoseRun | None:
@@ -3074,15 +3095,37 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     all_recs = [r for r in all_on_disk if record_origin(r, origins) == ORIGIN_SCANNER]
     experiment_arms = _arm_groups(harness_recs, origins, pose_cache)
     origin_populations = _origin_populations(all_on_disk, origins)
+    # The Cycle the arm comparison is read under (issue #176). Resolved before anything is
+    # derived, because it decides both the run population and whether a pooled comparison
+    # may be published at all — not merely how it is captioned.
+    cycle = cycles.resolve_cycle(analysis_root)
+    experiment_arms = cycles.tag_runs(experiment_arms, cycle)
+    # The window is the join: nothing durable stamps a run with its Cycle, so a run is
+    # placed by the base timestamp in its ``exp-`` id. Every run this drops is named below
+    # rather than merely subtracted from a count.
+    arm_runs_outside = cycles.runs_outside_window(experiment_arms, cycle)
+    arm_scope = (experiment_arms[experiment_arms["in_cycle_window"]]
+                 if cycle.scopes_runs and not experiment_arms.empty else experiment_arms)
     # Arm-versus-arm reporting (issue #164), built per Bundle first and pooled only after,
     # so the spread is always available to print beside a central value.
-    arm_bundles = _arm_bundle_pck(experiment_arms)
-    arm_overview = _arm_overview(arm_bundles)
-    arm_deltas = _arm_deltas(arm_bundles)
+    #
+    # Then the #176 split, which is #132's applied to a criterion of a different kind. The
+    # per-Bundle frame keeps **every** Bundle the arms ran on, comparability as a column;
+    # the pooled derivations below it read the gated subset, which is the whole frame when
+    # there is no certified Cycle to gate on and empty when the Cycle failed.
+    arm_bundles = cycles.tag_bundles(_arm_bundle_pck(arm_scope), cycle)
+    pooled_bundles = cycles.pooled_subset(arm_bundles, cycle)
+    arm_overview = _arm_overview(pooled_bundles)
+    arm_deltas = _arm_deltas(pooled_bundles)
     arm_delta_summary = _arm_delta_summary(arm_deltas)
+    # Repeat integrity and the condition join are **not** comparisons, so neither is gated:
+    # a non-repeat collision is evidence that two runs are not the same measurement, and
+    # suppressing it on a Bundle whose truth moved would hide a determinism failure behind
+    # a truth failure.
     arm_repeat_flags = _arm_repeat_checks(arm_bundles)
     arm_video_stats = _arm_video_stats(analysis_root, arm_bundles)
-    arm_reach = _arm_comparison_reach(arm_bundles, arm_overview, arm_delta_summary)
+    arm_reach = _arm_comparison_reach(pooled_bundles, arm_overview, arm_delta_summary)
+    cycle_bundles = cycles.cycle_bundle_rows(cycle)
     # Issue #15 gate: quarantine non-conforming bundles (truth mis-tracking) from
     # every *pooled* derivation below. Issue #44: best-overlap loose pairings are
     # likewise held out of the trusted pool (their setupHash never matched the truth).
@@ -3111,6 +3154,15 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     basis_trusted = _measurement_basis(recs, "trusted pooled metrics", build_ids)
     basis_frames = _measurement_basis(
         all_recs, "per-frame / attempt pools (all records)", build_ids)
+    # The arm section gets its own basis, carrying the Cycle (issue #176). Scoped to the
+    # records the comparison actually reads, so the line describes the pool it sits above
+    # rather than every harness run that has ever landed on disk.
+    scoped_keys = set() if arm_scope.empty else {
+        (r.route_folder, r.video_key, r.run_ts) for r in arm_scope.itertuples()}
+    basis_arms = _measurement_basis(
+        [r for r in harness_recs
+         if (r.route_folder, r.video_key, r.run_ts) in scoped_keys],
+        "experiment arms", build_ids, cycle=cycle)
     frame_joint_df = _build_frame_joint_rows(analysis_root, recs, pose_cache)
     joint_rank = _joint_ranking(frame_joint_df)
     version_overview, version_deltas, version_flags = _version_regression(
@@ -3203,10 +3255,25 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "arm_video_stats": arm_video_stats,
         "arm_bundle_count": int(len(arm_bundles)),
         "arm_reach": arm_reach,
+        # Issue #176: the Cycle, and what it did to the comparison above. The scope object
+        # carries the rule that was applied, so the report states it rather than implying it.
+        "cycle": cycle,
+        "cycle_summary": cycle.as_dict(),
+        "cycle_bundles": cycle_bundles,
+        "arm_runs_outside_cycle": arm_runs_outside,
+        "arm_scope_run_count": int(len(arm_scope)),
+        "arm_scope_arm_count": (int(arm_scope["config_hash"].nunique())
+                                if not arm_scope.empty else 0),
+        "arm_pooled_bundle_count": int(len(pooled_bundles)),
+        # Distinct Bundles, not (arm, Bundle) rows: "3 of the 3 videos swept" is what a
+        # reader needs from a gate, and the row count answers a different question.
+        "arm_swept_bundles": _distinct_bundles(arm_bundles),
+        "arm_pooled_bundles": _distinct_bundles(pooled_bundles),
         "evidence_generation_trusted": evidence_trusted,
         "evidence_generation_frames": evidence_frames,
         "measurement_basis_trusted": basis_trusted,
         "measurement_basis_frames": basis_frames,
+        "measurement_basis_arms": basis_arms,
         "quarantined_bundles": quarantined,
         "quarantined_count": len(quarantined),
         "quarantine_cause_counts": quarantine_causes,
@@ -3281,6 +3348,10 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
     stale_truth_df = pd.DataFrame(stale_truth) if stale_truth else pd.DataFrame()
     rate_mismatch = ctx.get("rate_mismatch_records") or []
     rate_mismatch_df = pd.DataFrame(rate_mismatch) if rate_mismatch else pd.DataFrame()
+    cycle_bundles = ctx.get("cycle_bundles") or []
+    cycle_bundles_df = pd.DataFrame(cycle_bundles) if cycle_bundles else pd.DataFrame()
+    outside = ctx.get("arm_runs_outside_cycle") or []
+    arm_runs_outside_df = pd.DataFrame(outside) if outside else pd.DataFrame()
     tables = {
         "eval_joint_ranking.csv": ctx.get("joint_rank"),
         "eval_condition_bands.csv": ctx.get("condition_bands"),
@@ -3303,6 +3374,11 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_arm_deltas.csv": ctx.get("arm_deltas"),
         "eval_arm_delta_summary.csv": ctx.get("arm_delta_summary"),
         "eval_arm_video_stats.csv": ctx.get("arm_video_stats"),
+        # Issue #176: the Cycle's verdict on the Bundles it dropped, and the harness runs
+        # its window placed outside it. Both exported because both are exclusions, and an
+        # exclusion this pipeline cannot re-read afterwards is one nobody can audit.
+        "eval_cycle_bundles.csv": cycle_bundles_df,
+        "eval_arm_runs_outside_cycle.csv": arm_runs_outside_df,
         "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
         "eval_frame_quality_absence_reasons.csv": ctx.get("frame_quality_absence_reasons"),
         "eval_stale_truth_worklist.csv": stale_truth_df,

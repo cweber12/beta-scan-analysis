@@ -15,6 +15,7 @@ from typing import Any
 
 import pandas as pd
 
+from . import cycles
 from . import floors
 from .evaluate import RATE_MISMATCH_MIN_RATIO
 
@@ -425,8 +426,17 @@ def _measurement_basis_html(summary: dict[str, Any] | None) -> str:
     compared population needs re-scoring), a pool spanning schema versions, and a pool
     spanning builds. Each is named rather than refused; see ``_measurement_basis``."""
 
-    if not isinstance(summary, dict) or not summary.get("n_records"):
+    if not isinstance(summary, dict):
         return "<p class='muted'>measurement basis: no records in this pool.</p>"
+    if not summary.get("n_records"):
+        # An empty pool still has a Cycle, and on the arm section that is the half a reader
+        # needs most: it says *why* the pool is empty rather than only that it is.
+        cycle = summary.get("cycle")
+        tail = ("" if not isinstance(cycle, dict) or cycle.get("posture") == cycles.POSTURE_NONE
+                else f" Cycle <code>{_esc(cycle.get('cycle_id'))}</code> "
+                     f"(<code>{_esc(cycle.get('status'))}</code>, rule: "
+                     f"<em>{_esc(cycle.get('rule'))}</em>).")
+        return f"<p class='muted'>measurement basis: no records in this pool.{tail}</p>"
 
     counts = summary.get("schema_counts") or {}
     versions = summary.get("schema_versions") or []
@@ -467,6 +477,28 @@ def _measurement_basis_html(summary: dict[str, Any] | None) -> str:
         notes.append(f"Single build identity: <code>{_esc(summary.get('build_label'))}</code>.")
     elif not summary.get("build_set_known"):
         notes.append("Build set not established for this pool.")
+
+    # The Cycle half of the basis (#176): the harness identity that sits outside both the
+    # record stamp and the pose envelope, and could otherwise move mid-sweep unrecorded.
+    cycle = summary.get("cycle")
+    if isinstance(cycle, dict):
+        if cycle.get("posture") == cycles.POSTURE_NONE:
+            notes.append(
+                "No Cycle: <code>moduleVersion</code>, <code>sampleCoefficient</code> and "
+                "the model locks are <strong>not established</strong> for this pool. They "
+                "sit outside both the record stamp and the pose envelope, so nothing here "
+                "witnesses whether they held still while these runs were collected.")
+        else:
+            locks = cycle.get("model_locks") or {}
+            lock_txt = ", ".join(f"<code>{_esc(name)}</code>@{_esc(str(sha)[:8])}"
+                                 for name, sha in sorted(locks.items())) or "none recorded"
+            notes.append(
+                f"Cycle <code>{_esc(cycle.get('cycle_id'))}</code> "
+                f"(<code>{_esc(cycle.get('status'))}</code>, rule: "
+                f"<em>{_esc(cycle.get('rule'))}</em>): harness module "
+                f"<code>{_esc(cycle.get('module_version') or '—')}</code>, sample "
+                f"coefficient <code>{_esc(cycle.get('sample_coefficient') or '—')}</code>, model "
+                f"locks {lock_txt}.")
 
     body = f"{badge} {n} record(s): {detail}."
     if notes:
@@ -1570,6 +1602,250 @@ _ARM_UNCERTAINTY_NOTE = (
     "detector and is never a harness uncertainty.</p>")
 
 
+# --------------------------------------------------------------------------- #
+# The Cycle (issue #176) — which rule the arm comparison was read under
+# --------------------------------------------------------------------------- #
+
+def _cycle_rule_html(summary: Any, swept: int = 0, pooled: int = 0) -> str:
+    """State the rule applied, first thing, in the section's own words.
+
+    #132 set the precedent that no section may be read as if it were the other, so the
+    posture is declared before any table rather than inferred from whether rows are
+    missing. Four postures, four different things a reader is allowed to conclude.
+
+    ``swept`` / ``pooled`` are the Bundles the arms actually ran on and the subset that
+    survived the rule — a distinct count from the Cycle's corpus-wide comparable set, and
+    the one that says what the gate did *here*.
+    """
+
+    if not isinstance(summary, dict):
+        return ""
+    posture = summary.get("posture")
+    cid = _esc(summary.get("cycle_id") or "")
+    if posture == cycles.POSTURE_CERTIFIED:
+        return (
+            f"<p class='sub'><span class='flag tier'>Cycle {cid}: CERTIFIED</span> "
+            "<strong>Rule applied: gate.</strong> The pooled arm summary and the deltas "
+            "below are computed over the Bundles this Cycle certified as comparable — the "
+            "ones whose truth, setup and crop trajectory were byte-identical at Cycle open "
+            f"and Cycle close ({int(summary.get('comparable_count') or 0)} of "
+            f"{int(summary.get('bundle_count') or 0)} corpus-wide; <strong>{pooled} of the "
+            f"{swept}</strong> the arms actually ran). Those are truth-fit numbers in "
+            "#132's sense, and a Bundle whose truth moved mid-Cycle yields a delta that "
+            "silently contains a truth change rather than a merely noisy one. The "
+            "per-Bundle table keeps <em>every</em> Bundle the arms ran on, comparability "
+            "marked in its own column: the gate removes rows from the pooled lines, never "
+            "from the evidence.</p>")
+    if posture == cycles.POSTURE_UNCERTIFIED:
+        return (
+            f"<div class='banner'>CYCLE {cid} DID NOT CERTIFY "
+            f"({_esc(summary.get('status') or '')}"
+            + (f": {_esc(', '.join(summary.get('failures') or []))}"
+               if summary.get("failures") else "")
+            + ") — NO ARM COMPARISON IS PUBLISHED.</div>"
+            "<p class='warn'><strong>Rule applied: refuse.</strong> The manifest carries a "
+            "<code>comparableBundles</code> list even when the Cycle fails, and its own "
+            "close log says <em>“The arms in this cycle are NOT comparable to each other. "
+            "Do not publish a comparison over them.”</em> Keying on the presence of that "
+            "list rather than on <code>certified</code> would publish exactly what the "
+            "artifact forbids, so no pooled summary, no delta table and no arm ranking is "
+            "rendered. The runs are still named below, as evidence of what was collected — "
+            "they are not laid out as a comparison, because they are not one.</p>")
+    if posture == cycles.POSTURE_IN_FLIGHT:
+        return (
+            f"<p class='warn'><span class='flag'>Cycle {cid}: IN FLIGHT</span> "
+            "<strong>Rule applied: label, provisionally.</strong> This Cycle is open — the "
+            "sweep is still running — and <code>comparableBundles</code> is written only "
+            "at close, so there is nothing to gate on yet. Everything below is scoped to "
+            "the runs that have landed since the Cycle opened and is <strong>provisional</strong>: "
+            "it is not a certified comparison and must not be published as one. Close the "
+            "Cycle (<code>python cycle_integrity.py close</code>) to learn whether the "
+            "detector and the Bundles held still across it.</p>")
+    return (
+        "<p class='warn'><span class='flag'>NOT DRIFT-CHECKED</span> "
+        "<strong>Rule applied: label, don't gate.</strong> No Cycle artifact exists under "
+        "<code>analysis/cycles/</code>, so nothing establishes that the truth, the crop "
+        "trajectories, the model weights or the harness module held still between the "
+        "first arm below and the last. Batches are <em>mode-major</em> by design, which "
+        "means any drift across a sweep is perfectly confounded with the factor being "
+        "swept. The comparison is reported in full rather than withheld — there is nothing "
+        "to gate against, and refusing would teach nothing — but it carries no drift "
+        "guarantee, and this is the entire pre-#168 corpus.</p>")
+
+
+def _cycle_verdict_html(summary: Any, bundle_rows: Any) -> str:
+    """The Cycle's own verdict: the canary, the Bundles it dropped, and by what."""
+
+    if not isinstance(summary, dict) or summary.get("posture") == cycles.POSTURE_NONE:
+        return ""
+    canary = summary.get("canary") or {}
+    locks = summary.get("model_locks") or {}
+    facts = [
+        ("cycle", f"<code>{_esc(summary.get('cycle_id'))}</code>"),
+        ("status", f"<code>{_esc(summary.get('status'))}</code>"
+                   f" (certified: <code>{str(bool(summary.get('certified'))).lower()}</code>)"),
+        ("window", f"<code>{_esc(summary.get('opened_run_ts'))}</code> → "
+                   f"<code>{_esc(summary.get('closed_run_ts') or 'still open')}</code>"),
+        ("bundles", f"{int(summary.get('comparable_count') or 0)} comparable / "
+                    f"{int(summary.get('excluded_count') or 0)} excluded / "
+                    f"{int(summary.get('newly_eligible_count') or 0)} newly eligible, of "
+                    f"{int(summary.get('bundle_count') or 0)} snapshotted"),
+        ("harness", f"module <code>{_esc(summary.get('module_version') or '—')}</code>, "
+                    f"sample coefficient "
+                    f"<code>{_esc(summary.get('sample_coefficient') or '—')}</code>, "
+                    f"{len(locks)} model lock(s)"),
+    ]
+    runs = summary.get("runs") or {}
+    if runs:
+        facts.append(("cycle's own run census",
+                      f"{int(runs.get('runCount') or 0)} run(s) across "
+                      f"{len(runs.get('arms') or {})} arm(s) on "
+                      f"{int(runs.get('bundlesWithRuns') or 0)} bundle(s)"))
+    others = summary.get("other_cycles") or []
+    if others:
+        # Named, never merged: two Cycles are two comparison groups, and pooling them would
+        # rebuild the unattributable population the Cycle exists to prevent.
+        facts.append((
+            "other cycles on disk",
+            ", ".join(f"<code>{_esc(c.get('cycle_id'))}</code> "
+                      f"({_esc(c.get('status'))})" for c in others)
+            + " — not merged into this one; each is its own comparison group"))
+    fact_rows = "".join(f"<tr><td>{_esc(k)}</td><td>{v}</td></tr>" for k, v in facts)
+
+    if canary.get("identical") is True:
+        canary_html = (
+            "<p class='sub'><strong>Determinism canary: byte-identical</strong> over "
+            f"{int(canary.get('frames_compared') or 0)} frames of "
+            f"<code>{_esc(canary.get('route'))}/{_esc(canary.get('video_key'))}</code> "
+            f"at detection rate {_fmt(canary.get('opened_detection_rate'), 3)} → "
+            f"{_fmt(canary.get('closed_detection_rate'), 3)}. Nothing moved between Cycle "
+            "open and Cycle close: not the weights, not the module, not the crop "
+            "trajectory, not the environment.</p>")
+    elif canary.get("identical") is False:
+        fields = "".join(
+            f"<li><code>{_esc(f.get('field'))}</code>: {_esc(f.get('opened'))} → "
+            f"{_esc(f.get('closed'))}</li>"
+            for f in (canary.get("fields") or []))
+        canary_html = (
+            "<p class='warn'><strong>Determinism canary: DRIFTED.</strong> "
+            f"{int(canary.get('frames_differing') or 0)} of "
+            f"{int(canary.get('frames_compared') or 0)} frames differ"
+            + (f", first at t={_esc(canary.get('first_divergence'))}s"
+               if canary.get("first_divergence") is not None else "")
+            + ". The detector that produced the first arm is not the detector that produced "
+              "the last.</p>"
+            + (f"<ul class='sub'>{fields}</ul>" if fields else ""))
+    else:
+        canary_html = (
+            "<p class='sub'>Determinism canary: opened at detection rate "
+            f"{_fmt(canary.get('opened_detection_rate'), 3)} on "
+            f"<code>{_esc(canary.get('route'))}/{_esc(canary.get('video_key'))}</code>; "
+            "the closing pass has not run, so nothing is compared yet.</p>")
+
+    return ("<h3>Cycle verdict</h3>"
+            + "<div class='tablewrap'><table><tbody>" + fact_rows + "</tbody></table></div>"
+            + canary_html
+            + _cycle_bundle_table(bundle_rows))
+
+
+def _cycle_bundle_table(rows: Any) -> str:
+    """Bundles the Cycle dropped, named with their verdicts (the #15/#88 precedent).
+
+    ``newly-eligible`` is rendered as its own state rather than as a kind of exclusion:
+    those Bundles were never snapshotted, so they did not fail anything — they were not in
+    the Cycle at all — and letting them read as failures would put a Bundle on a repair
+    worklist for the crime of having been created.
+    """
+
+    if not rows:
+        return ("<p class='muted'>No Bundle moved between Cycle open and Cycle close, and "
+                "none became eligible during it: the snapshotted set and the comparable "
+                "set are the same set.</p>")
+    body = "".join(
+        "<tr>"
+        f"<td>{_esc(r.get('route_folder'))}</td><td>{_esc(r.get('video_key'))}</td>"
+        f"<td><span class='flag'>{_esc(r.get('state'))}</span></td>"
+        f"<td>{_esc(r.get('reasons') or '—')}</td>"
+        f"<td class='muted'>{_esc(r.get('detail') or '')}</td></tr>"
+        for r in rows)
+    return (
+        "<p class='sub'>Bundles the Cycle names. <code>excluded</code> means an input "
+        "moved between open and close — a truth re-seed, a recalibration, a rebuilt crop "
+        "trajectory — so runs from the start of the Cycle and runs from the end were "
+        "measured against different things. <code>newly-eligible</code> is <em>not</em> a "
+        "failure: those Bundles were never snapshotted, so they were never in the Cycle "
+        "rather than dropped from it.</p>"
+        "<div class='tablewrap'><table><thead><tr><th>route</th><th>bundle</th>"
+        "<th>state</th><th>reasons</th><th>what moved</th></tr></thead>"
+        f"<tbody>{body}</tbody></table></div>")
+
+
+def _cycle_window_html(rows: Any, summary: Any) -> str:
+    """Harness runs the Cycle's window placed outside it — named, never silently dropped."""
+
+    if not isinstance(summary, dict) or summary.get("posture") == cycles.POSTURE_NONE:
+        return ""
+    if not rows:
+        return ("<p class='muted'>Every harness run on this corpus falls inside the "
+                "Cycle's window, so the comparison and the corpus are the same "
+                "population.</p>")
+    body = "".join(
+        "<tr>"
+        f"<td>{_esc(r.get('route_folder'))}</td><td>{_esc(r.get('video_key'))}</td>"
+        f"<td><code>{_esc(str(r.get('config_hash'))[:8])}</code></td>"
+        f"<td>{_esc(r.get('arm'))}</td>"
+        f"<td><code>{_esc(r.get('run_ts'))}</code></td>"
+        f"<td><span class='flag'>{_esc(r.get('placement'))}</span></td></tr>"
+        for r in rows)
+    unplaceable = sum(1 for r in rows
+                      if r.get("placement") == cycles.RUN_UNPLACEABLE)
+    note = ("" if not unplaceable else
+            f" {unplaceable} of them carry no <code>exp-</code> run id at all (they predate "
+            "the #160 convention), so neither this join nor the Cycle's own run census can "
+            "place them — that is a different statement from being outside the window, and "
+            "they are marked <code>unplaceable</code> rather than excluded.")
+    return (
+        f"<h3>Harness runs outside the Cycle</h3>"
+        f"<p class='warn'>{len(rows)} harness run(s) do not fall inside "
+        f"<code>{_esc(summary.get('opened_run_ts'))}</code> → "
+        f"<code>{_esc(summary.get('closed_run_ts') or 'now')}</code> and therefore do not "
+        "pool into the comparison above. Nothing durable stamps a run with its Cycle — the "
+        "association lives in the batch 202 response and nowhere else — so the base "
+        "timestamp in the run id is the join, and a timestamp window is a weaker join than "
+        f"a stamp. Every run it drops is listed rather than merely subtracted.{note}</p>"
+        "<div class='tablewrap'><table><thead><tr><th>route</th><th>bundle</th>"
+        "<th>arm</th><th>factors</th><th>run</th><th>placement</th></tr></thead>"
+        f"<tbody>{body}</tbody></table></div>")
+
+
+def _arm_evidence_table(df: Any) -> str:
+    """The runs collected under a Cycle that did not certify — listed, not compared.
+
+    Deliberately **not** the Bundle × arm matrix. A matrix is a comparison layout, and the
+    failed Cycle's own artifact forbids publishing a comparison over these runs; a flat
+    list by Bundle records what was collected without inviting a reader to difference two
+    cells that the canary says were produced by two different detectors.
+    """
+
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return "<p class='muted'>No harness runs were collected inside this Cycle.</p>"
+    body = "".join(
+        "<tr>"
+        f"<td>{_esc(r['route_folder'])}</td><td>{_esc(r['video_key'])}</td>"
+        f"<td><code>{_esc(str(r['config_hash'])[:8])}</code></td>"
+        f"<td>{_esc(r['arm'])}</td><td>{int(r['runs'])}</td>"
+        f"<td>{_sigfmt(r['pck'], 3)}</td></tr>"
+        for _, r in df.sort_values(["route_folder", "video_key", "config_hash"]).iterrows())
+    return (
+        "<p class='sub'>What the Cycle collected, by Bundle. These are absolutes scored "
+        "against an unattested scaffold (ADR 0010) and the Cycle did not certify that the "
+        "detector producing them held still, so no two of them are a difference — read "
+        "this as a record of work done, not as a result.</p>"
+        "<div class='tablewrap'><table><thead><tr><th>route</th><th>bundle</th>"
+        "<th>arm</th><th>factors</th><th>runs</th><th>PCK</th></tr></thead>"
+        f"<tbody>{body}</tbody></table></div>")
+
+
 def _arm_origin_table(df: Any) -> str:
     if not isinstance(df, pd.DataFrame) or df.empty:
         return "<p class='muted'>No evaluation records on this corpus.</p>"
@@ -1585,10 +1861,18 @@ def _arm_origin_table(df: Any) -> str:
             f"<tbody>{rows}</tbody></table></div>")
 
 
-def _arm_overview_table(df: Any) -> str:
+def _arm_overview_table(df: Any, summary: Any = None) -> str:
     """Per arm: the pooled central value, never without the spread that contradicts it."""
 
     if not isinstance(df, pd.DataFrame) or df.empty:
+        # Empty for two very different reasons, and reporting the wrong one would be a lie
+        # about the corpus: either nothing was collected, or the Cycle gated all of it out.
+        if isinstance(summary, dict) and summary.get("posture") == cycles.POSTURE_CERTIFIED:
+            return ("<p class='warn'>No arm pools under this Cycle. Runs were collected, "
+                    "but every Bundle they landed on was excluded from "
+                    "<code>comparableBundles</code> — see the Cycle verdict above for "
+                    "which inputs moved. This is a gated-empty result, not an empty "
+                    "corpus.</p>")
         return ("<p class='muted'>No experimental arms — this corpus holds no "
                 "harness-produced runs with evaluation records.</p>")
     rows = "".join(
@@ -1625,6 +1909,12 @@ def _arm_matrix_table(df: Any, reach: Any = None) -> str:
     The baseline arm leads the columns, because every other column is read as a difference
     from it and hunting for the reference among alphabetised hashes is friction with no
     upside.
+
+    **This table is the covariate half of the #176 rule.** It keeps every Bundle the arms
+    ran on — including the ones the Cycle excluded from pooling — and carries comparability
+    as a column instead. A Bundle that vanished from here would be an exclusion nobody
+    could see, and the gate above it is only defensible while the evidence underneath
+    stays visible.
     """
 
     if not isinstance(df, pd.DataFrame) or df.empty:
@@ -1638,6 +1928,8 @@ def _arm_matrix_table(df: Any, reach: Any = None) -> str:
         f"<th title='{_esc(labels[h])}'><code>{_esc(str(h)[:8])}</code>"
         + (" " + badge if h == base else "") + "</th>"
         for h in arms)
+    has_cycle = "cycle_state" in df.columns
+    cycle_head = "<th>cycle</th>" if has_cycle else ""
     body = []
     for (route, key), g in df.groupby(["route_folder", "video_key"], dropna=False):
         by_arm = {r["config_hash"]: r for _, r in g.iterrows()}
@@ -1649,7 +1941,20 @@ def _arm_matrix_table(df: Any, reach: Any = None) -> str:
                 continue
             mark = "" if r["conforms"] else " <span class='flag'>#15</span>"
             cells.append(f"<td>{_sigfmt(r['pck'], 3)}{mark}</td>")
-        body.append(f"<tr><td>{_esc(route)}</td><td>{_esc(key)}</td>{''.join(cells)}</tr>")
+        cycle_cell = ""
+        if has_cycle:
+            state = str(g["cycle_state"].iloc[0])
+            detail = str(g["cycle_detail"].iloc[0] or "")
+            pooled = bool(g["cycle_comparable"].iloc[0])
+            cls = "" if pooled else " class='muted'"
+            cycle_cell = (f"<td{cls} title='{_esc(detail)}'>"
+                          f"<span class='flag'>{_esc(state)}</span></td>")
+        body.append(f"<tr><td>{_esc(route)}</td><td>{_esc(key)}</td>"
+                    f"{cycle_cell}{''.join(cells)}</tr>")
+    cycle_note = ("" if not has_cycle else
+                  " The <code>cycle</code> column is the comparability covariate: a row "
+                  "marked anything but <code>comparable</code> is still shown here in full "
+                  "but does <em>not</em> contribute to the pooled summary or the deltas.")
     return (
         "<p class='sub'>Agreement PCK per Bundle per arm. <strong>±"
         f"{floors.SAMPLING_ERROR.p90:.4f}</strong> sampling error (p90) applies to every "
@@ -1658,20 +1963,27 @@ def _arm_matrix_table(df: Any, reach: Any = None) -> str:
         "<code>not run</code> is a gap in the sweep, not a zero. <span class='flag'>#15</span> "
         "marks a Bundle whose truth fit failed the conformance gate on that arm: its "
         "absolute is not comparable to a conforming one, though the arm delta on it still "
-        "is, since both arms face the same broken fit.</p>"
+        f"is, since both arms face the same broken fit.{cycle_note}</p>"
         "<div class='tablewrap'><table><thead><tr><th>route</th><th>bundle</th>"
-        f"{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div>")
+        f"{cycle_head}{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div>")
 
 
-def _arm_delta_table(summary: Any, per_video: Any) -> str:
+def _arm_delta_table(summary: Any, per_video: Any, cycle: Any = None) -> str:
     """Arm versus baseline, pooled over shared Bundles and then per Bundle underneath."""
 
     if not isinstance(summary, pd.DataFrame) or summary.empty:
+        gated = (isinstance(cycle, dict)
+                 and cycle.get("posture") == cycles.POSTURE_CERTIFIED)
+        note = (" Note that this Cycle <strong>gates</strong> the delta population to its "
+                "comparable Bundles, so a pair that shares a Bundle only outside "
+                "<code>comparableBundles</code> produces no row here by design — the "
+                "Bundle × arm table above still shows both."
+                if gated else "")
         return ("<p class='muted'><strong>No arm comparison is possible on this corpus.</strong> "
                 "A delta needs two arms that ran the <em>same</em> Bundle; every arm here "
                 "either stands alone or shares no Bundle with another. Nothing is reported "
                 "rather than a difference of pooled means over different videos, which "
-                "would measure which videos each arm happened to run on.</p>")
+                f"would measure which videos each arm happened to run on.{note}</p>")
     rows = []
     for _, r in summary.iterrows():
         flag = ("<span class='flag'>below sampling error</span>"
@@ -1894,38 +2206,78 @@ def _arm_video_stats_html(df: Any) -> str:
 
 
 def _experiment_arms_html(ctx: dict[str, Any]) -> str:
-    """The whole arm-comparison section (issue #164)."""
+    """The whole arm-comparison section (issues #164 and #176).
+
+    The Cycle leads. Which rule the comparison was read under decides what every table
+    below it means, so it is declared before the first number rather than footnoted after
+    the last — and on a Cycle that did not certify, the comparison tables are not rendered
+    at all.
+    """
 
     arm_count = int(ctx.get("experiment_arm_count") or 0)
+    summary = ctx.get("cycle_summary") or {}
+    posture = summary.get("posture") or cycles.POSTURE_NONE
+    scoped_runs = int(ctx.get("arm_scope_run_count") or 0)
+    total_runs = int(ctx.get("experiment_run_count") or 0)
+    scoped_arms = int(ctx.get("arm_scope_arm_count") or 0)
+    swept = int(ctx.get("arm_swept_bundles") or 0)
+    pooled = int(ctx.get("arm_pooled_bundles") or 0)
+    # Both numbers whenever they differ, because "6 arms" over a table showing 5 is the
+    # kind of quiet disagreement this whole issue is about.
+    run_tile = (str(total_runs) if scoped_runs == total_runs
+                else f"{scoped_runs}/{total_runs}")
+    arm_tile = (str(arm_count) if scoped_arms == arm_count
+                else f"{scoped_arms}/{arm_count}")
     tiles = _stat_tiles([
-        (str(arm_count), "experiment arms [configHash]"),
-        (str(ctx.get("experiment_run_count", 0)), "harness runs"),
+        (str(posture), "cycle posture"),
+        (arm_tile, "experiment arms [in cycle / on disk]"),
+        (run_tile, "harness runs [in cycle / on disk]"),
         (str(ctx.get("arm_bundle_count", 0)), "arm × bundle results"),
-        (f"{floors.HARNESS_RUN_TO_RUN:.0f}", "harness run-to-run floor [measured]"),
+        (str(ctx.get("arm_pooled_bundle_count", 0)), "pooled after the cycle rule"),
         (f"{floors.SAMPLING_ERROR.p90:.4f}", "sampling error p90 [harness]"),
         (str(len(ctx.get("arm_repeat_flags") or [])), "non-repeat collisions"),
     ])
     if not arm_count:
-        return (tiles + "<p class='muted'>No harness-produced runs carry an experiment "
+        return (tiles + _cycle_rule_html(summary, swept, pooled)
+                + "<p class='muted'>No harness-produced runs carry an experiment "
                 "stamp on this corpus, so there is nothing to compare. Every section "
                 "elsewhere in this report is scanner-origin.</p>")
+
+    head = (tiles
+            + _cycle_rule_html(summary, swept, pooled)
+            + _measurement_basis_html(ctx.get("measurement_basis_arms"))
+            + _cycle_verdict_html(summary, ctx.get("cycle_bundles"))
+            + _cycle_window_html(ctx.get("arm_runs_outside_cycle"), summary)
+            + _ARM_PCK_NOTE
+            + _ARM_UNCERTAINTY_NOTE
+            + "<h3>Origin populations (never blended)</h3>"
+            + "<p class='sub'>A harness run and a scanner run are two producers, not two "
+            "generations of one evidence stream. Whether a browser-WASM run and a Python "
+            "run agree is the open parity question (#162); pooling them before it is "
+            "answered would assume the answer. Every pooled section elsewhere in this "
+            "report draws on the scanner population only.</p>"
+            + _arm_origin_table(ctx.get("origin_populations")))
+
+    # A Cycle that failed or refused publishes no comparison at all — not a captioned one.
+    # The runs are still recorded, because an expensive sweep that produced no publishable
+    # result is a finding in its own right and deleting it from the report loses it.
+    if posture == cycles.POSTURE_UNCERTIFIED:
+        return (head
+                + "<h3>Runs collected under this Cycle (not a comparison)</h3>"
+                + _arm_evidence_table(ctx.get("arm_bundles"))
+                + "<h3>Repeat integrity</h3>"
+                + _arm_repeat_flag_html(ctx.get("arm_repeat_flags"))
+                + "<h3>Video Stats conditions for the swept Bundles</h3>"
+                + _arm_video_stats_html(ctx.get("arm_video_stats")))
+
     return (
-        tiles
-        + _ARM_PCK_NOTE
-        + _ARM_UNCERTAINTY_NOTE
-        + "<h3>Origin populations (never blended)</h3>"
-        + "<p class='sub'>A harness run and a scanner run are two producers, not two "
-        "generations of one evidence stream. Whether a browser-WASM run and a Python run "
-        "agree is the open parity question (#162); pooling them before it is answered "
-        "would assume the answer. Every pooled section elsewhere in this report draws on "
-        "the scanner population only.</p>"
-        + _arm_origin_table(ctx.get("origin_populations"))
-        + "<h3>Arms</h3>" + _arm_overview_table(ctx.get("arm_overview"))
+        head
+        + "<h3>Arms</h3>" + _arm_overview_table(ctx.get("arm_overview"), summary)
         + "<h3>Per-Bundle results (Bundle × arm)</h3>"
         + _arm_matrix_table(ctx.get("arm_bundles"), ctx.get("arm_reach"))
         + "<h3>Arm versus baseline</h3>"
         + _arm_reach_html(ctx.get("arm_reach"))
-        + _arm_delta_table(ctx.get("arm_delta_summary"), ctx.get("arm_deltas"))
+        + _arm_delta_table(ctx.get("arm_delta_summary"), ctx.get("arm_deltas"), summary)
         + "<h3>Repeat integrity</h3>"
         + _arm_repeat_flag_html(ctx.get("arm_repeat_flags"))
         + "<h3>Funnel-derived metrics and their floors</h3>"
