@@ -162,6 +162,226 @@ def test_preprocess_order_is_a_factor():
     assert config_hash(forward) != config_hash(reverse)
 
 
+# --------------------------------------------------------------------------- #
+# Preprocessing steps (issue #161) — the transform, not just the stamp
+# --------------------------------------------------------------------------- #
+
+def _frame(*values) -> "numpy.ndarray":
+    import numpy
+    return numpy.array([list(values)], dtype=numpy.uint8)
+
+
+def test_each_step_alone_is_a_distinguishable_arm():
+    """The AC that makes the factorial readable: baseline, contrast-only and
+    brightness-only must be three arms, not two-and-a-half."""
+
+    contrast = _config(preprocess=(PreprocessStep(mj.STEP_CONTRAST, {"factor": 1.5}),))
+    brightness = _config(preprocess=(PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": 20}),))
+    stamps = {config_hash(_config()), config_hash(contrast), config_hash(brightness)}
+    assert len(stamps) == 3
+    # ...and the two-factor arm is a fourth, distinct from both of its own margins.
+    both = _config(preprocess=(PreprocessStep(mj.STEP_CONTRAST, {"factor": 1.5}),
+                               PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": 20})))
+    assert config_hash(both) not in stamps
+
+
+def test_contrast_pivots_at_mid_grey_so_it_does_not_move_brightness():
+    """A plain value*factor also raises the mean, which would tangle the two main effects
+    at the source. Pivoting keeps mid-grey fixed and spreads the ends symmetrically."""
+
+    out = mj.apply_preprocess(_frame(28, 128, 228),
+                              (PreprocessStep(mj.STEP_CONTRAST, {"factor": 2.0}),))
+    assert list(out[0]) == [0, 128, 255], "mid-grey must not move; the ends spread"
+    # A pair straddling the pivot keeps its mean: the step spends its effect on spread and
+    # none on level, which is what makes contrast and brightness separable factors.
+    dark, bright = mj.apply_preprocess(
+        _frame(100, 155), (PreprocessStep(mj.STEP_CONTRAST, {"factor": 1.5}),))[0]
+    assert (int(dark) + int(bright)) / 2 == (100 + 155) / 2 == mj.CONTRAST_PIVOT
+
+
+def test_brightness_is_additive_in_eight_bit_levels_and_clamps():
+    out = mj.apply_preprocess(_frame(0, 100, 250),
+                              (PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": 20}),))
+    assert list(out[0]) == [20, 120, 255]
+    out = mj.apply_preprocess(_frame(10, 100),
+                              (PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": -20}),))
+    assert list(out[0]) == [0, 80]
+
+
+def test_steps_apply_in_declared_order_and_do_not_commute():
+    """Order is in the arm hash because the transforms genuinely differ once a value
+    clips. If this ever became commutative in fact, the two stamps would be measuring one
+    thing and the ordering factor would be reporting noise."""
+
+    contrast = PreprocessStep(mj.STEP_CONTRAST, {"factor": 2.0})
+    brightness = PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": 60})
+    forward = mj.apply_preprocess(_frame(100), (contrast, brightness))
+    reverse = mj.apply_preprocess(_frame(100), (brightness, contrast))
+    # 100 -> contrast 72 -> +60 -> 132, against 100 -> +60 -> 160 -> contrast 192. Contrast
+    # applied second *amplifies the offset*; the two orders are 60 levels apart on this
+    # pixel, so the ordering factor in the arm hash is measuring something real.
+    assert list(forward[0]) == [132] and list(reverse[0]) == [192]
+    # Each step is a uint8 -> uint8 function, so a two-step arm is exactly the composition
+    # of the two one-step arms — what lets a factorial be read against its own margins.
+    step_by_step = mj.apply_preprocess(
+        mj.apply_preprocess(_frame(100), (contrast,)), (brightness,))
+    assert list(forward[0]) == list(step_by_step[0])
+
+
+def test_no_steps_returns_the_decoders_own_bytes():
+    """The baseline arm must not round-trip through the transform at all — an identity
+    that quietly rounded would make baseline non-reproducible against its own prior runs."""
+
+    frame = _frame(1, 2, 3)
+    assert mj.apply_preprocess(frame, ()) is frame
+
+
+def test_a_misspelled_parameter_is_refused_rather_than_defaulted():
+    """The subtle fabricated null: `factr` falls back to the default, so the arm stamps a
+    strength its pixels never saw and the experiment reports that contrast does not
+    matter."""
+
+    for step in (PreprocessStep(mj.STEP_CONTRAST, {"factr": 1.5}),
+                 PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": 20, "factor": 2})):
+        try:
+            mj.step_amount(step)
+        except ValueError as exc:
+            assert "unknown parameter" in str(exc)
+        else:
+            raise AssertionError(f"{step} must be refused, not silently defaulted")
+
+
+def test_the_identity_transform_is_refused_as_an_arm():
+    """An arm whose transform does nothing is bytes identical to baseline under a
+    different stamp. The control level is the absence of the step."""
+
+    for step in (PreprocessStep(mj.STEP_CONTRAST, {"factor": 1.0}),
+                 PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": 0})):
+        try:
+            mj.step_amount(step)
+        except ValueError as exc:
+            assert "identity" in str(exc)
+        else:
+            raise AssertionError(f"{step} would duplicate baseline under a second stamp")
+
+
+def test_a_parameter_outside_its_range_is_refused():
+    for step in (PreprocessStep(mj.STEP_CONTRAST, {"factor": 0.0}),
+                 PreprocessStep(mj.STEP_CONTRAST, {"factor": 99.0}),
+                 PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": 400})):
+        try:
+            mj.step_amount(step)
+        except ValueError:
+            continue
+        raise AssertionError(f"{step} is outside the supported range and must be refused")
+
+
+def test_option_helper_fixes_the_order_rather_than_leaving_it_to_typing():
+    """Contrast-then-brightness and brightness-then-contrast are different arms, so a flag
+    pair must not silently produce one or the other depending on argument order."""
+
+    steps = mj.preprocess_from_options(contrast=1.5, brightness=20)
+    assert [s.name for s in steps] == [mj.STEP_CONTRAST, mj.STEP_BRIGHTNESS]
+    assert mj.preprocess_from_options() == ()
+    assert [s.name for s in mj.preprocess_from_options(brightness=20)] == [mj.STEP_BRIGHTNESS]
+
+
+def test_the_written_artifact_reconstructs_the_steps_and_their_order():
+    """Step order has to be recoverable from the run itself — an arm hash says two runs
+    differ, the artifact has to say how."""
+
+    request = _request(config=_config(preprocess=(
+        PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": -15}),
+        PreprocessStep(mj.STEP_CONTRAST, {"factor": 1.4}))))
+    payload = build_pose_payload(request, {}, pass_index=0)
+    steps = payload["diagnostics"]["experiment"]["config"]["preprocess"]
+    assert [s["name"] for s in steps] == [mj.STEP_BRIGHTNESS, mj.STEP_CONTRAST]
+    assert steps[0]["params"] == {"delta": -15} and steps[1]["params"] == {"factor": 1.4}
+
+
+def test_the_pixels_handed_to_the_model_are_the_transformed_ones():
+    """The wiring, not the arithmetic: a transform that ran on a copy nobody posed would
+    be the exact fabricated null the refusal exists to prevent, and every test above it
+    would still pass."""
+
+    import numpy
+
+    seen: dict = {}
+
+    class FakeMp:
+        class ImageFormat:
+            SRGB = "srgb"
+
+        class Image:
+            def __init__(self, image_format, data):
+                seen["data"] = data
+
+    class FakeCv2:
+        COLOR_BGR2RGB = 0
+
+        @staticmethod
+        def cvtColor(image, code):
+            return image
+
+    class FakeLandmarker:
+        @staticmethod
+        def detect(image):
+            return type("Result", (), {"pose_landmarks": []})()
+
+    detector = mj.MediaPipeDetector.__new__(mj.MediaPipeDetector)
+    frame = numpy.full((64, 64, 3), 100, dtype=numpy.uint8)
+    step = PreprocessStep(mj.STEP_BRIGHTNESS, {"delta": 20})
+
+    detector._pose_region(FakeLandmarker, FakeMp, FakeCv2, [], frame, None, (step,))
+    assert int(seen["data"][0][0][0]) == 120, "the model must see the transformed pixels"
+    detector._pose_region(FakeLandmarker, FakeMp, FakeCv2, [], frame, None)
+    assert int(seen["data"][0][0][0]) == 100, "...and baseline must see the decoder's own"
+
+
+def test_the_crop_tracking_pass_is_never_preprocessed():
+    """The trajectory is computed once per Bundle and read by every arm, which is what
+    makes the experiment isolate pose quality *given* localization (#169). A contrast arm
+    that tracked through its own filter would crop different pixels from baseline, and the
+    difference would be part localization and part detection with no way to split them.
+
+    Asserted at the signature, because ``build_crop_track``'s probe relies on the default
+    and exercising it for real needs MediaPipe installed — which this suite must not."""
+
+    import inspect
+
+    default = inspect.signature(mj.MediaPipeDetector._pose_region).parameters["steps"].default
+    assert default == (), "the tracking probe passes no steps and depends on this default"
+    source = inspect.getsource(mj.MediaPipeDetector.build_crop_track)
+    assert ".preprocess" not in source, (
+        "the tracking pass must not reach for the arm's preprocessing steps")
+
+
+def test_a_job_refuses_an_unrunnable_arm_before_it_decodes_anything():
+    """A batch is hours; the arm is checked once, up front, rather than surfacing as the
+    same error 84 times with the real reason buried in each."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        bundle = _selectable(tmp, "r", "a")
+        StubDetector.builds = []
+        try:
+            run_mediapipe_job(
+                tmp / "analysis",
+                _request(route_folder="r", video_key="a",
+                         video_path=str(bundle / "a.mp4"),
+                         config=_config(preprocess=(PreprocessStep("gamma"),))),
+                _stub_factory())
+        except NotImplementedError:
+            pass
+        else:
+            raise AssertionError("an unimplemented step must stop the job")
+        status = json.loads((bundle / mj.STATUS_NAME).read_text())
+        assert status["status"] == "error" and status["passesWritten"] == 0
+        assert not any(d.calls for d in StubDetector.builds), "nothing may have decoded"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_config_identity_is_json_stable():
     """The hash is taken over this, so it must contain no set/dict ordering nondeterminism."""
     import json
@@ -550,15 +770,19 @@ def test_run_ids_are_unique_even_against_ids_already_on_disk():
 # --------------------------------------------------------------------------- #
 
 def test_the_backend_refuses_a_config_it_would_silently_ignore():
-    """Preprocessing and crop are already part of the arm identity but nothing implements
-    them. Running them as a no-op would write a run stamped 'contrast 1.5' whose pixels
-    never saw contrast — two arms, different stamps, identical output, read as 'the
-    transform had no effect'. A fabricated null is worse than a crash."""
+    """A factor in the arm identity that nothing implements would write a run stamped with
+    a transform its pixels never saw — two arms, different stamps, identical output, read
+    as 'the transform had no effect'. A fabricated null is worse than a crash.
+
+    Contrast and brightness are implemented as of #161; the refusal has to survive intact
+    for everything else, which is what this now checks (`equalize-hist` is a real candidate
+    — the scanner side measured it blinding MediaPipe on the detection crop)."""
 
     detector = mj.MediaPipeDetector.__new__(mj.MediaPipeDetector)
     detector._mode = 1
     for config, expected in (
-        (_config(preprocess=(PreprocessStep("contrast", {"factor": 1.5}),)), "contrast"),
+        (_config(preprocess=(PreprocessStep("equalize-hist"),)), "equalize-hist"),
+        (_config(preprocess=(PreprocessStep("gamma", {"value": 2.2}),)), "gamma"),
         (_config(crop=mj.CROP_ADAPTIVE), "adaptive"),
     ):
         try:

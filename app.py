@@ -587,6 +587,11 @@ class MediaPipeBatchRequest(BaseModel):
 
     mode: int = Field(default=1, alias="mode")
     crop: str = Field(default=mediapipe_job.CROP_NONE)
+    # Preprocessing steps (issue #161), one field per factor. Omitted means the step is
+    # absent — which is the control level, and is a different arm from the step present at
+    # its identity value (that one is refused; see mediapipe_job.step_amount).
+    contrast: float | None = None
+    brightness: float | None = None
     # Defaults to 1 because this detector is bit-deterministic — see DEFAULT_REPEATS.
     repeats: int = Field(default=mediapipe_job.DEFAULT_REPEATS, ge=1, le=25)
     # Omitted means "every eligible Bundle"; an explicit list is the smoke-batch path.
@@ -601,7 +606,15 @@ class MediaPipeBatchRequest(BaseModel):
             )
         if self.crop not in mediapipe_job.CROP_POLICIES:
             raise ValueError(f"crop must be one of {mediapipe_job.CROP_POLICIES}.")
+        # Validated here, synchronously, so an unrunnable arm is a 422 before the sweep
+        # starts rather than the same error 84 times inside a batch nobody is watching.
+        mediapipe_job.preprocess_from_options(self.contrast, self.brightness)
         return self
+
+    def arm(self) -> mediapipe_job.DetectionConfig:
+        return mediapipe_job.DetectionConfig(
+            mode=self.mode, crop=self.crop,
+            preprocess=mediapipe_job.preprocess_from_options(self.contrast, self.brightness))
 
 
 def _run_batch_safely(request: MediaPipeBatchRequest, job_id: str) -> None:
@@ -610,7 +623,7 @@ def _run_batch_safely(request: MediaPipeBatchRequest, job_id: str) -> None:
     try:
         mediapipe_job.run_batch(
             ANALYSIS_DIR,
-            mediapipe_job.DetectionConfig(mode=request.mode, crop=request.crop),
+            request.arm(),
             mediapipe_job.default_detector_factory,
             only=[(b.route_folder, b.video_key) for b in request.bundles]
             if request.bundles is not None else None,
@@ -664,8 +677,8 @@ def start_mediapipe_batch(payload: MediaPipeBatchRequest) -> JSONResponse:
     return JSONResponse(status_code=202, content={
         "jobId": job_id,
         "status": "accepted",
-        "configHash": mediapipe_job.config_hash(
-            mediapipe_job.DetectionConfig(mode=payload.mode, crop=payload.crop)),
+        "configHash": mediapipe_job.config_hash(payload.arm()),
+        "arm": payload.arm().identity(),
         "repeats": payload.repeats,
         "selection": selection.as_dict(),
         "statusPath": str(mediapipe_job.batch_status_path(ANALYSIS_DIR)),
