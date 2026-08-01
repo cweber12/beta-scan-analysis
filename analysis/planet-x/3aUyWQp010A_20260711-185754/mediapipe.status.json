@@ -1,19 +1,26 @@
 {
-  "jobId": "7f0aae213c874aedbd65446baa2801fe",
+  "jobId": "c541273089b24529a2a558ecf4f475f2",
   "route": "planet-x",
   "videoKey": "3aUyWQp010A_20260711-185754",
   "moduleVersion": "1",
   "origin": "harness-mediapipe",
   "config": {
     "mode": 1,
-    "preprocess": [],
+    "preprocess": [
+      {
+        "name": "brightness",
+        "params": {
+          "delta": -20.0
+        }
+      }
+    ],
     "crop": "tracked",
     "moduleVersion": "1",
     "origin": "harness-mediapipe",
     "modelSha": "4eaa5eb7a98365221087693fcc286334cf0858e2eb6e15b506aa4a7ecdcec4ad",
     "cropTrackHash": "b568a7265e0ed0bc"
   },
-  "configHash": "fbd1fcabfaff57fd",
+  "configHash": "cfde1f8cc325b8d5",
   "setupHash": "4f783f73c827ee464968114cfab111fa0d3ec955ed08af80889ed67cb0f925ea",
   "repeats": 1,
   "requestedFrames": 318,
@@ -21,17 +28,17 @@
   "runs": [
     {
       "passIndex": 0,
-      "configHash": "fbd1fcabfaff57fd",
-      "runTs": "exp-20260731-181329-fbd1fcab-p0",
-      "posePath": "C:\\Projects\\_current-projects\\beta-scan-analysis\\analysis\\planet-x\\3aUyWQp010A_20260711-185754\\detections\\exp-20260731-181329-fbd1fcab-p0_pose.json",
-      "orbPath": "C:\\Projects\\_current-projects\\beta-scan-analysis\\analysis\\planet-x\\3aUyWQp010A_20260711-185754\\detections\\exp-20260731-181329-fbd1fcab-p0_orb.json",
-      "framesDetected": 265,
+      "configHash": "cfde1f8cc325b8d5",
+      "runTs": "exp-20260731-193027-cfde1f8c-p0",
+      "posePath": "C:\\Projects\\_current-projects\\beta-scan-analysis\\analysis\\planet-x\\3aUyWQp010A_20260711-185754\\detections\\exp-20260731-193027-cfde1f8c-p0_pose.json",
+      "orbPath": "C:\\Projects\\_current-projects\\beta-scan-analysis\\analysis\\planet-x\\3aUyWQp010A_20260711-185754\\detections\\exp-20260731-193027-cfde1f8c-p0_orb.json",
+      "framesDetected": 255,
       "framesUndecodable": 0,
-      "seconds": 35.59
+      "seconds": 25.42
     }
   ],
   "timings": {
-    "total_s": 35.59
+    "total_s": 25.42
   },
-  "updated_at": "2026-07-31T18:14:05"
+  "updated_at": "2026-07-31T19:30:53"
 }
