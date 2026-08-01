@@ -337,7 +337,9 @@ def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list,
                     detector_code_hash: str | None = None,
                     origin: str | None = None,
                     config_hash: str | None = None,
-                    pass_index: int | None = None) -> None:
+                    pass_index: int | None = None,
+                    arm_config: dict | None = None,
+                    frame_count: int | None = None) -> None:
     det = video_dir / "detections"
     det.mkdir(parents=True, exist_ok=True)
     diagnostics = {"appVersion": app_version} if app_version else {}
@@ -353,6 +355,13 @@ def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list,
         diagnostics["origin"] = origin
     if config_hash is not None:
         diagnostics["experiment"] = {"configHash": config_hash, "passIndex": pass_index}
+        # The block the hash was taken over (issue #164). A reader comparing arms needs the
+        # factors, not a digest; ``frameCount`` is what tells two runs of one arm apart
+        # when they sampled different frame sets.
+        if arm_config is not None:
+            diagnostics["experiment"]["config"] = arm_config
+        if frame_count is not None:
+            diagnostics["experiment"]["frameCount"] = frame_count
     data = {"setupHash": setup_hash, "diagnostics": diagnostics, "frames": frames}
     if detector_attempts is not None:
         data["detectorAttempts"] = detector_attempts
@@ -2735,6 +2744,351 @@ def test_a_corpus_with_no_experiment_stamp_is_unchanged():
         assert ctx["experiment_arms"].empty
         assert ctx["experiment_arm_count"] == 0
         assert list(ctx["origin_populations"]["origin"]) == [trends.ORIGIN_SCANNER]
+
+
+# --------------------------------------------------------------------------- #
+# Arm-versus-arm reporting (issue #164)
+# --------------------------------------------------------------------------- #
+
+_ARM_BASELINE_CONFIG = {"mode": 1, "preprocess": [], "crop": "tracked",
+                        "moduleVersion": "1", "origin": "harness-mediapipe"}
+_ARM_CONTRAST_CONFIG = {"mode": 1, "crop": "tracked", "moduleVersion": "1",
+                        "origin": "harness-mediapipe",
+                        "preprocess": [{"name": "contrast", "params": {"factor": 1.5}}]}
+
+
+def _arm_frames(n_bad: int, n: int = 25) -> list:
+    """Scanner frames where ``n_bad`` of ``n`` are wildly wrong, so PCK ≈ (n-n_bad)/n.
+
+    A controlled PCK rather than a jittered one: the arm deltas under test are compared
+    against a 0.0056 sampling-error bar, and a fixture whose PCK drifts with the threshold
+    maths would make a passing test say nothing about the flagging.
+    """
+
+    good = _kp_list(_TRUTH_JOINTS)
+    bad = _kp_list({k: (x + 5.0, y + 5.0) for k, (x, y) in _TRUTH_JOINTS.items()})
+    return [{"timestamp": float(i), "keypoints": bad if i <= n_bad else good}
+            for i in range(1, n + 1)]
+
+
+def _arm_bundle(root: Path, name: str, arms: list[tuple]) -> Path:
+    """One Bundle with truth and a set of harness Runs.
+
+    ``arms`` is ``(config_hash, config, pass_index, n_bad, frame_count)`` per Run.
+    """
+
+    vdir = root / "routeARM" / name
+    vdir.mkdir(parents=True, exist_ok=True)
+    (vdir / "metadata.json").write_text(json.dumps({
+        "route_folder": "routeARM", "video_key": name,
+        # Phase-1 Video Stats source stats, stamped at import and never stale.
+        "video_stats": {"luma": {"mean": 120.0}, "rmsContrast": 0.25,
+                        "sharpness": {"mean": 900.0}, "frameDiff": {"mean": 0.02}},
+    }), encoding="utf-8")
+    (vdir / "setup.json").write_text(
+        json.dumps({"setupHash": f"sh_{name}"}), encoding="utf-8")
+    (vdir / "ground-truth.json").write_text(json.dumps({
+        "version": 1, "jointSet": list(_TRUTH_JOINTS), "setupHash": f"sh_{name}",
+        "groundTruthHash": f"arm{name}"[:16].ljust(16, "0"),
+        "frames": [_truth_frame(i, float(i), True) for i in range(1, 26)],
+    }), encoding="utf-8")
+    (vdir / "video-stats.json").write_text(json.dumps({
+        "setupHash": f"sh_{name}",
+        "regionStats": {"wall": {"luma": {"mean": 90.0}, "rmsContrast": 0.11},
+                        "climberWall": {"deltaE": 3.0},
+                        "shadow": {"fraction": {"mean": 0.12}}},
+    }), encoding="utf-8")
+    # The stem carries the loop index, not just the arm and pass: the collision case under
+    # test is *two runs of one arm at one passIndex*, which is exactly the pair that would
+    # otherwise overwrite each other and make the fixture silently untestable.
+    for i, (cfg_hash, config, pass_index, n_bad, frame_count) in enumerate(arms):
+        _write_pose_run(vdir, f"exp-{cfg_hash[:8]}-r{i}p{pass_index}", f"sh_{name}",
+                        _arm_frames(n_bad), app_version="harness-mediapipe@1",
+                        origin="harness-mediapipe", config_hash=cfg_hash,
+                        pass_index=pass_index, arm_config=config,
+                        frame_count=frame_count)
+    return vdir
+
+
+def test_arm_deltas_are_paired_on_shared_bundles_never_pooled_means():
+    """The failure mode this reporting exists to prevent. Bundles differ from one another
+    far more than arms differ on one Bundle — tracked-crop detection ranged 59–100% across
+    six of them — so a difference of pooled means over non-identical Bundle sets measures
+    which videos each arm happened to run on, not the condition.
+
+    Here the baseline is *worse* on the Bundle both arms share and *better* on the one only
+    it ran. A pooled-mean comparison would read that as the contrast arm winning by more
+    than it did; the paired one sees only the shared Bundle."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # Shared Bundle: baseline 5 bad frames, contrast 2 bad -> contrast wins by ~0.12.
+        _arm_bundle(root, "vidSHARED", [
+            ("base000000000001", _ARM_BASELINE_CONFIG, 0, 5, 25),
+            ("cont000000000001", _ARM_CONTRAST_CONFIG, 0, 2, 25),
+        ])
+        # Baseline-only Bundle where it does very well. Pooling would drag its mean up and
+        # shrink the apparent contrast win; pairing must ignore this Bundle entirely.
+        _arm_bundle(root, "vidBASEONLY", [
+            ("base000000000001", _ARM_BASELINE_CONFIG, 0, 0, 25),
+        ])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        deltas = ctx["arm_deltas"]
+        assert len(deltas) == 1, "only the shared Bundle may produce a delta"
+        row = deltas.iloc[0]
+        assert row["video_key"] == "vidSHARED"
+        assert row["baseline_hash"] == "base000000000001"
+        assert row["delta_pck"] > 0.0
+
+        summary = ctx["arm_delta_summary"]
+        assert len(summary) == 1
+        assert int(summary.iloc[0]["shared_bundles"]) == 1
+        # The pooled-mean answer, which pairing must NOT produce.
+        overview = ctx["arm_overview"].set_index("config_hash")
+        pooled_gap = (overview.loc["cont000000000001", "pck_median"]
+                      - overview.loc["base000000000001", "pck_median"])
+        assert abs(pooled_gap - row["delta_pck"]) > 0.01, (
+            "the pooled gap and the paired delta must differ here, or this fixture no "
+            "longer reproduces the confound it exists for")
+
+
+def test_baseline_arm_is_the_least_preprocessed_not_the_most_run():
+    """"Improved by 0.04" means nothing without saying over what, so the reference arm is
+    chosen by rule and named in the output. The rule is *fewest preprocessing steps* — the
+    untouched condition every other arm was built from — and it is read off the stamped
+    step count rather than the rendered label, so the baseline cannot move when the prose
+    does. Here the more-preprocessed arm ran on more Bundles, so bundle count alone would
+    pick the wrong reference."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _arm_bundle(root, "vidREF1", [
+            ("base000000000001", _ARM_BASELINE_CONFIG, 0, 4, 25),
+            ("cont000000000001", _ARM_CONTRAST_CONFIG, 0, 2, 25),
+        ])
+        # A second Bundle the contrast arm alone ran, so it leads on bundle count.
+        _arm_bundle(root, "vidREF2", [
+            ("cont000000000001", _ARM_CONTRAST_CONFIG, 0, 2, 25),
+        ])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        assert ctx["arm_reach"]["baseline_hash"] == "base000000000001"
+        assert ctx["arm_delta_summary"].iloc[0]["baseline_hash"] == "base000000000001"
+        overview = ctx["arm_overview"].set_index("config_hash")
+        assert int(overview.loc["cont000000000001", "bundles"]) == 2
+        assert int(overview.loc["base000000000001", "bundles"]) == 1, (
+            "the fixture must keep the baseline arm on fewer Bundles, or it stops "
+            "distinguishing the two candidate rules")
+
+
+def test_arm_delta_below_the_sampling_error_is_flagged():
+    """An arm delta smaller than the sampling error it was measured through is not a
+    result. The bar is the p90 rather than the median, because the reader's question is
+    "could this be nothing?" and the honest answer to that is the worst case."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import floors, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # Identical detections under two arms: a delta of exactly 0.
+        _arm_bundle(root, "vidNULL", [
+            ("base000000000001", _ARM_BASELINE_CONFIG, 0, 3, 25),
+            ("cont000000000001", _ARM_CONTRAST_CONFIG, 0, 3, 25),
+        ])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        row = ctx["arm_deltas"].iloc[0]
+        assert row["delta_pck"] == 0.0
+        assert bool(row["below_sampling_error"]) is True
+        assert bool(ctx["arm_delta_summary"].iloc[0]["all_below_sampling_error"]) is True
+
+        # ...and the bar really is the sampling error, not some other threshold.
+        assert floors.below_sampling_error(floors.SAMPLING_ERROR.p90 * 0.5) is True
+        assert floors.below_sampling_error(floors.SAMPLING_ERROR.p90 * 2) is False
+        assert floors.below_sampling_error(None) is None
+
+
+def test_harness_arms_carry_sampling_error_and_never_a_scanner_floor():
+    """#134's 0.0055 is the *scanner's* run-to-run scatter, from a different detector in a
+    different runtime. The harness detector is bit-deterministic, so its run-to-run floor
+    is exactly 0 and attaching #134's figure to a harness arm would be a category error —
+    the substitution this issue was reopened to prevent."""
+
+    from analysis_pipeline import floors
+
+    assert floors.HARNESS_RUN_TO_RUN == 0.0
+    assert floors.SAMPLING_ERROR.side == floors.SIDE_HARNESS
+    assert floors.SAMPLING_ERROR.median == 0.0017
+    assert floors.SAMPLING_ERROR.p90 == 0.0056
+    # Every funnel-derived floor is scanner-side, provisional, and says so in its label.
+    for key in floors.FUNNEL_FLOOR_KEYS:
+        floor = floors.scanner_floor(key)
+        assert floor is not None, f"{key} has no measured floor to display"
+        assert floor.side == floors.SIDE_SCANNER
+        assert floor.provisional
+        assert "scanner-side" in floor.label
+    # The scanner PCK floor exists and is a *different number* from the harness one.
+    assert floors.scanner_floor("pck").median == 0.0055
+    assert floors.scanner_floor("pck").side == floors.SIDE_SCANNER
+
+
+def test_every_funnel_metric_is_rendered_with_its_floor_and_never_as_zero():
+    """A harness arm produces no Detector Attempt stream at all. That is a structural
+    absence, not a measurement of zero, and rendering 0.000 would claim the detector was
+    asked to reject something and declined."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import floors, report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _arm_bundle(root, "vidFUNNEL", [
+            ("base000000000001", _ARM_BASELINE_CONFIG, 0, 3, 25),
+        ])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        # The derivation carries None, not 0.0, for every metric the origin cannot make.
+        arms = ctx["experiment_arms"]
+        for key in floors.FUNNEL_FLOOR_KEYS:
+            assert key in arms.columns, f"{key} is not carried on the arm table"
+            assert arms[key].isna().all(), f"{key} rendered as a value, not an absence"
+
+        html = report._arm_floor_table(ctx["arm_bundles"])
+        for key in floors.FUNNEL_FLOOR_KEYS:
+            floor = floors.scanner_floor(key)
+            assert key in html
+            assert f"{floor.median:.4f}" in html, f"{key} shown without its floor"
+        # Every funnel metric renders the absence in its value cell, and none renders a
+        # number there — a 0.000 would claim the detector was asked and declined.
+        assert html.count("not produced by this origin") == len(floors.FUNNEL_FLOOR_KEYS)
+        assert "scanner-side" in html
+
+
+def test_arm_results_are_per_video_and_join_the_video_stats_predictors():
+    """A pooled mean cannot answer "which settings work for which videos", and an arm
+    result with no conditions attached is a property of the videos in the sweep rather than
+    a finding that generalises."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _arm_bundle(root, "vidPV1", [("base000000000001", _ARM_BASELINE_CONFIG, 0, 0, 25)])
+        _arm_bundle(root, "vidPV2", [("base000000000001", _ARM_BASELINE_CONFIG, 0, 10, 25)])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        per_bundle = ctx["arm_bundles"]
+        assert len(per_bundle) == 2, "per-video results, not one pooled row"
+        assert set(per_bundle["video_key"]) == {"vidPV1", "vidPV2"}
+
+        # The spread is produced, not just a central value — and it is the big number here.
+        overview = ctx["arm_overview"].iloc[0]
+        assert overview["pck_spread"] > 0.3
+        assert overview["pck_min"] < overview["pck_median"] <= overview["pck_max"]
+
+        vs = ctx["arm_video_stats"].set_index("video_key")
+        assert set(vs.index) == {"vidPV1", "vidPV2"}
+        # Phase-1 source stats (never stale) and phase-2 region stats both land.
+        assert vs.loc["vidPV1", "luma_mean"] == 120.0
+        assert vs.loc["vidPV1", "rms_contrast"] == 0.25
+        assert vs.loc["vidPV1", "wall_luma_mean"] == 90.0
+        assert vs.loc["vidPV1", "climber_wall_deltaE"] == 3.0
+        assert vs.loc["vidPV1", "vs_stale"] is False or not vs.loc["vidPV1", "vs_stale"]
+
+
+def test_repeats_that_disagree_are_named_because_the_harness_floor_is_zero():
+    """A check only a zero floor makes possible. On a bit-deterministic detector two runs
+    of one arm on one Bundle must agree exactly, so a nonzero range is not scatter — it is
+    evidence the runs are not the same measurement. The arm identity deliberately does not
+    name the sampled frames (that is what makes sampling error common-mode), so a full-grid
+    run and a sampled run can collide under one stamp."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # True repeats: same arm, same result. This is the expected shape.
+        _arm_bundle(root, "vidREPEAT", [
+            ("base000000000001", _ARM_BASELINE_CONFIG, 0, 4, 25),
+            ("base000000000001", _ARM_BASELINE_CONFIG, 1, 4, 25),
+        ])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+        assert ctx["arm_repeat_flags"] == []
+        assert float(ctx["arm_bundles"].iloc[0]["pck_range"]) == 0.0
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # One stamp, two different frame sets — the collision mediapipe_job warns about.
+        _arm_bundle(root, "vidCOLLIDE", [
+            ("base000000000001", _ARM_BASELINE_CONFIG, 0, 4, 25),
+            ("base000000000001", _ARM_BASELINE_CONFIG, 0, 9, 12),
+        ])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+        flags = ctx["arm_repeat_flags"]
+        assert len(flags) == 1, "a disagreeing repeat set must be named, not averaged"
+        assert flags[0]["pck_range"] > 0.0
+        assert flags[0]["frame_sets"] == 2
+        assert "not repeats" in flags[0]["cause"]
+
+
+def test_arm_comparison_reports_nothing_when_arms_share_no_bundle():
+    """Two arms that never ran the same video cannot be compared, and the honest output is
+    no delta at all plus a named gap — not a difference of their pooled means, which would
+    look like a result and measure the sweep's coverage."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _arm_bundle(root, "vidA", [("base000000000001", _ARM_BASELINE_CONFIG, 0, 2, 25)])
+        _arm_bundle(root, "vidB", [("cont000000000001", _ARM_CONTRAST_CONFIG, 0, 9, 25)])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        assert ctx["experiment_arm_count"] == 2
+        assert ctx["arm_deltas"].empty
+        assert ctx["arm_delta_summary"].empty
+        uncomparable = ctx["arm_reach"]["uncomparable_arms"]
+        assert [a["config_hash"] for a in uncomparable] == ["cont000000000001"]
+
+
+def test_arm_factor_label_names_the_factor_not_the_digest():
+    """``configHash`` groups; it does not describe. "Which settings work for which videos"
+    is unanswerable from ``26f1333d`` versus ``e1ddb710``, so the block the hash was taken
+    over is rendered beside it — and a factor added later shows up the moment it shows up
+    in the stamp, rather than when someone remembers to extend the renderer."""
+
+    from analysis_pipeline import trends
+
+    assert trends._arm_factor_label(_ARM_BASELINE_CONFIG) == \
+        "mode 1 · no preprocessing · crop:tracked"
+    assert trends._arm_factor_label(_ARM_CONTRAST_CONFIG) == \
+        "mode 1 · contrast(factor=1.5) · crop:tracked"
+    # A factor this renderer has never heard of still appears.
+    future = dict(_ARM_BASELINE_CONFIG, delegate="gpu")
+    assert "delegate=gpu" in trends._arm_factor_label(future)
+    # Identity-of-the-build keys are in the hash but stay out of the label.
+    noisy = dict(_ARM_BASELINE_CONFIG, modelSha="deadbeef", cropTrackHash="cafe")
+    assert trends._arm_factor_label(noisy) == trends._arm_factor_label(_ARM_BASELINE_CONFIG)
+    assert trends._arm_factor_label(None) == ""
 
 
 def test_rate_mismatch_is_its_own_nonconformance_cause():

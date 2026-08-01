@@ -15,6 +15,7 @@ from typing import Any
 
 import pandas as pd
 
+from . import floors
 from .evaluate import RATE_MISMATCH_MIN_RATIO
 
 try:  # optional: only used to embed downscaled final-frame thumbnails
@@ -1513,6 +1514,426 @@ def _detection_error_attempt_html(ctx: dict[str, Any]) -> str:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Arm-versus-arm reporting (issue #164)
+# --------------------------------------------------------------------------- #
+
+def _sigfmt(v: Any, nd: int = 4) -> str:
+    """A floor or a delta, at the precision the measurement actually supports."""
+
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return "—"
+    if isinstance(v, (int, float)):
+        return f"{float(v):.{nd}f}"
+    return _esc(v)
+
+
+def _signed(v: Any, nd: int = 4) -> str:
+    """A delta with its sign always shown — ``+0.0123`` reads as a direction, ``0.0123``
+    reads as a magnitude, and an arm comparison is about direction."""
+
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return "—"
+    return f"{float(v):+.{nd}f}"
+
+
+# The one thing a reader must not take away from this section. ADR 0010 makes the accuracy
+# tier permanently empty, so no absolute here is an accuracy claim; but both arms of a
+# comparison score against the *same* fixed truth, so truth error is common-mode and
+# cancels in the difference. The absolute is uninterpretable, the delta is not — and that
+# distinction is the whole reason arm comparison survives an empty accuracy tier.
+_ARM_PCK_NOTE = (
+    "<p class='sub'><strong>Agreement PCK is the primary outcome, and its absolute value "
+    "is uninterpretable.</strong> Every PCK here is scored against a ViTPose scaffold that "
+    "no human has attested, so the accuracy tier is permanently empty (ADR 0010, #133) and "
+    "an absolute of 0.80 is <em>not</em> a claim that the detector was right 80% of the "
+    "time. <strong>The arm delta is a different quantity.</strong> Both arms score against "
+    "the <em>same</em> fixed truth on the <em>same</em> Bundle, so whatever the truth gets "
+    "wrong it gets wrong identically for both and cancels in the difference. Read the "
+    "delta columns; treat the absolutes as a scale, not a score.</p>")
+
+_ARM_UNCERTAINTY_NOTE = (
+    "<p class='sub'><strong>Which floor travels with which number.</strong> "
+    f"<em>Harness run-to-run scatter is exactly {floors.HARNESS_RUN_TO_RUN:.0f}</em>, "
+    f"because {_esc(floors.HARNESS_RUN_TO_RUN_NOTE)}. So no run-to-run term is attached "
+    "to a harness arm, and none should be — #134's 0.0055 is the <em>scanner's</em> "
+    "scatter, a different quantity from a different producer, and attaching it here would "
+    "be a category error. What a harness arm carries instead is <strong>sampling "
+    "error</strong>: runs score a <code>12·√n</code> sample of the Bundle's truth grid, "
+    f"measured against the full grid at median <code>{floors.SAMPLING_ERROR.median:.4f}"
+    f"</code> / p90 <code>{floors.SAMPLING_ERROR.p90:.4f}</code> |ΔPCK| across "
+    f"{floors.SAMPLING_ERROR.n_groups} Bundles. That error is "
+    f"{_esc(floors.SAMPLING_ERROR_COMMON_MODE_NOTE)} — so it is printed against the "
+    "per-video absolutes below and explicitly discounted in the deltas, where whatever "
+    "survives is flagged against the p90 anyway as the conservative bar. Any floor "
+    "labelled <span class='flag'>scanner-side</span> is #134's figure for the scanner's "
+    "detector and is never a harness uncertainty.</p>")
+
+
+def _arm_origin_table(df: Any) -> str:
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return "<p class='muted'>No evaluation records on this corpus.</p>"
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{_esc(r['origin'])}</code></td>"
+        f"<td>{int(r['records'])}</td><td>{int(r['bundles'])}</td>"
+        f"<td>{int(r['trusted'])}</td><td>{_esc(r['pool'])}</td></tr>"
+        for _, r in df.iterrows()
+    )
+    return ("<div class='tablewrap'><table><thead><tr><th>origin</th><th>records</th>"
+            "<th>bundles</th><th>trusted</th><th>pooled into</th></tr></thead>"
+            f"<tbody>{rows}</tbody></table></div>")
+
+
+def _arm_overview_table(df: Any) -> str:
+    """Per arm: the pooled central value, never without the spread that contradicts it."""
+
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return ("<p class='muted'>No experimental arms — this corpus holds no "
+                "harness-produced runs with evaluation records.</p>")
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{_esc(str(r['config_hash'])[:8])}</code></td>"
+        f"<td>{_esc(r['arm'])}</td>"
+        f"<td>{int(r['bundles'])}</td><td>{int(r['runs'])}</td>"
+        f"<td>{_sigfmt(r['pck_median'], 3)}</td>"
+        f"<td>{_sigfmt(r['pck_min'], 3)} – {_sigfmt(r['pck_max'], 3)}</td>"
+        f"<td>{_sigfmt(r['pck_spread'], 3)}</td>"
+        f"<td>{int(r['conforming_bundles'])}/{int(r['bundles'])}</td>"
+        "</tr>"
+        for _, r in df.iterrows()
+    )
+    return (
+        "<p class='sub'>The median is printed with the per-Bundle range beside it because "
+        "the range is usually the bigger number. Tracked-crop detection ranged 59–100% "
+        "across six Bundles in this corpus, so a pooled median of 81% described none of "
+        "them — a spread column wider than every delta below means the arms are not what "
+        "is moving this metric.</p>"
+        "<div class='tablewrap'><table><thead><tr><th>arm</th><th>factors</th>"
+        "<th>bundles</th><th>runs</th><th>PCK median</th><th>PCK min – max</th>"
+        "<th>spread (max−min)</th><th>conforming</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></div>")
+
+
+def _arm_matrix_table(df: Any, reach: Any = None) -> str:
+    """Bundle × arm PCK — the table that answers "which settings work for which videos".
+
+    Every absolute carries the sampling error, once, in the caption rather than repeated in
+    every cell: it is the same number for every cell by construction, and repeating it
+    would suggest it varies.
+
+    The baseline arm leads the columns, because every other column is read as a difference
+    from it and hunting for the reference among alphabetised hashes is friction with no
+    upside.
+    """
+
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return "<p class='muted'>No per-Bundle arm results.</p>"
+    base = str((reach or {}).get("baseline_hash") or "")
+    arms = list(dict.fromkeys(df["config_hash"]))
+    arms.sort(key=lambda h: (0 if h == base else 1, str(h)))
+    labels = {h: str(df[df["config_hash"] == h]["arm"].iloc[0]) for h in arms}
+    badge = "<span class='flag'>baseline</span>"
+    head = "".join(
+        f"<th title='{_esc(labels[h])}'><code>{_esc(str(h)[:8])}</code>"
+        + (" " + badge if h == base else "") + "</th>"
+        for h in arms)
+    body = []
+    for (route, key), g in df.groupby(["route_folder", "video_key"], dropna=False):
+        by_arm = {r["config_hash"]: r for _, r in g.iterrows()}
+        cells = []
+        for h in arms:
+            r = by_arm.get(h)
+            if r is None:
+                cells.append("<td class='muted'>not run</td>")
+                continue
+            mark = "" if r["conforms"] else " <span class='flag'>#15</span>"
+            cells.append(f"<td>{_sigfmt(r['pck'], 3)}{mark}</td>")
+        body.append(f"<tr><td>{_esc(route)}</td><td>{_esc(key)}</td>{''.join(cells)}</tr>")
+    return (
+        "<p class='sub'>Agreement PCK per Bundle per arm. <strong>±"
+        f"{floors.SAMPLING_ERROR.p90:.4f}</strong> sampling error (p90) applies to every "
+        "absolute in this table identically — it is stated once because it is the same "
+        "number in every cell by construction, and a per-cell ± would imply it varies. "
+        "<code>not run</code> is a gap in the sweep, not a zero. <span class='flag'>#15</span> "
+        "marks a Bundle whose truth fit failed the conformance gate on that arm: its "
+        "absolute is not comparable to a conforming one, though the arm delta on it still "
+        "is, since both arms face the same broken fit.</p>"
+        "<div class='tablewrap'><table><thead><tr><th>route</th><th>bundle</th>"
+        f"{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div>")
+
+
+def _arm_delta_table(summary: Any, per_video: Any) -> str:
+    """Arm versus baseline, pooled over shared Bundles and then per Bundle underneath."""
+
+    if not isinstance(summary, pd.DataFrame) or summary.empty:
+        return ("<p class='muted'><strong>No arm comparison is possible on this corpus.</strong> "
+                "A delta needs two arms that ran the <em>same</em> Bundle; every arm here "
+                "either stands alone or shares no Bundle with another. Nothing is reported "
+                "rather than a difference of pooled means over different videos, which "
+                "would measure which videos each arm happened to run on.</p>")
+    rows = []
+    for _, r in summary.iterrows():
+        flag = ("<span class='flag'>below sampling error</span>"
+                if bool(r["all_below_sampling_error"]) else "")
+        rows.append(
+            "<tr>"
+            f"<td><code>{_esc(str(r['config_hash'])[:8])}</code></td>"
+            f"<td>{_esc(r['arm'])}</td>"
+            f"<td><code>{_esc(str(r['baseline_hash'])[:8])}</code></td>"
+            f"<td>{int(r['shared_bundles'])}</td>"
+            f"<td>{_signed(r['delta_median'])}</td>"
+            f"<td>{_signed(r['delta_min'])} – {_signed(r['delta_max'])}</td>"
+            f"<td>{int(r['bundles_improved'])}↑ {int(r['bundles_regressed'])}↓</td>"
+            f"<td>{int(r['bundles_below_sampling_error'])}/{int(r['shared_bundles'])} {flag}</td>"
+            "</tr>")
+    pooled = (
+        "<div class='tablewrap'><table><thead><tr><th>arm</th><th>factors</th>"
+        "<th>vs baseline</th><th>shared bundles</th><th>ΔPCK median</th>"
+        "<th>ΔPCK range</th><th>direction</th><th>below sampling error</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>")
+
+    detail = ""
+    if isinstance(per_video, pd.DataFrame) and not per_video.empty:
+        drows = "".join(
+            "<tr>"
+            f"<td><code>{_esc(str(r['config_hash'])[:8])}</code></td>"
+            f"<td>{_esc(r['route_folder'])}</td><td>{_esc(r['video_key'])}</td>"
+            f"<td>{_sigfmt(r['baseline_pck'], 3)}</td><td>{_sigfmt(r['pck'], 3)}</td>"
+            f"<td>{_signed(r['delta_pck'])}</td>"
+            f"<td>{'yes — indistinguishable from noise' if r['below_sampling_error'] else 'no'}</td>"
+            "</tr>"
+            for _, r in per_video.iterrows())
+        detail = (
+            "<h4>Per Bundle</h4>"
+            "<div class='tablewrap'><table><thead><tr><th>arm</th><th>route</th>"
+            "<th>bundle</th><th>baseline PCK</th><th>arm PCK</th><th>ΔPCK</th>"
+            "<th>below sampling error</th></tr></thead>"
+            f"<tbody>{drows}</tbody></table></div>")
+
+    return (
+        "<p class='sub'><strong>Paired on shared Bundles, not pooled means.</strong> Only "
+        "Bundles that <em>both</em> arms ran contribute a delta; a pair with no shared "
+        "Bundle produces no row at all. Bundles differ from one another far more than arms "
+        "differ on one Bundle, so a difference of pooled means over non-identical Bundle "
+        "sets would measure the sweep's coverage rather than the condition. "
+        "<strong>Sampling error is discounted here</strong> — both arms scored the same "
+        "frames of the same Bundle against the same truth, so it is a shared offset that "
+        "largely cancels — and what survives is still flagged against its p90 "
+        f"(<code>{floors.SAMPLING_ERROR.p90:.4f}</code>) as the conservative bar for "
+        "\"could this be nothing?\". A median near zero with a wide range is not a null "
+        "result: it is an arm that helps some videos and hurts others, which is precisely "
+        "what the per-Bundle rows below are for.</p>"
+        + pooled + detail)
+
+
+def _arm_floor_table(arm_bundles: Any) -> str:
+    """Every funnel-derived metric with its measured noise floor beside it.
+
+    The floors are #134's and every one of them is scanner-side, which the table says in a
+    column rather than in a footnote. A harness arm's cells are *structurally* empty — the
+    harness emits no Detector Attempt stream — and that renders as "not produced by this
+    origin" rather than 0.000, because a detector that was never asked to reject anything
+    has not rejected nothing.
+    """
+
+    harness_present = (isinstance(arm_bundles, pd.DataFrame)
+                       and not arm_bundles.empty)
+    rows = []
+    for key in floors.FUNNEL_FLOOR_KEYS:
+        f = floors.scanner_floor(key)
+        if f is None:
+            continue
+        rows.append(
+            "<tr>"
+            f"<td><code>{_esc(key)}</code></td><td>{_esc(f.metric)}</td>"
+            "<td class='muted'>not produced by this origin</td>"
+            f"<td>{_sigfmt(f.median)}</td><td>{_sigfmt(f.p90)}</td>"
+            f"<td>{_sigfmt(f.typical_value)}</td>"
+            f"<td><span class='flag'>{_esc(f.label)}</span></td>"
+            "</tr>")
+    pck = floors.scanner_floor("pck")
+    pck_row = (
+        "<tr>"
+        "<td><code>pck</code></td><td>agreement PCK</td>"
+        "<td>measured — see the tables above</td>"
+        f"<td>{_sigfmt(floors.SAMPLING_ERROR.median)}</td>"
+        f"<td>{_sigfmt(floors.SAMPLING_ERROR.p90)}</td>"
+        f"<td>{_sigfmt(pck.typical_value) if pck else '—'}</td>"
+        "<td><span class='flag'>harness-side sampling error</span></td>"
+        "</tr>")
+    note = ("" if harness_present else
+            "<p class='muted'>No harness arm on this corpus, so the value column is empty "
+            "for a second reason as well.</p>")
+    return (
+        "<p class='sub'>"
+        f"{_esc(floors.FUNNEL_ABSENT_ON_HARNESS_NOTE)}. The floors beside "
+        "them are #134's measurement of the <em>scanner's</em> detector, labelled as such "
+        "in every row so they can never be read as a harness uncertainty. "
+        f"<strong>{_esc(floors.SCANNER_FLOOR_CAVEAT)}.</strong> The PCK row is the "
+        "exception: it is the one metric the harness does produce, and the floor beside it "
+        "is the harness sampling error, not #134's scanner figure "
+        f"(<code>{pck.median if pck else 0:.4f}</code>, which the p90 of the sampling rule "
+        "was chosen to sit at).</p>"
+        "<div class='tablewrap'><table><thead><tr><th>metric key</th><th>metric</th>"
+        "<th>harness arms</th><th>floor (median)</th><th>floor (p90)</th>"
+        "<th>typical value</th><th>whose floor</th></tr></thead>"
+        f"<tbody>{pck_row}{''.join(rows)}</tbody></table></div>" + note)
+
+
+def _arm_reach_html(reach: Any) -> str:
+    """How far the comparison reaches — the caveats that are properties of the sweep.
+
+    Rendered as a warning band rather than a footnote because both findings invalidate a
+    reading rather than qualifying it: a delta smaller than the between-Bundle spread does
+    not generalise, and a delta from one Bundle is an anecdote. Neither is visible in any
+    cell of the tables they sit above.
+    """
+
+    if not isinstance(reach, dict):
+        return ""
+    parts: list[str] = []
+    spread = reach.get("baseline_spread")
+    biggest = reach.get("max_abs_delta")
+    under = int(reach.get("deltas_under_spread") or 0)
+    n_arms = int(reach.get("delta_arms") or 0)
+    if spread is not None and biggest is not None and n_arms:
+        if under == n_arms:
+            verdict = (f"<strong>All {n_arms} arm effect(s) measured are smaller than "
+                       f"that</strong> — the largest is only <code>{biggest:.4f}</code>.")
+        else:
+            verdict = (f"<strong>{under} of the {n_arms} arm effect(s) measured are "
+                       f"smaller than that</strong>; only "
+                       f"<em>{_esc(reach.get('max_abs_delta_arm', ''))}</em>, at "
+                       f"<code>{biggest:.4f}</code>, exceeds it.")
+        parts.append(
+            "<strong>Which video, not which arm, is the bigger term.</strong> The "
+            f"baseline arm (<em>{_esc(reach.get('baseline_arm', ''))}</em>) ranges "
+            f"<code>{spread:.4f}</code> PCK across the "
+            f"{int(reach.get('baseline_bundles') or 0)} Bundle(s) it ran, on its own. "
+            + verdict + " The paired deltas below stay valid, because each compares two "
+            "arms on one Bundle and the Bundle cancels; what does not follow is that an "
+            "arm ranking measured on these videos would hold on others.")
+    single = int(reach.get("single_bundle_arms") or 0)
+    if single:
+        parts.append(
+            f"{single} arm(s) rest on a <strong>single shared Bundle</strong>. A "
+            "one-Bundle delta is reported rather than withheld — refusing to report it "
+            "teaches nothing — but it is an anecdote with a decimal point, not a result "
+            "that generalises.")
+    uncomparable = reach.get("uncomparable_arms") or []
+    if uncomparable:
+        listed = ", ".join(
+            f"<code>{_esc(str(a['config_hash'])[:8])}</code> ({_esc(a['arm'])}, "
+            f"{int(a['bundles'])} bundle(s))" for a in uncomparable)
+        parts.append(
+            f"{len(uncomparable)} arm(s) share <strong>no Bundle</strong> with the "
+            f"baseline and therefore produce no delta at all: {listed}. That is a gap in "
+            "the sweep, not a null result — those factors are <em>unmeasured</em> here, "
+            "and the difference between the two matters.")
+    if not parts:
+        return ""
+    return "".join(f"<p class='warn'>{p}</p>" for p in parts)
+
+
+def _arm_repeat_flag_html(flags: Any) -> str:
+    """Groups whose repeats are not repeats — a check only a zero floor makes possible."""
+
+    if not flags:
+        return ("<p class='muted'>No arm/Bundle group disagrees with itself. On a "
+                "bit-deterministic detector that is the expected result, and any other "
+                "would mean the runs are not the same measurement.</p>")
+    rows = "".join(
+        "<tr>"
+        f"<td><code>{_esc(str(f['config_hash'])[:8])}</code></td>"
+        f"<td>{_esc(f['route_folder'])}</td><td>{_esc(f['video_key'])}</td>"
+        f"<td>{int(f['runs'])}</td><td>{_sigfmt(f['pck_range'])}</td>"
+        f"<td>{_esc(f['cause'])}</td></tr>"
+        for f in flags)
+    return (
+        "<p class='warn'>These arm/Bundle groups hold several runs that <em>disagree</em>. "
+        "The harness detector is bit-deterministic, so a nonzero range between runs of one "
+        "arm on one Bundle is not scatter — it is evidence that the runs are not the same "
+        "measurement, and averaging them would manufacture a variance floor out of a "
+        "bookkeeping collision.</p>"
+        "<div class='tablewrap'><table><thead><tr><th>arm</th><th>route</th><th>bundle</th>"
+        "<th>runs</th><th>PCK range</th><th>what that means</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></div>")
+
+
+def _arm_video_stats_html(df: Any) -> str:
+    """The condition Predictors behind each Bundle in the sweep."""
+
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return "<p class='muted'>No Bundles in the sweep to join conditions to.</p>"
+    cols = [c for c in df.columns if c not in {"route_folder", "video_key", "arms"}]
+    head = "".join(f"<th>{_esc(c)}</th>" for c in cols)
+    body = "".join(
+        f"<tr><td>{_esc(r['route_folder'])}</td><td>{_esc(r['video_key'])}</td>"
+        f"<td>{int(r['arms'])}</td>"
+        + "".join(f"<td>{_fmt(r[c], 3) if isinstance(r[c], float) else _esc(r[c])}</td>"
+                  for c in cols)
+        + "</tr>"
+        for _, r in df.iterrows())
+    return (
+        "<p class='sub'>Without these, an arm result is a property of the specific videos "
+        "in the sweep. With them a finding can be stated as a <em>condition</em> — "
+        "\"contrast preprocessing helps on low-contrast walls\" generalises beyond the "
+        "sample; \"contrast preprocessing helps on planet-x\" does not. "
+        "<code>luma_mean</code> / <code>rms_contrast</code> / "
+        "<code>sharpness_mean</code> / <code>frame_diff_mean</code> are phase-1 source "
+        "stats stamped at import and never stale; the <code>wall_*</code> / "
+        "<code>climber_wall_*</code> / <code>shadow_*</code> columns are phase-2 region "
+        "stats and go stale exactly as Ground Truth does when recalibration mints a new "
+        "<code>setupHash</code>, which <code>vs_stale</code> reports. At this sweep size "
+        "the join is descriptive: it says what conditions the arms were tested under, not "
+        "yet which condition explains a delta.</p>"
+        "<div class='tablewrap'><table><thead><tr><th>route</th><th>bundle</th>"
+        f"<th>arms</th>{head}</tr></thead><tbody>{body}</tbody></table></div>")
+
+
+def _experiment_arms_html(ctx: dict[str, Any]) -> str:
+    """The whole arm-comparison section (issue #164)."""
+
+    arm_count = int(ctx.get("experiment_arm_count") or 0)
+    tiles = _stat_tiles([
+        (str(arm_count), "experiment arms [configHash]"),
+        (str(ctx.get("experiment_run_count", 0)), "harness runs"),
+        (str(ctx.get("arm_bundle_count", 0)), "arm × bundle results"),
+        (f"{floors.HARNESS_RUN_TO_RUN:.0f}", "harness run-to-run floor [measured]"),
+        (f"{floors.SAMPLING_ERROR.p90:.4f}", "sampling error p90 [harness]"),
+        (str(len(ctx.get("arm_repeat_flags") or [])), "non-repeat collisions"),
+    ])
+    if not arm_count:
+        return (tiles + "<p class='muted'>No harness-produced runs carry an experiment "
+                "stamp on this corpus, so there is nothing to compare. Every section "
+                "elsewhere in this report is scanner-origin.</p>")
+    return (
+        tiles
+        + _ARM_PCK_NOTE
+        + _ARM_UNCERTAINTY_NOTE
+        + "<h3>Origin populations (never blended)</h3>"
+        + "<p class='sub'>A harness run and a scanner run are two producers, not two "
+        "generations of one evidence stream. Whether a browser-WASM run and a Python run "
+        "agree is the open parity question (#162); pooling them before it is answered "
+        "would assume the answer. Every pooled section elsewhere in this report draws on "
+        "the scanner population only.</p>"
+        + _arm_origin_table(ctx.get("origin_populations"))
+        + "<h3>Arms</h3>" + _arm_overview_table(ctx.get("arm_overview"))
+        + "<h3>Per-Bundle results (Bundle × arm)</h3>"
+        + _arm_matrix_table(ctx.get("arm_bundles"), ctx.get("arm_reach"))
+        + "<h3>Arm versus baseline</h3>"
+        + _arm_reach_html(ctx.get("arm_reach"))
+        + _arm_delta_table(ctx.get("arm_delta_summary"), ctx.get("arm_deltas"))
+        + "<h3>Repeat integrity</h3>"
+        + _arm_repeat_flag_html(ctx.get("arm_repeat_flags"))
+        + "<h3>Funnel-derived metrics and their floors</h3>"
+        + _arm_floor_table(ctx.get("arm_bundles"))
+        + "<h3>Video Stats conditions for the swept Bundles</h3>"
+        + _arm_video_stats_html(ctx.get("arm_video_stats")))
+
+
 def _stat_tiles(tiles: list[tuple[str, str]]) -> str:
     return "<div class='card'>" + "".join(
         f"<span class='stat'><b>{_esc(v)}</b>{_esc(lbl)}</span>" for v, lbl in tiles
@@ -1827,6 +2248,20 @@ def build_report_html(ctx: dict[str, Any]) -> str:
         "(#132). Quarantined records are listed by cause under Shame lists.</p>")
 
     parts += [
+        # Placed ahead of the pooled accounting on purpose (#164): a reader has to know
+        # this report holds two populations before reading a section that pools one of
+        # them, or "the corpus" silently means whichever they read first.
+        "<h2>Experiment arms (harness-produced, arm versus arm)</h2>",
+        "<p class='sub'>Detection as an experiment rather than an observation (PRD #156): "
+        "one factor varies, everything else is held fixed, and the configuration that "
+        "produced each Run is stamped in the Run. Arms group by <code>configHash</code>, "
+        "which covers every factor that can move the output — mode, each preprocessing "
+        "step and its parameters, crop policy, crop trajectory, model weights, module "
+        "version — so two Runs differing in anything cannot share a stamp. Results are "
+        "per-Bundle first and pooled only afterwards, because the corpus this PRD exists "
+        "to escape is exactly what pooled-first reporting produces.</p>",
+        _experiment_arms_html(ctx),
+
         "<h2>Evaluation trend accounting</h2>",
         "<p class='sub'>Two-tier accounting from committed evaluation records. "
         "Every value is explicitly tagged as agreement or accuracy — and the accuracy "
