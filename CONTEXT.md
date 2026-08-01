@@ -143,6 +143,28 @@ not a spec — it carries no implementation detail.
   Bundle whose inputs moved is **excluded from that Cycle's comparison and named**, never
   silently dropped. Only Bundles in `comparableBundles` may be pooled across the Cycle's
   Arms. A tracked artifact, so a published comparison can be audited after the fact.
+- **Cycle posture** — what the Arm comparison does with the Cycle it found, and the report
+  states which of the four it applied (issue #176). `certified` → **gate**: the pooled Arm
+  summary and the deltas are computed over `comparableBundles` only, because those are
+  truth-fit numbers and a Bundle whose truth moved mid-Cycle yields a delta that silently
+  contains a truth change; the per-Bundle table keeps every Bundle as a **covariate**
+  column, so the gate removes rows from the pooled lines and never from the evidence.
+  `failed` / `refused` → **refuse**: no pooled comparison is published at all. `close_cycle`
+  writes `comparableBundles` even when it fails, so the gate keys on `certified` — keying on
+  the list's presence would publish exactly what the artifact forbids. `open` → **in
+  flight**: `comparableBundles` does not exist until close, so the comparison renders as
+  provisional and never as certified. No Cycle → **label, don't gate**: the whole pre-#168
+  corpus, reported in full with an explicit *not drift-checked* marker. The Cycle's criterion
+  is an **operational event** (a truth re-seed, a recalibration) rather than a detector
+  outcome, which is why it gates more freely than the #15 conformance gate does under #132.
+- **Cycle window** — `(openedRunTs, closedRunTs)`, and the only durable join between a Run
+  and its Cycle: nothing stamps the `cycleId` into a Run, so a Run is placed by the base
+  timestamp in its `exp-<ts>-<arm8>-p<n>` id. A Run outside the window does not pool into
+  the Cycle, and is **named** rather than merely subtracted — a timestamp window is a weaker
+  join than a stamp, which is why the exclusions have to be readable. A Run predating the
+  `exp-` convention is `unplaceable`, which is a different statement from out-of-window: the
+  Cycle's own run census cannot see it either. The batch sidecar records the `cycleId` the
+  sweep ran inside, for the operator watching a batch in flight.
 - **Determinism canary** — one designated Bundle run on one fixed Arm at Cycle open and
   again at Cycle close, with the pose frames compared **byte-for-byte**. The harness
   detector is bit-deterministic, so any difference at all — weights, module, environment,
