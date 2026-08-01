@@ -1153,13 +1153,17 @@ def _repeat_flag_cause(frame_sets: int) -> str:
 
 # The sampling rule, mirrored from ``mediapipe_job.SAMPLE_COEFFICIENT``.
 #
-# Mirrored rather than imported: ``mediapipe_job`` pulls ``vitpose_job`` and the MediaPipe
-# backend, and ADR 0003/0012 keep both out of this package's import graph. The mirror is the
-# **fallback only** — when a Cycle is resolved, the coefficient *it* stamped wins, and that
-# value came from the job module itself (``cycle_integrity`` writes it), so a corpus under a
-# Cycle is checked against the rule its runs were actually produced under rather than
-# against a copy. The no-Cycle case is what this constant covers, and the report names which
-# of the two it used.
+# Mirrored rather than imported: ``mediapipe_job`` drags ``youtube_core`` → ``yt_dlp`` and
+# ``vitpose_job`` in behind it, which ADR 0003 and ADR 0012 exist to keep out of this
+# package's import graph. Same trade ADR 0013 makes for the Cycle — the pipeline reads the
+# artifact rather than importing the writer, and the one test file that may import both
+# halves (``test_mediapipe_job.py``) asserts they still agree.
+#
+# The mirror is the **fallback only**: when a Cycle is resolved, the coefficient *it* stamped
+# wins, and that value came from the job module itself (``cycle_integrity`` writes it), so a
+# corpus under a Cycle is checked against the rule its runs were actually produced under
+# rather than against a copy. The no-Cycle case is what this constant covers, and the report
+# names which of the two it used.
 HARNESS_SAMPLE_COEFFICIENT = 12
 
 # What a run's stamped frame count turned out to be, relative to its Bundle's grid.
