@@ -152,6 +152,33 @@ not a spec — it carries no implementation detail.
   is byte-identical under any weights, so an uncropped canary would certify a model swap
   it never saw. A canary detecting under half its sampled frames therefore **refuses to
   certify** rather than passing.
+- **Arm comparison** — reading one Arm against another, **paired on the Bundles both
+  ran**. Bundles differ from each other far more than Arms differ on one Bundle (tracked
+  crop ranged 59–100% across six), so a difference of pooled means over non-identical
+  Bundle sets measures which videos each Arm happened to run rather than the condition;
+  two Arms sharing no Bundle yield *no comparison*, which is reported as a named gap
+  rather than a number. The reference is the **baseline Arm**: the one applying the fewest
+  preprocessing steps, then the one on the most Bundles. Agreement PCK is the primary
+  outcome — its *absolute* stays uninterpretable under ADR 0010, but both Arms score
+  against the same fixed truth, so truth error is common-mode and cancels in the
+  *difference*. Emitted per-Bundle first and pooled only afterwards. See issue #164.
+- **Sampling error** — the uncertainty a harness Arm's PCK actually carries, from scoring
+  a `12·√n` sample of the Bundle's truth grid instead of the full grid: median 0.0017 /
+  p90 0.0056 |ΔPCK| across 55 Bundles. **Common-mode across Arms** — the sample is a
+  deterministic function of the Bundle, so every Arm scores the same frames against the
+  same truth — which is why it is attached to per-video *absolutes* and discounted in Arm
+  *deltas*. Not a run-to-run floor: the harness detector's run-to-run scatter is exactly
+  **0** (bit-deterministic, #159, re-verified by the Determinism canary). Recorded in
+  `analysis_pipeline/floors.py`.
+- **Noise floor** — how much a metric moves when *nothing* changes: the within-Bundle
+  range across genuine repeat Runs. #134's figures are **scanner-side** and must be
+  labelled as such wherever displayed — attaching the scanner's 0.0055 PCK scatter to a
+  harness Arm is a category error, two producers confused for one. They are also
+  **provisional**: the historical corpus held six genuine repeat groups (27 of 33 apparent
+  ones were a single detection pass re-exported), which is below what a p90 needs to mean
+  anything, and the repeat set does not survive the corpus reset — so the measurement is
+  frozen in `floors.py` with its caveats, with `scripts/measure_variance_floor.py` kept as
+  the derivation.
 - **MediaPipe job status** (`mediapipe.status.json`) — the sidecar recording an
   experimental batch's `running` → `done` / `error`, on the `vitpose.status.json` model.
   A failure carries the exception type and traceback, and a batch that dies part-way

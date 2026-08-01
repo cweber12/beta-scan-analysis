@@ -26,6 +26,7 @@ from typing import Any, NamedTuple
 import numpy as np
 import pandas as pd
 
+from . import floors
 from .detector_attempts import parse_detector_attempts
 from .discovery import _iter_video_dirs, _load_json, _pair_stems, _unwrap
 from .detector_attempts import (
@@ -440,9 +441,17 @@ class PoseRun(NamedTuple):
     #
     # ``config_hash`` is the **arm** — the experimental condition — and ``pass_index`` which
     # repeat of it this run is. Both are empty for scanner runs, which have no arm.
+    #
+    # ``config`` is the block the hash was taken over, kept alongside it because a hash is
+    # a grouping key and not a description: a reader comparing two arms needs to see *which
+    # factor differs*, and reconstructing that from a 16-hex digest is impossible. It is
+    # read for display only — grouping is always on the hash, never on the block (issue
+    # #164).
     origin: str = ORIGIN_SCANNER
     config_hash: str = ""
     pass_index: int | None = None
+    config: dict[str, Any] | None = None
+    sampled_frames: int | None = None
 
 
 # The corpus-wide cache of them, keyed ``(route_folder, video_key)``. Four derivations
@@ -505,6 +514,11 @@ def _load_pose_runs(video_dir: Path) -> dict[str, PoseRun]:
         # already groups builds instead of adding a second axis nobody's readers know about.
         experiment = diagnostics.get("experiment") or {}
         pass_index = experiment.get("passIndex")
+        # How many frames this run actually scored. Runs sample ``12·√n`` of the Bundle's
+        # truth grid, and a run written before the sweep landed carries no count — which
+        # matters, because two runs of one arm over *different* frame sets are not repeats
+        # and must not be read as a variance floor.
+        sampled = experiment.get("frameCount")
         out[run_ts] = PoseRun(
             app_version=str(diagnostics.get("appVersion") or ""),
             frames=data.get("frames", []) or [],
@@ -517,6 +531,9 @@ def _load_pose_runs(video_dir: Path) -> dict[str, PoseRun]:
             origin=str(diagnostics.get("origin") or ORIGIN_SCANNER),
             config_hash=str(experiment.get("configHash") or ""),
             pass_index=pass_index if isinstance(pass_index, int) else None,
+            config=experiment.get("config") if isinstance(
+                experiment.get("config"), dict) else None,
+            sampled_frames=sampled if isinstance(sampled, int) else None,
         )
     return out
 
@@ -584,6 +601,12 @@ def _arm_groups(
     into the observational corpus it exists to escape (issue #149's failure mode).
 
     ``passIndex`` rides along so a repeat set is visible as repeats rather than as arms.
+
+    Each row also carries the run's **outcomes** (issue #164): agreement PCK first, because
+    that is the primary outcome an arm comparison is read on, plus coverage, the frame-class
+    shares the harness can produce, and the funnel/crop metrics it structurally cannot.
+    The absent ones are carried as ``None`` rather than 0 — a detector that emits no
+    Detector Attempt stream has not rejected nothing, it has not been asked.
     """
 
     rows: list[dict[str, Any]] = []
@@ -591,33 +614,567 @@ def _arm_groups(
         run = _pose_run_cached(rec, pose_cache)
         if run is None:
             continue
-        agreement = rec.data.get("agreement") or {}
-        pck = ((agreement.get("aggregate") or {}).get("pck") or {}).get("value")
-        rows.append({
+        row = {
             "origin": record_origin(rec, origins),
             "config_hash": run.config_hash,
+            "arm": _arm_factor_label(run.config),
+            # How many preprocessing steps the arm applies. Carried as data rather than
+            # inferred from the rendered label, because the baseline arm is chosen on it
+            # and a selection that depended on prose would move whenever the prose did.
+            "preprocess_steps": _preprocess_step_count(run.config),
             "app_version": run.app_version,
             "route_folder": rec.route_folder,
             "video_key": rec.video_key,
             "run_ts": rec.run_ts,
             "pass_index": run.pass_index,
+            "sampled_frames": run.sampled_frames,
             "truth_hash": rec.truth_hash,
-            "pck": pck,
             "conforms": record_conforms(rec.data),
-        })
+            "trusted": record_trusted(rec.data),
+        }
+        row.update(_arm_outcomes(rec.data))
+        rows.append(row)
     if not rows:
-        return pd.DataFrame(columns=[
-            "origin", "config_hash", "app_version", "route_folder", "video_key",
-            "run_ts", "pass_index", "truth_hash", "pck", "conforms"])
+        return pd.DataFrame(columns=_ARM_COLUMNS)
     return pd.DataFrame(rows).sort_values(
         ["origin", "config_hash", "route_folder", "video_key", "pass_index"]
     ).reset_index(drop=True)
+
+
+# Every column ``_arm_groups`` emits, so an empty corpus produces an empty frame of the
+# right shape rather than one downstream consumers have to special-case.
+_ARM_COLUMNS = [
+    "origin", "config_hash", "arm", "preprocess_steps", "app_version", "route_folder",
+    "video_key", "run_ts", "pass_index", "sampled_frames", "truth_hash",
+    "conforms", "trusted",
+    "pck", "coverage_rate", "norm_dist_median", "scoreable_frames",
+    "class_ok_share", "class_hallucination_fp_share", "class_flipped_rotated_share",
+    "class_wrong_subject_share", "class_distorted_share",
+] + list(floors.FUNNEL_FLOOR_KEYS)
+
+
+def _arm_factor_label(config: dict[str, Any] | None) -> str:
+    """The arm's factors as prose — ``mode 1 · contrast(1.5) · crop:tracked``.
+
+    A ``configHash`` is a grouping key, not a description. Two arms that differ are
+    guaranteed to carry different digests, but no reader can see *which factor* differs
+    from ``26f1333d`` versus ``e1ddb710``, and "which settings work for which videos" is
+    precisely the question this reporting exists to answer. So the block the hash was taken
+    over is rendered beside it.
+
+    Deliberately built from whatever keys the block holds rather than a fixed list: a
+    factor added later (a new preprocessing step, a delegate, a resolution) shows up in the
+    label the moment it shows up in the stamp, instead of being silently invisible until
+    someone remembers to extend this. Unknown keys print as ``key=value``.
+    """
+
+    if not isinstance(config, dict) or not config:
+        return ""
+    parts: list[str] = []
+    mode = config.get("mode")
+    if mode is not None:
+        parts.append(f"mode {mode}")
+    steps = config.get("preprocess")
+    if isinstance(steps, list):
+        if not steps:
+            parts.append("no preprocessing")
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            params = step.get("params") if isinstance(step.get("params"), dict) else {}
+            args = ", ".join(f"{k}={_trim_num(v)}" for k, v in sorted(params.items()))
+            parts.append(f"{step.get('name') or 'step'}({args})" if args
+                         else str(step.get("name") or "step"))
+    crop = config.get("crop")
+    if crop is not None:
+        parts.append(f"crop:{crop}")
+    for key in sorted(config):
+        # Identity of the *build*, not of the condition: the module version, the model pin
+        # and the crop trajectory all belong in the hash (a change to any of them changes
+        # the output) but they are constant across a comparison and would drown the label.
+        if key in {"mode", "preprocess", "crop", "moduleVersion", "origin",
+                   "modelSha", "cropTrackHash"}:
+            continue
+        parts.append(f"{key}={config[key]}")
+    return " · ".join(parts)
+
+
+def _preprocess_step_count(config: dict[str, Any] | None) -> int:
+    """How many pixel filters the arm applies. An unstamped arm counts as 0."""
+
+    steps = (config or {}).get("preprocess")
+    return len(steps) if isinstance(steps, list) else 0
+
+
+def _trim_num(v: Any) -> str:
+    """``1.5`` not ``1.5000000000000002``; ``-20`` not ``-20.0``."""
+
+    if isinstance(v, float):
+        return f"{v:g}"
+    return str(v)
+
+
+def _share(counts: Any, key: str) -> float | None:
+    """One count as a share of its group's total, or ``None`` when nothing was counted.
+
+    ``None`` and 0.0 are different answers and the difference decides how a row reads: a
+    funnel with no attempts at all has no accepted *share*, and printing 0.0 would claim
+    the detector accepted nothing.
+    """
+
+    if not isinstance(counts, dict):
+        return None
+    total = sum(v for v in counts.values() if isinstance(v, (int, float)))
+    value = counts.get(key)
+    if not total or not isinstance(value, (int, float)):
+        return None
+    return float(value) / float(total)
+
+
+def _arm_outcomes(data: dict[str, Any]) -> dict[str, Any]:
+    """One run's outcome metrics, keyed to match ``floors.SCANNER_FLOORS``.
+
+    Keys line up with the floor registry on purpose, so the report looks a floor up by
+    column name instead of matching prose — the coupling that stops a metric from being
+    displayed without the noise it should be read against.
+    """
+
+    agg = ((data.get("agreement") or {}).get("aggregate") or {})
+    frames = ((data.get("agreement") or {}).get("frames") or {})
+    fq = data.get("frameQuality") or {}
+    rejection = fq.get("rejectionCorrectness") or {}
+    crop = data.get("cropQuality") or {}
+    classes = fq.get("classCounts") or {}
+    statuses = fq.get("detectorAttemptStatusCounts") or {}
+    misses = crop.get("missCauseCounts") or {}
+    return {
+        "pck": (agg.get("pck") or {}).get("value"),
+        "coverage_rate": (agg.get("coverage") or {}).get("rate"),
+        "norm_dist_median": (agg.get("normDist") or {}).get("median"),
+        "scoreable_frames": frames.get("scoreable"),
+        "class_ok_share": _share(classes, "ok"),
+        "class_hallucination_fp_share": _share(classes, "hallucination-fp"),
+        "class_flipped_rotated_share": _share(classes, "flipped-rotated"),
+        "class_wrong_subject_share": _share(classes, "wrong-subject"),
+        "class_distorted_share": _share(classes, "distorted"),
+        # Funnel-derived. Structurally absent on a harness arm — the harness emits no
+        # Detector Attempt stream — and ``_share`` returns None rather than 0 for that.
+        "funnel_accepted_share": _share(statuses, "accepted"),
+        "funnel_missing_share": _share(statuses, "missing"),
+        "funnel_flip_rejected_share": _share(statuses, "flipRejected"),
+        "over_rejection_rate": rejection.get("overRejectionRate"),
+        "over_rejection_rate_truth_present": rejection.get("overRejectionRateTruthPresent"),
+        "crop_contained_rate": (crop.get("cropContainedTruth") or {}).get("rate"),
+        "crop_iou_median": (crop.get("detectionRegionIou") or {}).get("median"),
+        "miss_no_candidates_share": _share(misses, "no-candidates"),
+        "miss_identity_gated_share": _share(misses, "identity-gated"),
+        "miss_climber_absent_share": _share(misses, "climber-absent"),
+    }
 
 
 def _pose_run_cached(rec: EvalRecord, pose_cache: PoseRunCache) -> PoseRun | None:
     """The cached pose run for a record, without touching disk. ``None`` if absent."""
 
     return pose_cache.get((rec.route_folder, rec.video_key), {}).get(rec.run_ts)
+
+
+# --------------------------------------------------------------------------- #
+# Arm-versus-arm reporting (issue #164)
+#
+# The corpus this PRD exists to escape produced pooled numbers that could not be
+# attributed, and a pooled mean is exactly the shape that failure takes. Every derivation
+# below is therefore **per Bundle first**, with the pooled figure printed beside the spread
+# rather than instead of it: tracked-crop detection ranged 59–100% across six Bundles, so a
+# pooled median of 81% describes none of them.
+# --------------------------------------------------------------------------- #
+
+def _arm_bundle_pck(arms: pd.DataFrame) -> pd.DataFrame:
+    """One row per (arm, Bundle): the PCK for that condition on that video.
+
+    An arm may hold several runs on one Bundle. Two legitimate reasons and one illegitimate
+    one, and they must not be confused:
+
+    - **repeats** (``passIndex`` 0,1,2…) — which on this detector are byte-identical, so
+      their PCK range is 0 and collapsing them loses nothing;
+    - **the same arm re-run over a different frame set** — a full-grid proof run and a
+      ``12·√n`` sampled batch carry the same stamp because the arm identity deliberately
+      does not name the frame set. Those are *not* repeats, and the spread column is what
+      exposes it.
+
+    So the runs are collapsed to a median with the range kept beside it, and the range is
+    the tripwire: on a bit-deterministic detector it must be exactly 0.
+    """
+
+    if arms.empty:
+        return pd.DataFrame(columns=[
+            "origin", "config_hash", "arm", "preprocess_steps", "route_folder",
+            "video_key", "truth_hash", "runs", "pck", "pck_range", "sampled_frames",
+            "frame_sets", "conforms", "trusted"])
+    rows: list[dict[str, Any]] = []
+    group_cols = ["origin", "config_hash", "route_folder", "video_key", "truth_hash"]
+    for keys, g in arms.groupby(group_cols, dropna=False):
+        vals = [float(v) for v in g["pck"] if isinstance(v, (int, float)) and pd.notna(v)]
+        samples = {int(v) for v in g["sampled_frames"]
+                   if isinstance(v, (int, float)) and pd.notna(v)}
+        rows.append({
+            **dict(zip(group_cols, keys)),
+            "arm": str(g["arm"].iloc[0]),
+            "preprocess_steps": int(g["preprocess_steps"].iloc[0]),
+            "runs": int(len(g)),
+            "pck": float(np.median(vals)) if vals else None,
+            "pck_range": (max(vals) - min(vals)) if len(vals) > 1 else (0.0 if vals else None),
+            "sampled_frames": (sorted(samples)[0] if len(samples) == 1 else None),
+            "frame_sets": int(len(samples)),
+            "conforms": bool(g["conforms"].all()),
+            "trusted": bool(g["trusted"].all()),
+        })
+    return pd.DataFrame(rows).sort_values(
+        ["origin", "config_hash", "route_folder", "video_key"]).reset_index(drop=True)
+
+
+def _arm_overview(per_bundle: pd.DataFrame) -> pd.DataFrame:
+    """One row per arm: how many Bundles it ran, and the **spread** of PCK across them.
+
+    The pooled median is printed, but never alone. "Which settings work for which videos"
+    cannot be answered by a central value, and the min/max columns are what stop a reader
+    from taking one.
+    """
+
+    cols = ["origin", "config_hash", "arm", "bundles", "runs", "pck_median",
+            "pck_min", "pck_max", "pck_spread", "conforming_bundles"]
+    if per_bundle.empty:
+        return pd.DataFrame(columns=cols)
+    rows: list[dict[str, Any]] = []
+    for (origin, cfg), g in per_bundle.groupby(["origin", "config_hash"], dropna=False):
+        vals = [float(v) for v in g["pck"] if isinstance(v, (int, float)) and pd.notna(v)]
+        rows.append({
+            "origin": origin,
+            "config_hash": cfg,
+            "arm": str(g["arm"].iloc[0]),
+            "bundles": int(len(g)),
+            "runs": int(g["runs"].sum()),
+            "pck_median": float(np.median(vals)) if vals else None,
+            "pck_min": min(vals) if vals else None,
+            "pck_max": max(vals) if vals else None,
+            "pck_spread": (max(vals) - min(vals)) if vals else None,
+            "conforming_bundles": int(g["conforms"].sum()),
+        })
+    return pd.DataFrame(rows).sort_values(
+        ["origin", "pck_median"], ascending=[True, False]).reset_index(drop=True)
+
+
+def _arm_baseline(per_bundle: pd.DataFrame, origin: str) -> str:
+    """Which arm the deltas are measured *against*, within one origin.
+
+    The reference is the arm applying the **fewest preprocessing steps** — the untouched
+    condition every other arm was built from — then the one that ran on the most Bundles,
+    so the comparison has the widest shared set. Ties break on the hash: arbitrary, but
+    stable across runs of the report, which matters more than which arbitrary answer.
+
+    Selected on the step *count* rather than on the rendered label: a baseline that
+    depended on prose would move whenever the prose did.
+
+    Returned rather than assumed, and named in the output, because "improved by 0.04"
+    means nothing without saying over what.
+    """
+
+    scope = per_bundle[per_bundle["origin"] == origin]
+    if scope.empty:
+        return ""
+    ranked = sorted(
+        scope.groupby("config_hash"),
+        key=lambda kv: (int(kv[1]["preprocess_steps"].iloc[0]), -len(kv[1]), str(kv[0])),
+    )
+    return str(ranked[0][0])
+
+
+def _arm_deltas(per_bundle: pd.DataFrame) -> pd.DataFrame:
+    """Every arm against its origin's baseline arm, **paired on shared Bundles**.
+
+    Paired, not a difference of pooled means. Bundles differ from each other far more than
+    arms differ on one Bundle — the 59–100% spread again — so a pooled difference over
+    non-identical Bundle sets measures which videos each arm happened to run on. Only
+    Bundles *both* arms ran contribute, and a pair with no shared Bundle yields no row at
+    all rather than a number that looks like a comparison.
+
+    The delta's uncertainty is not the absolute's. Both arms scored the same ``12·√n``
+    frames of the same Bundle against the same truth, so the sampling error is a shared
+    offset that largely cancels; what remains is compared against its p90 anyway, as the
+    conservative bar for "could this be nothing?".
+    """
+
+    cols = ["origin", "config_hash", "arm", "baseline_hash", "baseline_arm",
+            "route_folder", "video_key", "pck", "baseline_pck", "delta_pck",
+            "below_sampling_error", "conforms"]
+    if per_bundle.empty:
+        return pd.DataFrame(columns=cols)
+    rows: list[dict[str, Any]] = []
+    for origin, scope in per_bundle.groupby("origin", dropna=False):
+        base_hash = _arm_baseline(scope, str(origin))
+        base = scope[scope["config_hash"] == base_hash]
+        base_pck = {(r.route_folder, r.video_key): r.pck for r in base.itertuples()}
+        base_arm = str(base["arm"].iloc[0]) if not base.empty else ""
+        for cfg, g in scope.groupby("config_hash", dropna=False):
+            if cfg == base_hash:
+                continue
+            for r in g.itertuples():
+                bundle = (r.route_folder, r.video_key)
+                if bundle not in base_pck:
+                    continue                      # not a comparison; say nothing
+                bp, ap = base_pck[bundle], r.pck
+                delta = (float(ap) - float(bp)) if (
+                    isinstance(ap, (int, float)) and isinstance(bp, (int, float))
+                    and pd.notna(ap) and pd.notna(bp)) else None
+                rows.append({
+                    "origin": origin,
+                    "config_hash": cfg,
+                    "arm": str(g["arm"].iloc[0]),
+                    "baseline_hash": base_hash,
+                    "baseline_arm": base_arm,
+                    "route_folder": r.route_folder,
+                    "video_key": r.video_key,
+                    "pck": ap,
+                    "baseline_pck": bp,
+                    "delta_pck": delta,
+                    "below_sampling_error": floors.below_sampling_error(delta),
+                    "conforms": bool(r.conforms),
+                })
+    if not rows:
+        return pd.DataFrame(columns=cols)
+    return pd.DataFrame(rows).sort_values(
+        ["origin", "config_hash", "route_folder", "video_key"]).reset_index(drop=True)
+
+
+def _arm_delta_summary(deltas: pd.DataFrame) -> pd.DataFrame:
+    """Each arm's delta pooled over its shared Bundles — with the per-video spread.
+
+    Pooled *last* and never alone. An arm that helps one video by 0.10 and hurts another by
+    0.10 has a pooled delta of zero and is not a null result, and the min/max columns are
+    the only thing that distinguishes the two.
+    """
+
+    cols = ["origin", "config_hash", "arm", "baseline_hash", "baseline_arm",
+            "shared_bundles", "delta_median", "delta_min", "delta_max",
+            "bundles_improved", "bundles_regressed", "bundles_below_sampling_error",
+            "all_below_sampling_error"]
+    if deltas.empty:
+        return pd.DataFrame(columns=cols)
+    rows: list[dict[str, Any]] = []
+    for (origin, cfg), g in deltas.groupby(["origin", "config_hash"], dropna=False):
+        vals = [float(v) for v in g["delta_pck"]
+                if isinstance(v, (int, float)) and pd.notna(v)]
+        below = [bool(v) for v in g["below_sampling_error"] if isinstance(v, (bool, np.bool_))]
+        rows.append({
+            "origin": origin,
+            "config_hash": cfg,
+            "arm": str(g["arm"].iloc[0]),
+            "baseline_hash": str(g["baseline_hash"].iloc[0]),
+            "baseline_arm": str(g["baseline_arm"].iloc[0]),
+            "shared_bundles": int(len(g)),
+            "delta_median": float(np.median(vals)) if vals else None,
+            "delta_min": min(vals) if vals else None,
+            "delta_max": max(vals) if vals else None,
+            "bundles_improved": sum(1 for v in vals if v > 0),
+            "bundles_regressed": sum(1 for v in vals if v < 0),
+            "bundles_below_sampling_error": sum(1 for v in below if v),
+            "all_below_sampling_error": bool(below) and all(below),
+        })
+    return pd.DataFrame(rows).sort_values(
+        ["origin", "delta_median"], ascending=[True, False]).reset_index(drop=True)
+
+
+def _arm_comparison_reach(
+    per_bundle: pd.DataFrame,
+    overview: pd.DataFrame,
+    delta_summary: pd.DataFrame,
+) -> dict[str, Any]:
+    """What the comparison can and cannot support — computed, not asserted in prose.
+
+    Two ways an arm table lies while every cell in it is correct, and both are properties
+    of the *sweep design* rather than of any number:
+
+    - **Between-Bundle variation swamps the arm effect.** If the baseline arm's own PCK
+      ranges more across Bundles than any arm moves it, then "arm A beats arm B" is a
+      statement about which Bundle each ran on. The comparison is still valid — it is
+      paired — but a reader must not generalise it, and the honest way to say so is to put
+      the two magnitudes side by side.
+    - **An arm was measured on one Bundle.** A single-Bundle delta is an anecdote with a
+      decimal point. It is reported, because refusing to report it teaches nothing, but it
+      is named as resting on one video.
+
+    Neither is a defect to hide; both are what a three-Bundle sweep can honestly claim.
+    """
+
+    out: dict[str, Any] = {
+        "baseline_hash": "", "baseline_spread": None, "baseline_arm": "",
+        "baseline_bundles": 0, "max_abs_delta": None, "max_abs_delta_arm": "",
+        "deltas_under_spread": 0, "delta_arms": 0, "single_bundle_arms": 0,
+        "uncomparable_arms": [],
+    }
+    if per_bundle.empty:
+        return out
+    if not delta_summary.empty:
+        base_hash = str(delta_summary["baseline_hash"].iloc[0])
+        out["baseline_arm"] = str(delta_summary["baseline_arm"].iloc[0])
+    else:
+        base_hash = _arm_baseline(per_bundle, str(per_bundle["origin"].iloc[0]))
+        row = overview[overview["config_hash"] == base_hash]
+        out["baseline_arm"] = str(row["arm"].iloc[0]) if not row.empty else ""
+    out["baseline_hash"] = base_hash
+    base = overview[overview["config_hash"] == base_hash]
+    if not base.empty:
+        spread = base["pck_spread"].iloc[0]
+        out["baseline_spread"] = (float(spread) if isinstance(spread, (int, float))
+                                  and pd.notna(spread) else None)
+        out["baseline_bundles"] = int(base["bundles"].iloc[0])
+
+    if not delta_summary.empty:
+        mags = [abs(float(v)) for v in delta_summary["delta_median"]
+                if isinstance(v, (int, float)) and pd.notna(v)]
+        out["max_abs_delta"] = max(mags) if mags else None
+        if mags:
+            out["max_abs_delta_arm"] = str(
+                delta_summary.loc[delta_summary["delta_median"].abs().idxmax(), "arm"])
+        out["delta_arms"] = int(len(delta_summary))
+        spread = out["baseline_spread"]
+        if spread is not None:
+            out["deltas_under_spread"] = sum(1 for m in mags if m < spread)
+        out["single_bundle_arms"] = int((delta_summary["shared_bundles"] == 1).sum())
+
+    # Arms the baseline never met on a Bundle. Not a failure of the arm — a gap in the
+    # sweep — and naming it is the difference between "no effect" and "not measured".
+    compared = set(delta_summary["config_hash"]) if not delta_summary.empty else set()
+    for cfg, g in per_bundle.groupby("config_hash", dropna=False):
+        if cfg == base_hash or cfg in compared:
+            continue
+        out["uncomparable_arms"].append({
+            "config_hash": str(cfg),
+            "arm": str(g["arm"].iloc[0]),
+            "bundles": int(len(g)),
+        })
+    return out
+
+
+def _arm_repeat_checks(per_bundle: pd.DataFrame) -> list[dict[str, Any]]:
+    """(arm, Bundle) groups whose several runs are not the repeats they look like.
+
+    This check exists because the harness floor is *exactly* 0. On a bit-deterministic
+    detector, two runs of one arm on one Bundle must agree to the last digit, so any
+    nonzero range is not noise — it is evidence that the two runs are not the same
+    measurement. Two ways that happens, both real:
+
+    - the arm identity does not name the frame set (by design — that is what makes sampling
+      error common-mode), so a full-grid run and a sampled run collide under one stamp;
+    - the detector stopped being deterministic, which is what the Cycle canary (#168) is
+      for and what this would catch between canaries.
+
+    Reported as a named list rather than folded into a spread column, because a silent
+    nonzero range would be read as ordinary scatter — the exact misreading the zero floor
+    exists to prevent.
+    """
+
+    if per_bundle.empty:
+        return []
+    out: list[dict[str, Any]] = []
+    for r in per_bundle.itertuples():
+        if int(r.runs) < 2:
+            continue
+        rng = r.pck_range
+        if not isinstance(rng, (int, float)) or pd.isna(rng) or rng == 0.0:
+            continue
+        out.append({
+            "origin": r.origin,
+            "config_hash": r.config_hash,
+            "arm": r.arm,
+            "route_folder": r.route_folder,
+            "video_key": r.video_key,
+            "runs": int(r.runs),
+            "pck_range": float(rng),
+            "frame_sets": int(r.frame_sets),
+            "cause": _repeat_flag_cause(int(r.frame_sets)),
+        })
+    return sorted(out, key=lambda d: -d["pck_range"])
+
+
+def _repeat_flag_cause(frame_sets: int) -> str:
+    """Why an (arm, Bundle) group's runs disagree, as far as the stamps can establish it.
+
+    Three answers, and the third is the honest one most of the time: runs written before
+    the sweep recorded ``frameCount`` carry no frame count at all, so "these ran over
+    different frames" and "the detector moved" are indistinguishable from the stamp alone.
+    Saying so beats picking whichever is more flattering.
+    """
+
+    if frame_sets > 1:
+        return ("differing frame counts — the arm stamp does not name the sampled frames "
+                "by design, so these runs are not repeats")
+    if frame_sets == 1:
+        return ("same frame count, differing result — either the same-sized sample covered "
+                "different frames, or the detector is no longer deterministic")
+    return ("no frame count stamped on either run, so the stamps cannot say whether these "
+            "ran over the same frames; re-run under the current module to find out")
+
+
+# Video Stats source stats (issue #23) worth carrying into an arm comparison. Phase-1
+# whole-frame statistics out of ``metadata.json``, stamped at download and therefore
+# **never stale** — unlike the phase-2 region stats, which carry a ``setupHash`` and go
+# stale exactly as Ground Truth does when recalibration mints a new one.
+_ARM_SOURCE_STAT_PATHS = {
+    "luma_mean": ("luma", "mean"),
+    "rms_contrast": ("rmsContrast",),
+    "sharpness_mean": ("sharpness", "mean"),
+    "frame_diff_mean": ("frameDiff", "mean"),
+}
+
+
+def _arm_video_stats(analysis_root: Path, per_bundle: pd.DataFrame) -> pd.DataFrame:
+    """The Video Stats condition Predictors for every Bundle an arm ran on.
+
+    Without this an arm result is a property of the four videos that happened to be in the
+    sweep. With it, a finding can be *stated as a condition* — "contrast preprocessing helps
+    on low-contrast walls" generalises; "contrast preprocessing helps on planet-x" does not.
+
+    Phase-1 source stats and phase-2 region stats are both carried, and the region stats
+    carry their staleness with them: a ``setupHash`` that no longer matches the Bundle's
+    setup means those columns describe a crop that has since moved.
+    """
+
+    cols = (["route_folder", "video_key", "arms", "vs_stale"]
+            + list(_ARM_SOURCE_STAT_PATHS) + list(_VS_CONDITION_PATHS))
+    if per_bundle.empty:
+        return pd.DataFrame(columns=cols)
+    rows: list[dict[str, Any]] = []
+    for (route, key), g in per_bundle.groupby(["route_folder", "video_key"], dropna=False):
+        video_dir = analysis_root / str(route) / str(key)
+        metadata, setup = _bundle_meta(video_dir)
+        source = metadata.get("video_stats") if isinstance(metadata, dict) else None
+        row: dict[str, Any] = {
+            "route_folder": route,
+            "video_key": key,
+            "arms": int(g["config_hash"].nunique()),
+        }
+        for name, path in _ARM_SOURCE_STAT_PATHS.items():
+            cur: Any = source
+            for k in path:
+                cur = cur.get(k) if isinstance(cur, dict) else None
+            row[name] = float(cur) if isinstance(cur, (int, float)) else None
+        row.update(_video_stats_conditions(video_dir))
+        stats_doc = video_dir / "video-stats.json"
+        if stats_doc.exists():
+            try:
+                doc = _load_json(stats_doc)
+            except Exception:
+                doc = {}
+            row["vs_stale"] = bool(
+                (doc.get("setupHash") or "") != (setup.get("setupHash") or ""))
+        else:
+            row["vs_stale"] = None
+        rows.append(row)
+    out = pd.DataFrame(rows)
+    for c in cols:
+        if c not in out.columns:
+            out[c] = None
+    return out[cols].sort_values(["route_folder", "video_key"]).reset_index(drop=True)
 
 
 def _bundle_meta(video_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -2517,6 +3074,15 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     all_recs = [r for r in all_on_disk if record_origin(r, origins) == ORIGIN_SCANNER]
     experiment_arms = _arm_groups(harness_recs, origins, pose_cache)
     origin_populations = _origin_populations(all_on_disk, origins)
+    # Arm-versus-arm reporting (issue #164), built per Bundle first and pooled only after,
+    # so the spread is always available to print beside a central value.
+    arm_bundles = _arm_bundle_pck(experiment_arms)
+    arm_overview = _arm_overview(arm_bundles)
+    arm_deltas = _arm_deltas(arm_bundles)
+    arm_delta_summary = _arm_delta_summary(arm_deltas)
+    arm_repeat_flags = _arm_repeat_checks(arm_bundles)
+    arm_video_stats = _arm_video_stats(analysis_root, arm_bundles)
+    arm_reach = _arm_comparison_reach(arm_bundles, arm_overview, arm_delta_summary)
     # Issue #15 gate: quarantine non-conforming bundles (truth mis-tracking) from
     # every *pooled* derivation below. Issue #44: best-overlap loose pairings are
     # likewise held out of the trusted pool (their setupHash never matched the truth).
@@ -2627,6 +3193,16 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "experiment_arm_count": int(experiment_arms["config_hash"].nunique())
                                 if not experiment_arms.empty else 0,
         "experiment_run_count": int(len(experiment_arms)),
+        # Issue #164: the arm comparison itself. Per-Bundle first, pooled after, with the
+        # uncertainty each number should be read against travelling beside it.
+        "arm_bundles": arm_bundles,
+        "arm_overview": arm_overview,
+        "arm_deltas": arm_deltas,
+        "arm_delta_summary": arm_delta_summary,
+        "arm_repeat_flags": arm_repeat_flags,
+        "arm_video_stats": arm_video_stats,
+        "arm_bundle_count": int(len(arm_bundles)),
+        "arm_reach": arm_reach,
         "evidence_generation_trusted": evidence_trusted,
         "evidence_generation_frames": evidence_frames,
         "measurement_basis_trusted": basis_trusted,
@@ -2720,6 +3296,13 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         # population each pooled section drew on.
         "eval_experiment_arms.csv": ctx.get("experiment_arms"),
         "eval_origin_populations.csv": ctx.get("origin_populations"),
+        # Issue #164: the arm comparison, exported per Bundle as well as pooled — the
+        # per-video files are the ones that answer "which settings work for which videos".
+        "eval_arm_bundles.csv": ctx.get("arm_bundles"),
+        "eval_arm_overview.csv": ctx.get("arm_overview"),
+        "eval_arm_deltas.csv": ctx.get("arm_deltas"),
+        "eval_arm_delta_summary.csv": ctx.get("arm_delta_summary"),
+        "eval_arm_video_stats.csv": ctx.get("arm_video_stats"),
         "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
         "eval_frame_quality_absence_reasons.csv": ctx.get("frame_quality_absence_reasons"),
         "eval_stale_truth_worklist.csv": stale_truth_df,
