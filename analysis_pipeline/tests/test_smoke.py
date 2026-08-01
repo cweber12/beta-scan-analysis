@@ -2772,7 +2772,7 @@ def _arm_frames(n_bad: int, n: int = 25) -> list:
 
 
 def _arm_bundle(root: Path, name: str, arms: list[tuple], base_ts: str | None = None,
-                route: str = "routeARM") -> Path:
+                route: str = "routeARM", truth_frames: int = 25) -> Path:
     """One Bundle with truth and a set of harness Runs.
 
     ``arms`` is ``(config_hash, config, pass_index, n_bad, frame_count)`` per Run.
@@ -2781,6 +2781,12 @@ def _arm_bundle(root: Path, name: str, arms: list[tuple], base_ts: str | None = 
     window join reads (issue #176). Left ``None`` the ids stay in the older shape, which is
     exactly what an ``unplaceable`` run looks like to that join, so both cases are
     reachable from this one fixture.
+
+    ``truth_frames`` sizes the grid, and the default of 25 is deliberately a grid the
+    ``12·√n`` rule does not shrink (12·√25 = 60 > 25, so the sample *is* the grid). Raising
+    it past 144 is what makes the two distinguishable, which is what the #178 frame-set
+    check needs — and the stamped ``frame_count`` is independent of both, exactly as it is
+    on disk, so a run can claim any frame set the test needs it to.
     """
 
     vdir = root / route / name
@@ -2796,7 +2802,8 @@ def _arm_bundle(root: Path, name: str, arms: list[tuple], base_ts: str | None = 
     (vdir / "ground-truth.json").write_text(json.dumps({
         "version": 1, "jointSet": list(_TRUTH_JOINTS), "setupHash": f"sh_{name}",
         "groundTruthHash": f"arm{name}"[:16].ljust(16, "0"),
-        "frames": [_truth_frame(i, float(i), True) for i in range(1, 26)],
+        "frames": [_truth_frame(i, float(i), True)
+                   for i in range(1, truth_frames + 1)],
     }), encoding="utf-8")
     (vdir / "video-stats.json").write_text(json.dumps({
         "setupHash": f"sh_{name}",
@@ -3054,6 +3061,81 @@ def test_repeats_that_disagree_are_named_because_the_harness_floor_is_zero():
         assert flags[0]["pck_range"] > 0.0
         assert flags[0]["frame_sets"] == 2
         assert "not repeats" in flags[0]["cause"]
+
+
+def test_a_cli_driven_sweep_is_caught_by_its_stamps_not_by_a_collision():
+    """Issue #178. The repeat check above needs a sampled run and a full-grid run to collide
+    on one (arm, Bundle) before it can fire. A sweep driven from the CLI over Bundles with
+    no prior sampled run produces runs that are internally consistent, mutually comparable,
+    and silently non-comparable to the rest of the corpus — no collision, nothing fires. So
+    the frame set is checked against what each Bundle *prescribes*, one run at a time."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # 400 truth frames, so the rule prescribes 12·root(400) = 240. Both runs scored the
+        # whole grid, and no two share an (arm, Bundle): the blind spot exactly.
+        for name in ("vidCLI1", "vidCLI2"):
+            _arm_bundle(root, name,
+                        [("base000000000001", _ARM_BASELINE_CONFIG, 0, 4, 400)],
+                        truth_frames=400)
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        assert ctx["arm_repeat_flags"] == [], "no collision — the old check is blind here"
+        summary = ctx["arm_frame_set_summary"]
+        assert summary["runs"] == 2 and summary["matches"] == 0
+        assert summary["flagged"] == 2, "the stamps alone must be enough to catch this"
+        assert {r["status"] for r in summary["flagged_runs"]} == {trends.FRAME_SET_FULL_GRID}
+        assert {r["expected_frames"] for r in summary["flagged_runs"]} == {240}
+        # Reported at the arm, which is the level the damage lands at: every delta computed
+        # against this hash is partly a frame-set artifact.
+        affected = summary["arms_affected"]
+        assert [a["config_hash"] for a in affected] == ["base000000000001"]
+        assert affected[0]["whole_arm"] is True, (
+            "an arm entirely off the rule is the dangerous shape — internally consistent "
+            "and comparable to nothing else")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        # The same sweep run properly: 240 of 400, which is what run_batch produces.
+        _arm_bundle(root, "vidOK", [("base000000000001", _ARM_BASELINE_CONFIG, 0, 4, 240)],
+                    truth_frames=400)
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+        summary = ctx["arm_frame_set_summary"]
+        assert summary["flagged"] == 0 and summary["matches"] == 1
+        assert summary["arms_affected"] == []
+        assert summary["coefficient"] == trends.HARNESS_SAMPLE_COEFFICIENT
+
+
+def test_runs_predating_the_frame_count_stamp_are_unknown_not_mismatched():
+    """A run written before the sweep recorded ``frameCount`` carries none, so its frame set
+    cannot be established either way. Reading that as a mismatch would manufacture findings
+    out of the historical corpus — the same distinction ``_repeat_flag_cause`` already draws
+    between "these ran over different frames" and "the stamps cannot say"."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _arm_bundle(root, "vidNOSTAMP",
+                    [("base000000000001", _ARM_BASELINE_CONFIG, 0, 4, None)],
+                    truth_frames=400)
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+        summary = ctx["arm_frame_set_summary"]
+        assert summary["runs"] == 1
+        assert summary["unstamped"] == 1
+        assert summary["flagged"] == 0, "unknown is not wrong"
+        assert summary["arms_affected"] == []
+        row = ctx["arm_frame_sets"].iloc[0]
+        assert row["status"] == trends.FRAME_SET_UNSTAMPED
+        assert row["expected_frames"] == 240, (
+            "the expectation is still derivable — it is the run's side that is missing")
 
 
 def test_arm_comparison_reports_nothing_when_arms_share_no_bundle():

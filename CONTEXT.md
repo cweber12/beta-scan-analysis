@@ -201,6 +201,17 @@ not a spec — it carries no implementation detail.
   anything, and the repeat set does not survive the corpus reset — so the measurement is
   frozen in `floors.py` with its caveats, with `scripts/measure_variance_floor.py` kept as
   the derivation.
+- **Frame-set integrity** — the check that every harness Run scored the frame set its
+  Bundle *prescribes* (`12·√n` of its truth grid), reported per Run in the Arm section.
+  The Arm identity deliberately does **not** name the frame set — that omission is what
+  makes Sampling error common-mode and cancel in an Arm delta — so an off-rule Run carries
+  a stamp indistinguishable from an on-rule one, and any delta computed across the mismatch
+  is partly a frame-set artifact. Checked against each Run's stamped `frameCount`, so it
+  needs no second Run to disagree with: this is the half the repeat-integrity check (#164)
+  cannot reach, which only fires when a sampled Run and a full-grid Run collide on one
+  (Arm, Bundle). A
+  Run predating the `frameCount` stamp reads as **unknown**, never as mismatched. See
+  issue #178.
 - **MediaPipe job status** (`mediapipe.status.json`) — the sidecar recording an
   experimental batch's `running` → `done` / `error`, on the `vitpose.status.json` model.
   A failure carries the exception type and traceback, and a batch that dies part-way

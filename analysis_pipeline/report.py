@@ -2174,6 +2174,67 @@ def _arm_repeat_flag_html(flags: Any) -> str:
         f"<tbody>{rows}</tbody></table></div>")
 
 
+def _arm_frame_set_html(summary: Any) -> str:
+    """Runs whose stamped frame count is not the one their Bundle prescribes (issue #178).
+
+    The generalising half of the repeat check above. That one needs a sampled run and a
+    full-grid run to *collide* on one (arm, Bundle) before it can fire; this one compares
+    each run against its Bundle's ``12·√n`` and therefore catches a whole sweep of runs that
+    agree with each other and with nothing else in the corpus.
+    """
+
+    if not isinstance(summary, dict) or not summary.get("runs"):
+        return ("<p class='muted'>No harness runs in scope to check a frame set on.</p>")
+
+    basis = (f"<p class='sub'>Checked against <code>{int(summary['coefficient'])}·√n</code>"
+             f" of each Bundle's truth grid, taken from {_esc(summary['coefficient_source'])}"
+             f". {int(summary['runs'])} run(s) in scope: "
+             f"{int(summary['matches'])} on the rule, {int(summary['flagged'])} off it, "
+             f"{int(summary['unstamped'])} with no <code>frameCount</code> stamped, "
+             f"{int(summary['no_truth_grid'])} on a Bundle with no readable truth grid. "
+             "The last two are <em>unknown</em>, not mismatched — the stamps cannot say, "
+             "which is a different statement from saying the run is wrong.</p>")
+
+    if not summary.get("flagged"):
+        return (basis + "<p class='muted'>Every stamped run scored exactly the frame set "
+                "its Bundle prescribes. That is what makes the arm deltas above readable: "
+                "the arm identity does not name the frame set, so two arms are only "
+                "comparable while both took the sample the Bundle determines.</p>")
+
+    arms = "".join(
+        "<tr>"
+        f"<td><code>{_esc(str(a['config_hash'])[:8])}</code></td>"
+        f"<td>{_esc(a['arm'])}</td>"
+        f"<td>{int(a['flagged_runs'])}/{int(a['runs'])}</td>"
+        f"<td>{'every run in this arm' if a['whole_arm'] else 'some runs in this arm'}</td>"
+        "</tr>"
+        for a in summary.get("arms_affected") or ())
+    runs = "".join(
+        "<tr>"
+        f"<td><code>{_esc(str(r['config_hash'])[:8])}</code></td>"
+        f"<td>{_esc(r['route_folder'])}</td><td>{_esc(r['video_key'])}</td>"
+        f"<td><code>{_esc(r['run_ts'])}</code></td>"
+        f"<td>{_fmt_int(r['frame_count'])}</td><td>{_fmt_int(r['expected_frames'])}</td>"
+        f"<td>{_esc(r['status'])}</td><td>{_esc(r['detail'])}</td></tr>"
+        for r in summary.get("flagged_runs") or ())
+    return (
+        basis
+        + "<p class='warn'>These runs scored a frame set their Bundle does not prescribe. "
+        "The arm identity deliberately does not name the frame set — that is what makes "
+        "sampling error common-mode across arms and cancel in a delta — so an off-rule run "
+        "carries a stamp indistinguishable from an on-rule one. Any delta computed across "
+        "the mismatch is partly a frame-set artifact rather than a condition effect. An arm "
+        "whose runs are <em>all</em> off the rule is the dangerous shape: internally "
+        "consistent, mutually comparable, and comparable to nothing else.</p>"
+        "<div class='tablewrap'><table><thead><tr><th>arm</th><th>factors</th>"
+        "<th>off-rule runs</th><th>reach</th></tr></thead>"
+        f"<tbody>{arms}</tbody></table></div>"
+        "<div class='tablewrap'><table><thead><tr><th>arm</th><th>route</th>"
+        "<th>bundle</th><th>run</th><th>scored</th><th>prescribed</th><th>status</th>"
+        "<th>what that means</th></tr></thead>"
+        f"<tbody>{runs}</tbody></table></div>")
+
+
 def _arm_video_stats_html(df: Any) -> str:
     """The condition Predictors behind each Bundle in the sweep."""
 
@@ -2236,6 +2297,8 @@ def _experiment_arms_html(ctx: dict[str, Any]) -> str:
         (str(ctx.get("arm_pooled_bundle_count", 0)), "pooled after the cycle rule"),
         (f"{floors.SAMPLING_ERROR.p90:.4f}", "sampling error p90 [harness]"),
         (str(len(ctx.get("arm_repeat_flags") or [])), "non-repeat collisions"),
+        (str(int((ctx.get("arm_frame_set_summary") or {}).get("flagged") or 0)),
+         "runs off the 12·√n rule"),
     ])
     if not arm_count:
         return (tiles + _cycle_rule_html(summary, swept, pooled)
@@ -2265,6 +2328,8 @@ def _experiment_arms_html(ctx: dict[str, Any]) -> str:
         return (head
                 + "<h3>Runs collected under this Cycle (not a comparison)</h3>"
                 + _arm_evidence_table(ctx.get("arm_bundles"))
+                + "<h3>Frame-set integrity</h3>"
+                + _arm_frame_set_html(ctx.get("arm_frame_set_summary"))
                 + "<h3>Repeat integrity</h3>"
                 + _arm_repeat_flag_html(ctx.get("arm_repeat_flags"))
                 + "<h3>Video Stats conditions for the swept Bundles</h3>"
@@ -2278,6 +2343,8 @@ def _experiment_arms_html(ctx: dict[str, Any]) -> str:
         + "<h3>Arm versus baseline</h3>"
         + _arm_reach_html(ctx.get("arm_reach"))
         + _arm_delta_table(ctx.get("arm_delta_summary"), ctx.get("arm_deltas"), summary)
+        + "<h3>Frame-set integrity</h3>"
+        + _arm_frame_set_html(ctx.get("arm_frame_set_summary"))
         + "<h3>Repeat integrity</h3>"
         + _arm_repeat_flag_html(ctx.get("arm_repeat_flags"))
         + "<h3>Funnel-derived metrics and their floors</h3>"

@@ -1500,7 +1500,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="MediaPipe model bundle: 0 lite, 1 full, 2 heavy.")
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     parser.add_argument("--limit", type=int, default=None,
-                        help="Sample only the first N truth timestamps (smoke runs).")
+                        help="Score only the first N frames of the chosen set (smoke runs).")
+    parser.add_argument("--full-grid", action="store_true",
+                        help="Score every truth frame instead of the 12·√n sample. A "
+                             "reference run, not a sweep run — it lands under the same arm "
+                             "stamp as a sampled run and is not comparable to one.")
     parser.add_argument("--crop", default=CROP_NONE, choices=list(CROP_POLICIES))
     parser.add_argument("--contrast", type=float, default=None, metavar="FACTOR",
                         help="Contrast step, pivoted at mid-grey (e.g. 1.5).")
@@ -1543,11 +1547,34 @@ def main(argv: Sequence[str] | None = None) -> int:
               f"arm {crop_track.track_hash(config)[:8]}  -> {path}")
         return 0
 
-    frames = truth_timestamps(bundle_dir)
-    if not frames:
+    grid = truth_timestamps(bundle_dir)
+    if not grid:
         parser.error(f"No truth artifact to take a timestamp grid from in {bundle_dir}")
+
+    # The same ``12·√n`` sample ``run_batch`` takes, and for the same reason: the arm
+    # identity deliberately does not name the frame set (see SAMPLE_COEFFICIENT), so a
+    # CLI run and a batch run of one arm are indistinguishable by stamp. Until issue #178
+    # this path took the *full* grid, which meant two runs under one hash had measured
+    # different things and the common-mode cancellation the deltas rest on quietly stopped
+    # holding. Hit for real on 2026-08-01: eleven full-grid runs produced during PR #177's
+    # arm widening, caught only by hand-computing ``12·√n``, and all eleven discarded.
+    #
+    # The full grid stays reachable, because a full-grid reference run is what the sampling
+    # error was *measured against* — but it is now an explicit request rather than the
+    # default, and it says so on the way past.
+    sampled = sample_timestamps(grid)
+    frames = grid if args.full_grid else sampled
+    if args.full_grid:
+        print(f"{len(grid)} truth frames, FULL GRID (--full-grid): a reference run. It "
+              f"stamps the same arm as a {len(sampled)}-frame sampled run and is not "
+              f"comparable to one.")
+    else:
+        print(f"{len(grid)} truth frames -> {len(sampled)} sampled ({SAMPLE_COEFFICIENT}"
+              f"·√n), matching the batch endpoint.")
     if args.limit is not None:
         frames = frames[:args.limit]
+        print(f"--limit {args.limit}: scoring the first {len(frames)} of those. A smoke "
+              f"run — not comparable to any full run of this arm.")
 
     try:
         steps = preprocess_from_options(args.contrast, args.brightness)

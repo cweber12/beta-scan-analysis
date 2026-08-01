@@ -1239,6 +1239,102 @@ def test_each_bundle_is_sampled_to_twelve_root_n():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# --------------------------------------------------------------------------- #
+# CLI frame set (issue #178) — the same invariant the batch endpoint honours
+# --------------------------------------------------------------------------- #
+
+def _cli_frames(tmp: Path, *argv: str) -> tuple[float, ...]:
+    """Run the CLI with the job stubbed out, and return the frames it asked for.
+
+    The whole defect lives in *which timestamps reach the request*, so that is what the
+    stub captures. Nothing downstream of it is exercised, and nothing needs to be.
+    """
+
+    seen: dict = {}
+
+    def fake_job(root, request, factory):
+        seen["request"] = request
+        return [{"runTs": "exp-stub", "framesDetected": 1, "seconds": 0.1}]
+
+    real = mj.run_mediapipe_job
+    mj.run_mediapipe_job = fake_job
+    try:
+        code = mj.main(["r", "a", "--analysis-root", str(tmp / "analysis"), *argv])
+    finally:
+        mj.run_mediapipe_job = real
+    assert code == 0
+    return seen["request"].frames
+
+
+def test_the_cli_samples_the_same_frame_set_the_batch_does():
+    """The #178 defect. Both paths stamp the same ``configHash`` — by design, because the
+    arm identity covers the *condition* and deliberately does not name the frame set, which
+    is what makes sampling error common-mode across arms and cancel in a delta. The CLI took
+    the full grid, so two runs under one stamp had measured different things and the
+    cancellation quietly stopped holding. Eleven runs were produced that way on 2026-08-01
+    and discarded."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        bundle = _selectable(tmp, "r", "a")
+        _truth(bundle, 400)
+        cli = _cli_frames(tmp)
+        batch = mj.run_batch(tmp / "analysis", _config(), _stub_factory(), repeats=1)
+
+        assert len(cli) == batch["bundles"][0]["sampledFrames"], (
+            "the two paths must ask for the same number of frames")
+        assert cli == mj.sample_timestamps(mj.truth_timestamps(bundle)), (
+            "and the same frames, since the set is a pure function of the Bundle")
+        assert len(cli) == 240 < 400, "12·root-400 = 240, not the 400-frame grid"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_the_full_grid_stays_reachable_but_only_by_asking():
+    """A full-grid reference run is what the sampling error was measured *against*, so the
+    capability has to survive. What changed is that it is now a deliberate request rather
+    than what you get by not knowing to ask."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        bundle = _selectable(tmp, "r", "a")
+        _truth(bundle, 400)
+        assert _cli_frames(tmp, "--full-grid") == mj.truth_timestamps(bundle)
+        assert len(_cli_frames(tmp, "--full-grid")) == 400
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_limit_keeps_its_smoke_run_meaning():
+    """``--limit`` is documented for smoke runs and stays that: the first N of whichever set
+    was chosen, cheap and prefix-shaped, under either sampling mode."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        bundle = _selectable(tmp, "r", "a")
+        _truth(bundle, 400)
+        sampled = mj.sample_timestamps(mj.truth_timestamps(bundle))
+        assert _cli_frames(tmp, "--limit", "5") == sampled[:5]
+        assert _cli_frames(tmp, "--limit", "5", "--full-grid") == \
+            mj.truth_timestamps(bundle)[:5]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_the_pipeline_mirrors_this_module_s_sampling_rule():
+    """``analysis_pipeline`` cannot import this module — it would drag ``vitpose_job`` and
+    the MediaPipe backend into a graph ADR 0003/0012 keeps them out of — so the coefficient
+    is mirrored there. A mirror nobody checks is how the frame-set check would start
+    reporting the corpus against a rule it no longer runs under."""
+
+    from analysis_pipeline import trends
+
+    assert trends.HARNESS_SAMPLE_COEFFICIENT == mj.SAMPLE_COEFFICIENT
+    for n in (0, 1, 76, 400, 851, 5977):
+        assert trends.expected_sample_size(n) == len(
+            mj.sample_timestamps(tuple(float(i) for i in range(n)))), n
+
+
 def test_a_batch_flags_when_its_bundles_did_not_share_one_arm():
     """More than one arm in a batch means the Bundles did not share a trajectory or a
     model, so the runs are not one experimental condition. Surfaced by the batch rather
