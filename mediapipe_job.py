@@ -46,6 +46,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol, Sequence
 
+import numpy
+
 import crop_track
 from vitpose_job import bundle_dir_for, resolve_video_path
 from youtube_core import generate_timestamp, save_detection_run
@@ -120,6 +122,36 @@ RUN_ID_PREFIX = "exp-"
 # between detection configs. Above this share the unflagged remainder is untrustworthy too.
 WRONG_TRUTH_MAX_SHARE = 0.20
 
+# The pixel filters, as individually addressable steps (issue #161). Each is enabled alone
+# or composed, and each carries its own parameters into the arm hash, so a two-factor arm
+# stays distinguishable from the one-factor arms it is built from — a lumped
+# ``preprocessed: true`` flag would make the factorial unreadable.
+STEP_CONTRAST = "contrast"
+STEP_BRIGHTNESS = "brightness"
+PREPROCESS_STEPS = (STEP_CONTRAST, STEP_BRIGHTNESS)
+
+# Contrast pivots at mid-grey rather than at zero, and that is what keeps the two factors
+# **separable**. A plain ``value * factor`` also raises the mean — a "contrast" arm would
+# then be measuring contrast *and* brightness at once, and a factorial over the two would
+# have its main effects tangled at the source rather than merely correlated.
+CONTRAST_PIVOT = 127.5
+
+# Parameter names and their identity value, per step. The identity value is refused rather
+# than accepted: an arm declaring ``contrast factor=1.0`` produces bytes indistinguishable
+# from baseline under a *different* stamp, which reads downstream as "the transform had no
+# effect" when what actually happened is that no transform was requested. The control level
+# for these factors is the absence of the step, which has its own stamp already.
+STEP_PARAMS = {
+    STEP_CONTRAST: ("factor", 1.0),
+    STEP_BRIGHTNESS: ("delta", 0.0),
+}
+# Ranges wide enough to include arms expected to *hurt* — the scanner side already found
+# `equalizeHist` blinding MediaPipe on the detection crop, so a preprocessing arm must be
+# able to make things worse — and narrow enough to reject a caller who confused the units
+# (a brightness delta is in 8-bit levels, not a fraction).
+CONTRAST_FACTOR_RANGE = (0.05, 8.0)
+BRIGHTNESS_DELTA_RANGE = (-255.0, 255.0)
+
 CROP_NONE = "none"
 CROP_ADAPTIVE = "adaptive"
 # Crop at the Bundle's tracked trajectory (issue #169). This is the policy that makes the
@@ -184,6 +216,122 @@ class PreprocessStep:
 
     def identity(self) -> dict[str, Any]:
         return {"name": self.name, "params": dict(sorted(self.params.items()))}
+
+
+def step_amount(step: PreprocessStep) -> float:
+    """The one parameter a step carries, validated. Raises rather than defaulting.
+
+    Three refusals, and each exists because the alternative manufactures a null result:
+
+    - **An unknown step name** raises ``NotImplementedError``, the refusal this module has
+      carried since the core slice: a step that ran as a no-op would write a run stamped
+      with a transform its pixels never saw.
+    - **An unknown parameter key** raises too, and this is the subtler one. A typo
+      (``factr``) would silently fall back to the default, so the arm stamps
+      ``factr: 1.5``, the pixels see nothing, and the experiment reports that contrast does
+      not matter. Same failure wearing a spelling mistake.
+    - **The identity value** raises, because an arm whose transform does nothing is bytes
+      identical to baseline under a different stamp. The control level is the *absence* of
+      the step.
+    """
+
+    if step.name not in STEP_PARAMS:
+        raise NotImplementedError(
+            f"Preprocessing step {step.name!r} is stamped into the arm identity but not "
+            f"implemented; {', '.join(PREPROCESS_STEPS)} run today. Refusing rather than "
+            "running it as a no-op, which would report a measured null for a transform "
+            "that never ran."
+        )
+    key, identity = STEP_PARAMS[step.name]
+    unknown = sorted(set(step.params) - {key})
+    if unknown:
+        raise ValueError(
+            f"Step {step.name!r} got unknown parameter(s) {unknown}; it takes {key!r}. "
+            f"Refusing rather than falling back to the default — a misspelled parameter "
+            f"produces an arm stamped with a strength its pixels never saw."
+        )
+    value = float(step.params.get(key, identity))
+    low, high = (CONTRAST_FACTOR_RANGE if step.name == STEP_CONTRAST
+                 else BRIGHTNESS_DELTA_RANGE)
+    if not low <= value <= high:
+        raise ValueError(
+            f"Step {step.name!r} {key}={value} is outside {low}..{high}.")
+    if value == identity:
+        raise ValueError(
+            f"Step {step.name!r} {key}={value} is the identity transform: this arm would "
+            f"produce bytes identical to baseline under a different stamp, and read as "
+            f"'the transform had no effect'. The control level is no step at all."
+        )
+    return value
+
+
+def preprocess_from_options(
+    contrast: float | None = None, brightness: float | None = None
+) -> tuple[PreprocessStep, ...]:
+    """Build the step tuple the CLI and the batch endpoint both hand to an arm.
+
+    **Contrast before brightness** when both are asked for, fixed here rather than left to
+    the caller's argument order. The two orders are different arms by design, so a flag
+    pair that silently produced one or the other depending on how it was typed would be a
+    coin-flip between two stamps. A caller who wants the other order builds the tuple
+    itself — the ordering is a factor, and choosing it should look like choosing it.
+    """
+
+    steps = []
+    if contrast is not None:
+        steps.append(PreprocessStep(STEP_CONTRAST, {"factor": float(contrast)}))
+    if brightness is not None:
+        steps.append(PreprocessStep(STEP_BRIGHTNESS, {"delta": float(brightness)}))
+    validate_preprocess(steps)
+    return tuple(steps)
+
+
+def validate_preprocess(steps: Sequence[PreprocessStep]) -> None:
+    """Check every step before anything expensive runs. Cheap, and a batch costs hours."""
+
+    for step in steps:
+        step_amount(step)
+
+
+def apply_preprocess(frame_bgr: Any, steps: Sequence[PreprocessStep]) -> Any:
+    """Apply the declared steps, **in order**, to the pixels the model is about to see.
+
+    Each step is a uint8 → uint8 function: clamped and rounded on the way out, not carried
+    at float precision to the end of the chain. That is deliberate and load-bearing.
+
+    - It makes a two-step arm *literally* the composition of the two one-step arms, which
+      is what lets a factorial be read against its own margins instead of against a
+      third thing neither arm measured.
+    - It makes the clamping happen where a reader expects it — at each step's output,
+      as an image pipeline does — rather than once at the end, which would let an
+      intermediate value that no 8-bit image could hold survive into the next step.
+
+    The two steps do not commute regardless: a scale about mid-grey and an offset have
+    different fixed points, so contrast-second *amplifies* the offset (60 levels apart on
+    a mid-tone pixel at factor 2.0). That is why ``preprocess`` keeps its declared order in
+    the arm hash, and clamping only widens the gap at the ends.
+
+    Returns the input untouched when there are no steps, so the baseline arm's pixels are
+    the decoder's own bytes and not a round-trip through this function.
+    """
+
+    if not steps:
+        return frame_bgr
+    out = frame_bgr
+    for step in steps:
+        amount = step_amount(step)
+        values = out.astype(numpy.float32)
+        if step.name == STEP_CONTRAST:
+            values = (values - CONTRAST_PIVOT) * amount + CONTRAST_PIVOT
+        else:
+            values = values + amount
+        # ``rint`` is half-to-**even**, and that is the right rounding here rather than an
+        # accident of the default. A contrast factor of 2.0 sends every integer input to a
+        # half-integer, so rounding half away from zero would brighten *every pixel in the
+        # frame* by half a level — a systematic level shift inside a step whose whole
+        # design (the mid-grey pivot) is to leave level alone.
+        out = numpy.clip(numpy.rint(values), 0, 255).astype(numpy.uint8)
+    return out
 
 
 @dataclass(frozen=True)
@@ -730,6 +878,9 @@ def run_mediapipe_job(
                 "(setup.json missing or uncalibrated); a run written without one can "
                 "never be paired with truth, so the passes would be unscoreable."
             )
+        # Before the decoder opens anything: an unrunnable arm must fail on the arm, not
+        # 84 times over as a per-Bundle error with the real reason buried in each.
+        validate_preprocess(request.config.preprocess)
         video_path = resolve_video_path(analysis_root, request.video_path)
         if not video_path.is_file():
             raise FileNotFoundError(f"Video not found: {video_path}")
@@ -1090,14 +1241,9 @@ class MediaPipeDetector:
                 f"Detector was built for mode {self._mode} but asked to run mode "
                 f"{config.mode}; the run would carry the wrong arm's stamp."
             )
-        if config.preprocess:
-            names = ", ".join(step.name for step in config.preprocess)
-            raise NotImplementedError(
-                f"Preprocessing steps ({names}) are stamped into the arm identity but not "
-                "implemented yet (PRD #156 lands them one at a time after the mode sweep). "
-                "Refusing rather than running them as a no-op, which would report a "
-                "measured null for a transform that never ran."
-            )
+        # Steps this slice implements are validated; anything else still raises, and the
+        # refusal is the same one that has always been here — see ``step_amount``.
+        validate_preprocess(config.preprocess)
         if config.crop not in (CROP_NONE, CROP_TRACKED):
             raise NotImplementedError(
                 f"Crop policy {config.crop!r} is stamped into the arm identity but not "
@@ -1105,12 +1251,20 @@ class MediaPipeDetector:
             )
 
     def _pose_region(self, landmarker, mp, cv2, names, frame_bgr,
-                     rect: tuple[float, float, float, float] | None) -> list[Keypoint]:
+                     rect: tuple[float, float, float, float] | None,
+                     steps: Sequence[PreprocessStep] = ()) -> list[Keypoint]:
         """Pose one frame, optionally restricted to ``rect``, in **full-frame** coordinates.
 
         The mapping back out is the load-bearing part: a cropped arm whose keypoints stayed
         in crop coordinates would be silently uncomparable with every uncropped arm, and the
         error would look like a detection quality difference rather than a units bug.
+
+        ``steps`` are applied **after** the crop, to the region the model actually sees —
+        which is also where the scanner applies its own filters, and where its `equalizeHist`
+        finding was measured. For the pointwise steps implemented today the order is
+        arithmetically irrelevant; for a neighbourhood step (a histogram equalisation, a
+        blur) it would not be, and whoever adds one has to decide this again rather than
+        inherit it.
         """
 
         height, width = frame_bgr.shape[:2]
@@ -1119,7 +1273,7 @@ class MediaPipeDetector:
         x1, y1 = int(x1f * width), int(y1f * height)
         if x1 - x0 < 32 or y1 - y0 < 32:
             return []
-        sub = frame_bgr[y0:y1, x0:x1]
+        sub = apply_preprocess(frame_bgr[y0:y1, x0:x1], steps)
         image = mp.Image(image_format=mp.ImageFormat.SRGB,
                          data=cv2.cvtColor(sub, cv2.COLOR_BGR2RGB))
         poses = landmarker.detect(image).pose_landmarks or []
@@ -1197,7 +1351,7 @@ class MediaPipeDetector:
                 # A decoded frame always gets a key — an empty list here means "the model
                 # saw nobody", which is a measurement and must not look like a decode gap.
                 out[timestamp] = self._pose_region(
-                    landmarker, mp, cv2, names, frame_bgr, rect)
+                    landmarker, mp, cv2, names, frame_bgr, rect, config.preprocess)
             return out
         finally:
             capture.release()
@@ -1252,6 +1406,12 @@ class MediaPipeDetector:
             def probe(timestamp, frame_bgr, cx, cy, half):
                 rect = (max(0.0, cx - half), max(0.0, cy - half),
                         min(1.0, cx + half), min(1.0, cy + half))
+                # **No preprocessing here, ever.** The trajectory is computed once per
+                # Bundle and read by every arm, which is what makes the experiment isolate
+                # pose quality given localization (#169). A contrast arm that tracked
+                # through its own filter would crop different pixels from the baseline arm,
+                # and the measured difference would be part localization and part detection
+                # with no way to separate them.
                 points = self._pose_region(
                     landmarker, mp, cv2, names, frame_bgr, rect)
                 if not points:
@@ -1334,6 +1494,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=None,
                         help="Sample only the first N truth timestamps (smoke runs).")
     parser.add_argument("--crop", default=CROP_NONE, choices=list(CROP_POLICIES))
+    parser.add_argument("--contrast", type=float, default=None, metavar="FACTOR",
+                        help="Contrast step, pivoted at mid-grey (e.g. 1.5).")
+    parser.add_argument("--brightness", type=float, default=None, metavar="DELTA",
+                        help="Brightness step, in 8-bit levels (e.g. 20 or -20).")
     parser.add_argument("--track", action="store_true",
                         help="Stage A: build the crop trajectory and exit.")
     parser.add_argument("--crop-half", type=float, default=None)
@@ -1377,6 +1541,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.limit is not None:
         frames = frames[:args.limit]
 
+    try:
+        steps = preprocess_from_options(args.contrast, args.brightness)
+    except (ValueError, NotImplementedError) as exc:
+        parser.error(str(exc))
+
     runs = run_mediapipe_job(
         analysis_root,
         DetectRequest(
@@ -1384,7 +1553,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             route_folder=args.route_folder,
             video_key=args.video_key,
             frames=frames,
-            config=DetectionConfig(mode=args.mode, crop=args.crop),
+            config=DetectionConfig(mode=args.mode, crop=args.crop, preprocess=steps),
             repeats=args.repeats,
         ),
         default_detector_factory,

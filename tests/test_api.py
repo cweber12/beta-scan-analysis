@@ -613,6 +613,8 @@ def _run_all():
         test_video_stats_decode_failure_maps_500,
         test_schema_validation_rejects_bad_payloads,
         test_mediapipe_batch_returns_202_with_its_selection,
+        test_mediapipe_batch_sweeps_a_preprocessing_arm,
+        test_mediapipe_batch_rejects_an_arm_it_could_not_run,
         test_mediapipe_batch_names_the_cycle_it_falls_inside,
         test_mediapipe_batch_refuses_a_second_batch_while_one_runs,
         test_mediapipe_batch_rejects_an_impossible_arm,
@@ -666,6 +668,41 @@ def test_mediapipe_batch_returns_202_with_its_selection():
         # Issue #168: which cycle this sweep falls inside. Null here, and null is the
         # answer worth having — a batch outside a cycle cannot be certified against drift.
         assert body["cycle"] is None
+
+
+def test_mediapipe_batch_sweeps_a_preprocessing_arm():
+    """Issue #161's capability has to be reachable from the sweep, not only one Bundle at a
+    time from the CLI — and the arm it will actually run rides in the 202, because a
+    configHash alone cannot be read back into what was swept."""
+
+    import mediapipe_job
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _mp_bundle(root, "a")
+        payload = MediaPipeBatchRequest(mode=1, contrast=1.5)
+        with patch.object(app_module, "ANALYSIS_DIR", root):
+            with patch.object(app_module.threading, "Thread"):
+                response = start_mediapipe_batch(payload)
+        body = json.loads(response.body)
+        assert body["arm"]["preprocess"] == [
+            {"name": "contrast", "params": {"factor": 1.5}}]
+        assert body["configHash"] == mediapipe_job.config_hash(payload.arm())
+        assert body["configHash"] != mediapipe_job.config_hash(
+            mediapipe_job.DetectionConfig(mode=1)), "a step must move the arm stamp"
+
+
+def test_mediapipe_batch_rejects_an_arm_it_could_not_run():
+    """Refused synchronously: the same error 84 times inside an unwatched sweep is how an
+    unrunnable arm costs a night."""
+
+    for bad in ({"contrast": 1.0}, {"brightness": 0}, {"contrast": 99.0}):
+        try:
+            MediaPipeBatchRequest(mode=1, **bad)
+        except Exception as exc:
+            assert "identity" in str(exc) or "outside" in str(exc), str(exc)
+        else:
+            raise AssertionError(f"{bad} must be refused before the sweep starts")
 
 
 def test_mediapipe_batch_names_the_cycle_it_falls_inside():
