@@ -645,6 +645,33 @@ def stamp_model_identity(
     return replace(request, config=replace(request.config, model_sha=model_sha))
 
 
+def resolve_arm(
+    bundle_dir: Path, request: DetectRequest, detector_factory: DetectorFactory
+) -> tuple[DetectRequest, Any | None]:
+    """Resolve the arm a request will actually run under, and the trajectory it crops by.
+
+    Three things a caller cannot supply and must not be trusted to: the pairing anchor, the
+    model that will run, and the crop trajectory on disk. All three are read here, before
+    any hash is taken, so the status sidecar, the run ids and every written stamp name the
+    same arm — and so the arm names what ran rather than what was declared.
+
+    Extracted so the drift canary (issue #168) resolves its arm through *this* path rather
+    than a parallel one. A canary that resolved its own identity differently would be
+    witnessing a slightly different job from the batch it is supposed to certify, which is
+    the one thing a drift instrument may not do.
+    """
+
+    if not request.setup_hash:
+        request = replace(request, setup_hash=read_setup_hash(bundle_dir))
+    request = stamp_model_identity(request, detector_factory)
+    track = crop_track.load_crop_track(bundle_dir) if request.config.crop == CROP_TRACKED \
+        else None
+    if track is not None:
+        request = replace(request, config=replace(
+            request.config, crop_track_hash=crop_track.track_hash(track.config)))
+    return request, track
+
+
 def run_mediapipe_job(
     analysis_root: Path,
     request: DetectRequest,
@@ -670,23 +697,10 @@ def run_mediapipe_job(
             f"No bundle at route={request.route_folder!r} video_key={request.video_key!r}."
         )
 
-    # Stamp the pairing anchor before anything runs. A run written without a setupHash is
-    # unscoreable, and the cost of discovering that is a whole batch.
-    if not request.setup_hash:
-        request = replace(request, setup_hash=read_setup_hash(bundle_dir))
-
-    # ...and the model identity, before the arm hash is computed for anything: the status
-    # sidecar, the run ids and every written stamp must all name the same arm.
-    request = stamp_model_identity(request, detector_factory)
-
-    # The crop trajectory is the third thing the arm is a function of (issue #169). Loaded
-    # here and stamped before any hash is taken, for the same reason: a run cropped by one
-    # trajectory and stamped as another is unattributable.
-    track = crop_track.load_crop_track(bundle_dir) if request.config.crop == CROP_TRACKED \
-        else None
-    if track is not None:
-        request = replace(request, config=replace(
-            request.config, crop_track_hash=crop_track.track_hash(track.config)))
+    # The pairing anchor, the model identity and the crop trajectory — all three resolved
+    # before the arm hash is computed for anything, so the status sidecar, the run ids and
+    # every written stamp name the same arm.
+    request, track = resolve_arm(bundle_dir, request, detector_factory)
 
     base = {
         "jobId": job_id,

@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+import cycle_integrity
 import mediapipe_job
 import video_stats
 import vitpose_job
@@ -654,6 +655,12 @@ def start_mediapipe_batch(payload: MediaPipeBatchRequest) -> JSONResponse:
         target=_run_batch_safely, args=(payload, job_id), daemon=True
     ).start()
 
+    # Which cycle this sweep will fall inside, or null (issue #168). Reported, never
+    # gated: a batch outside a cycle is legitimate — a probe, a one-off re-run — it simply
+    # cannot be certified against drift afterwards, and that is worth knowing before the
+    # sweep rather than when someone tries to publish the comparison.
+    cycle = cycle_integrity.open_cycle_doc(ANALYSIS_DIR)
+
     return JSONResponse(status_code=202, content={
         "jobId": job_id,
         "status": "accepted",
@@ -662,4 +669,5 @@ def start_mediapipe_batch(payload: MediaPipeBatchRequest) -> JSONResponse:
         "repeats": payload.repeats,
         "selection": selection.as_dict(),
         "statusPath": str(mediapipe_job.batch_status_path(ANALYSIS_DIR)),
+        "cycle": cycle["cycleId"] if cycle else None,
     })

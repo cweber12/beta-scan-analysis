@@ -133,6 +133,25 @@ not a spec — it carries no implementation detail.
   degrades back into the observational corpus it exists to escape (issue #149's failure
   mode, on the detection side). Repeats within an arm share the stamp and differ only in
   `passIndex` — that is what makes them a variance floor rather than two arms.
+- **Cycle** (`analysis/cycles/<cycle_id>.json`) — the comparison group: the set of
+  batches whose Arms are meant to be read against each other. Batches are **mode-major**
+  (one per mode, run in sequence), so anything that changes between the first batch and
+  the last is perfectly confounded with mode; a Cycle is what makes that drift *detected
+  exactly* rather than designed around. It is **opened** before the first batch — which
+  snapshots every eligible Bundle's truth identity, the model pins, the module version
+  and each crop trajectory — and **closed** after the last, which re-verifies them. A
+  Bundle whose inputs moved is **excluded from that Cycle's comparison and named**, never
+  silently dropped. Only Bundles in `comparableBundles` may be pooled across the Cycle's
+  Arms. A tracked artifact, so a published comparison can be audited after the fact.
+- **Determinism canary** — one designated Bundle run on one fixed Arm at Cycle open and
+  again at Cycle close, with the pose frames compared **byte-for-byte**. The harness
+  detector is bit-deterministic, so any difference at all — weights, module, environment,
+  crop trajectory — fails the Cycle, which is a strictly more sensitive drift instrument
+  than re-running a baseline and comparing metrics, at about two minutes. **The canary
+  Arm must crop**: full-frame MediaPipe detects 0% on the canary Bundle, and empty output
+  is byte-identical under any weights, so an uncropped canary would certify a model swap
+  it never saw. A canary detecting under half its sampled frames therefore **refuses to
+  certify** rather than passing.
 - **MediaPipe job status** (`mediapipe.status.json`) — the sidecar recording an
   experimental batch's `running` → `done` / `error`, on the `vitpose.status.json` model.
   A failure carries the exception type and traceback, and a batch that dies part-way
