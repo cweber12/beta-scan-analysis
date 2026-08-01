@@ -334,7 +334,10 @@ def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list,
                     app_version: str = "",
                     detector_attempts: list[dict] | None = None,
                     config: dict | None = None,
-                    detector_code_hash: str | None = None) -> None:
+                    detector_code_hash: str | None = None,
+                    origin: str | None = None,
+                    config_hash: str | None = None,
+                    pass_index: int | None = None) -> None:
     det = video_dir / "detections"
     det.mkdir(parents=True, exist_ok=True)
     diagnostics = {"appVersion": app_version} if app_version else {}
@@ -344,6 +347,12 @@ def _write_pose_run(video_dir: Path, stem: str, setup_hash: str, frames: list,
         diagnostics["detectorCodeHash"] = detector_code_hash or None
     if config is not None:
         diagnostics["config"] = config
+    # The experiment stamp (issue #160), in the same block as build identity. Omitted
+    # entirely for a scanner run, which is what the whole historical corpus looks like.
+    if origin is not None:
+        diagnostics["origin"] = origin
+    if config_hash is not None:
+        diagnostics["experiment"] = {"configHash": config_hash, "passIndex": pass_index}
     data = {"setupHash": setup_hash, "diagnostics": diagnostics, "frames": frames}
     if detector_attempts is not None:
         data["detectorAttempts"] = detector_attempts
@@ -2572,6 +2581,160 @@ def test_truth_sufficiency_floor_quarantines_a_thin_bundle():
         assert thick["conformance"]["causeEvidence"]["fitFrames"] == 25
         assert thick["conformance"]["conforms"] is True
         assert thick["conformance"]["reasons"] == []
+
+
+def _origin_bundle(root: Path, name: str) -> Path:
+    """One bundle carrying a scanner run and two harness runs of the same arm."""
+
+    truth = [_truth_frame(i, float(i), True) for i in range(1, 26)]
+    scanner = [{"timestamp": float(i), "keypoints": _kp_list(_TRUTH_JOINTS)}
+               for i in range(1, 26)]
+    vdir = _absence_bundle(root, setup={"setupHash": f"sh_{name}"}, truth_frames=truth,
+                           scanner=scanner, samples=[float(i) for i in range(1, 26)],
+                           posed=[float(i) for i in range(1, 26)], seed_found=True,
+                           name=name)
+    # The scanner run carries the attempt stream — both because that is what a real one
+    # looks like, and because it is what would supersede the harness runs if origin were
+    # not part of the dedup key.
+    _write_pose_run(vdir, "20260101-000101", f"sh_{name}", scanner,
+                    detector_attempts=[
+                        {"timestamp": float(i), "status": "accepted",
+                         "acceptedKeypoints": _kp_list(_TRUTH_JOINTS)}
+                        for i in range(1, 26)])
+    for pass_index in (0, 1):
+        _write_pose_run(vdir, f"exp-20260801-0000{pass_index}", f"sh_{name}", scanner,
+                        app_version="harness-mediapipe@1",
+                        origin="harness-mediapipe", config_hash="arm000000000001",
+                        pass_index=pass_index)
+    return vdir
+
+
+def test_harness_runs_are_never_superseded_by_scanner_runs():
+    """Issue #160, measured on the first real harness runs: all of them were found and
+    scored by ``evaluate`` and then silently dropped from every pooled number, because
+    issue #89's dedup keys on ``(route, video, truthHash)`` and prefers attempt-backed
+    evidence. Harness runs carry no ``detectorAttempts[]`` — a scanner-owned concept — so
+    they read as ``legacy-frames`` and lost. They vanished *before* any origin segregation
+    downstream could see them. A harness run and a scanner run are two producers, not two
+    generations of one evidence stream."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = _origin_bundle(root, "vidORIGIN")
+        # Give the scanner run the attempt stream that would otherwise supersede.
+        scanner = [{"timestamp": float(i), "keypoints": _kp_list(_TRUTH_JOINTS)}
+                   for i in range(1, 26)]
+        _write_pose_run(vdir, "20260101-000101", "sh_vidORIGIN", scanner,
+                        detector_attempts=[
+                            {"timestamp": float(i), "status": "accepted",
+                             "acceptedKeypoints": _kp_list(_TRUTH_JOINTS)}
+                            for i in range(1, 26)])
+        ev.evaluate(root)
+
+        recs = trends._iter_eval_records(root)
+        cache = {}
+        for rec in recs:
+            trends._pose_run(root, rec, cache)
+        origins = trends._origin_index(cache)
+
+        # Without origin in the key — the old behaviour — the harness runs are lost.
+        old_kept, _ = trends._dedup_evidence_generations(recs)
+        assert not [r for r in old_kept
+                    if trends.record_origin(r, origins) != trends.ORIGIN_SCANNER], \
+            "this test no longer reproduces the bug it exists for"
+
+        kept, superseded = trends._dedup_evidence_generations(recs, origins)
+        harness = [r for r in kept
+                   if trends.record_origin(r, origins) == trends.ORIGIN_HARNESS]
+        assert len(harness) == 2, "both harness passes must survive"
+        assert not [s for s in superseded if s["run_ts"].startswith("exp-")]
+        # ...and the scanner side is untouched by the fix.
+        assert [r.run_ts for r in kept
+                if trends.record_origin(r, origins) == trends.ORIGIN_SCANNER] == \
+               [r.run_ts for r in old_kept]
+
+
+def test_pooled_sections_see_scanner_runs_only_and_arms_group_separately():
+    """A pooled number must never blend a browser-produced run with a harness-produced
+    one: whether those agree is exactly the open question #162 asks, so pooling them
+    assumes the answer. Runs with no experiment stamp are scanner-origin, which is how
+    the entire historical corpus is handled and why it is unaffected."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _origin_bundle(root, "vidPOOL")
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        pops = ctx["origin_populations"].set_index("origin")["records"].to_dict()
+        assert pops[trends.ORIGIN_SCANNER] == 1
+        assert pops[trends.ORIGIN_HARNESS] == 2
+
+        # The arm table holds the harness runs, grouped by arm, repeats distinguishable.
+        arms = ctx["experiment_arms"]
+        assert ctx["experiment_arm_count"] == 1
+        assert ctx["experiment_run_count"] == 2
+        assert sorted(arms["pass_index"].tolist()) == [0, 1]
+        assert set(arms["origin"]) == {trends.ORIGIN_HARNESS}
+        assert set(arms["config_hash"]) == {"arm000000000001"}
+
+        # The attempt funnel — a representative pooled section — counts the scanner run
+        # only. A harness run leaking in would move this.
+        assert ctx["attempt_funnel"]["runs"] == 1
+
+
+def test_two_arms_differing_in_any_factor_land_in_different_groups():
+    """The property PRD #156 rests on. If two arms can share a group they pool as one and
+    the experiment degrades back into the observational corpus it exists to escape —
+    issue #149's failure mode, on the detection side."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        vdir = _origin_bundle(root, "vidARMS")
+        scanner = [{"timestamp": float(i), "keypoints": _kp_list(_TRUTH_JOINTS)}
+                   for i in range(1, 26)]
+        _write_pose_run(vdir, "exp-20260801-00002", "sh_vidARMS", scanner,
+                        app_version="harness-mediapipe@1", origin="harness-mediapipe",
+                        config_hash="arm000000000002", pass_index=0)
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+        arms = ctx["experiment_arms"]
+        assert ctx["experiment_arm_count"] == 2
+        assert ctx["experiment_run_count"] == 3
+        counts = arms.groupby("config_hash").size().to_dict()
+        assert counts == {"arm000000000001": 2, "arm000000000002": 1}
+
+
+def test_a_corpus_with_no_experiment_stamp_is_unchanged():
+    """The entire historical corpus. Every run is scanner-origin, the arm table is empty,
+    and nothing about the pooled sections moves."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        truth = [_truth_frame(i, float(i), True) for i in range(1, 26)]
+        scanner = [{"timestamp": float(i), "keypoints": _kp_list(_TRUTH_JOINTS)}
+                   for i in range(1, 26)]
+        _absence_bundle(root, setup={"setupHash": "sh_plain"}, truth_frames=truth,
+                        scanner=scanner, samples=[float(i) for i in range(1, 26)],
+                        posed=[float(i) for i in range(1, 26)], seed_found=True,
+                        name="vidPLAIN")
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+        assert ctx["experiment_arms"].empty
+        assert ctx["experiment_arm_count"] == 0
+        assert list(ctx["origin_populations"]["origin"]) == [trends.ORIGIN_SCANNER]
 
 
 def test_rate_mismatch_is_its_own_nonconformance_cause():

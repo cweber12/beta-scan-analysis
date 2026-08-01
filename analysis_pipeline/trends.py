@@ -235,8 +235,19 @@ def _iter_eval_records(analysis_root: Path) -> list[EvalRecord]:
 
 def _dedup_evidence_generations(
     recs: list[EvalRecord],
+    origins: dict[RunKey, str] | None = None,
 ) -> tuple[list[EvalRecord], list[dict[str, Any]]]:
-    """Keep one **evidence generation** per video+truth pairing (issue #89).
+    """Keep one **evidence generation** per video+truth pairing **per origin** (issue #89).
+
+    .. note:: **Origin joins the key (issue #160).** Measured on the first harness runs:
+       all three were found and scored by ``evaluate`` and then silently superseded behind
+       the bundle's attempt-backed scanner records, because harness runs carry no
+       ``detectorAttempts[]`` — a scanner-owned concept the harness has no equivalent of —
+       and so read as ``legacy-frames``. They vanished from every pooled number *before*
+       any origin segregation downstream could see them.
+
+       A harness run and a scanner run are not two generations of one evidence stream; they
+       are two different producers. Superseding across that line is never right.
 
     A video re-scanned after the scanner started exporting ``detectorAttempts[]`` carries
     two records for the same ``(route, video, truthHash)`` pairing: the attempt-backed one
@@ -256,9 +267,13 @@ def _dedup_evidence_generations(
     nothing, because the two records were never measuring the same thing.
     """
 
-    by_pairing: dict[tuple[str, str, str], list[EvalRecord]] = {}
+    origins = origins or {}
+    by_pairing: dict[tuple[str, str, str, str], list[EvalRecord]] = {}
     for rec in recs:
-        by_pairing.setdefault((rec.route_folder, rec.video_key, rec.truth_hash), []).append(rec)
+        by_pairing.setdefault(
+            (rec.route_folder, rec.video_key, rec.truth_hash, record_origin(rec, origins)),
+            [],
+        ).append(rec)
 
     kept: list[EvalRecord] = []
     superseded: list[dict[str, Any]] = []
@@ -314,6 +329,13 @@ def _evidence_generation_summary(recs: list[EvalRecord], pool: str) -> dict[str,
 
 
 SCHEMA_UNKNOWN = "unknown"
+
+# Who produced a run (issue #160, PRD #156). ``scanner`` is the default and the entire
+# historical corpus: a run with no experiment stamp predates the harness module. A pooled
+# number must never blend the two — whether a browser-WASM run and a Python run agree is the
+# open question #162 asks, and pooling them before it is answered assumes the answer.
+ORIGIN_SCANNER = "scanner"
+ORIGIN_HARNESS = "harness-mediapipe"
 
 
 def _measurement_basis(
@@ -412,6 +434,15 @@ class PoseRun(NamedTuple):
     frames: list[dict[str, Any]]
     attempts: list[dict[str, Any]] | None
     detector_code_hash: str = ""
+    # Experiment provenance (issue #160, PRD #156). ``origin`` says *who produced the run*:
+    # the scanner posting through the API, or this harness running MediaPipe itself. A run
+    # with no stamp is scanner-origin, which is the entire historical corpus.
+    #
+    # ``config_hash`` is the **arm** — the experimental condition — and ``pass_index`` which
+    # repeat of it this run is. Both are empty for scanner runs, which have no arm.
+    origin: str = ORIGIN_SCANNER
+    config_hash: str = ""
+    pass_index: int | None = None
 
 
 # The corpus-wide cache of them, keyed ``(route_folder, video_key)``. Four derivations
@@ -425,6 +456,9 @@ _NO_POSE_RUN = PoseRun("", [], None)
 
 # A run's build identity: ``(appVersion, detectorCodeHash)``. Either half may be empty.
 BuildId = tuple[str, str]
+
+# A run key, unique corpus-wide.
+RunKey = tuple[str, str, str]     # (route_folder, video_key, run_ts)
 
 
 def _pose_run(
@@ -466,6 +500,11 @@ def _load_pose_runs(video_dir: Path) -> dict[str, PoseRun]:
         run_ts = str(env.get("run_ts", stem))
         diagnostics = data.get("diagnostics") or {}
         attempts = parse_detector_attempts(data)
+        # The experiment stamp rides in the same diagnostics block as build identity, which
+        # is exactly why PRD #156 put it there — grouping arms reuses the machinery that
+        # already groups builds instead of adding a second axis nobody's readers know about.
+        experiment = diagnostics.get("experiment") or {}
+        pass_index = experiment.get("passIndex")
         out[run_ts] = PoseRun(
             app_version=str(diagnostics.get("appVersion") or ""),
             frames=data.get("frames", []) or [],
@@ -473,8 +512,112 @@ def _load_pose_runs(video_dir: Path) -> dict[str, PoseRun]:
             # ``null`` is the scanner's documented "derivation failed" value, and a record
             # predating the field has no key at all. Both land here as "".
             detector_code_hash=str(diagnostics.get("detectorCodeHash") or ""),
+            # Absent stamp means scanner: the whole historical corpus, and the default that
+            # keeps every existing number unchanged.
+            origin=str(diagnostics.get("origin") or ORIGIN_SCANNER),
+            config_hash=str(experiment.get("configHash") or ""),
+            pass_index=pass_index if isinstance(pass_index, int) else None,
         )
     return out
+
+
+def _origin_index(pose_cache: PoseRunCache) -> dict[RunKey, str]:
+    """``(route, video, run_ts) -> origin`` for every cached pose run.
+
+    Origin lives only in the pose envelope, exactly as both halves of build identity do, so
+    it is resolved from the detection files at trend time rather than stamped into
+    evaluation records. That keeps the v15 schema freeze (ADR 0009) intact — this adds no
+    field to any record — and follows the precedent ``_load_pose_runs`` already set.
+    """
+
+    return {
+        (route, key, run_ts): run.origin
+        for (route, key), runs in pose_cache.items()
+        for run_ts, run in runs.items()
+    }
+
+
+def record_origin(rec: EvalRecord, origins: dict[RunKey, str]) -> str:
+    """One record's origin, defaulting to scanner when its pose run is unreadable."""
+
+    return origins.get((rec.route_folder, rec.video_key, rec.run_ts), ORIGIN_SCANNER)
+
+
+def _origin_populations(
+    recs: list[EvalRecord], origins: dict[RunKey, str]
+) -> pd.DataFrame:
+    """How many records each origin contributes, and to which pool.
+
+    The accounting that makes segregation checkable rather than asserted: a reader can see
+    that the scanner population is the one every historical section pools, and that the
+    harness population is reported separately and never added to it.
+    """
+
+    rows: list[dict[str, Any]] = []
+    by_origin: dict[str, list[EvalRecord]] = {}
+    for rec in recs:
+        by_origin.setdefault(record_origin(rec, origins), []).append(rec)
+    for origin in sorted(by_origin):
+        group = by_origin[origin]
+        rows.append({
+            "origin": origin,
+            "records": len(group),
+            "bundles": len({(r.route_folder, r.video_key) for r in group}),
+            "trusted": sum(1 for r in group if record_trusted(r.data)),
+            "pool": ("historical pooled sections" if origin == ORIGIN_SCANNER
+                     else "experiment arms (never pooled with scanner)"),
+        })
+    return pd.DataFrame(rows)
+
+
+def _arm_groups(
+    recs: list[EvalRecord],
+    origins: dict[RunKey, str],
+    pose_cache: PoseRunCache,
+) -> pd.DataFrame:
+    """Experimental runs grouped by **arm** (``configHash``), one row per arm per origin.
+
+    The arm is the experimental condition, and two runs differing in *any* factor — mode,
+    preprocessing, crop policy, crop trajectory, model weights, module version — carry
+    different hashes and therefore land in different groups. That is the property PRD #156
+    rests on: without it, two arms pool as one and the experiment silently degrades back
+    into the observational corpus it exists to escape (issue #149's failure mode).
+
+    ``passIndex`` rides along so a repeat set is visible as repeats rather than as arms.
+    """
+
+    rows: list[dict[str, Any]] = []
+    for rec in recs:
+        run = _pose_run_cached(rec, pose_cache)
+        if run is None:
+            continue
+        agreement = rec.data.get("agreement") or {}
+        pck = ((agreement.get("aggregate") or {}).get("pck") or {}).get("value")
+        rows.append({
+            "origin": record_origin(rec, origins),
+            "config_hash": run.config_hash,
+            "app_version": run.app_version,
+            "route_folder": rec.route_folder,
+            "video_key": rec.video_key,
+            "run_ts": rec.run_ts,
+            "pass_index": run.pass_index,
+            "truth_hash": rec.truth_hash,
+            "pck": pck,
+            "conforms": record_conforms(rec.data),
+        })
+    if not rows:
+        return pd.DataFrame(columns=[
+            "origin", "config_hash", "app_version", "route_folder", "video_key",
+            "run_ts", "pass_index", "truth_hash", "pck", "conforms"])
+    return pd.DataFrame(rows).sort_values(
+        ["origin", "config_hash", "route_folder", "video_key", "pass_index"]
+    ).reset_index(drop=True)
+
+
+def _pose_run_cached(rec: EvalRecord, pose_cache: PoseRunCache) -> PoseRun | None:
+    """The cached pose run for a record, without touching disk. ``None`` if absent."""
+
+    return pose_cache.get((rec.route_folder, rec.video_key), {}).get(rec.run_ts)
 
 
 def _bundle_meta(video_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -2354,7 +2497,26 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     # A superseded legacy record is not a quarantined record and not a loose pairing — it
     # is the same pairing measured twice — so it must not appear in either shame list.
     on_disk = _iter_eval_records(analysis_root)
-    all_recs, superseded = _dedup_evidence_generations(on_disk)
+    # One pose-file read per bundle for the whole trend build: the frame/joint rows, the
+    # per-frame quality pool, the Detection Error run table and the attempt funnel all draw
+    # from this cache. Built *before* dedup because origin lives in the pose envelope and
+    # dedup now keys on it (issue #160).
+    pose_cache: PoseRunCache = {}
+    for rec in on_disk:
+        _pose_run(analysis_root, rec, pose_cache)
+    origins = _origin_index(pose_cache)
+
+    all_on_disk, superseded = _dedup_evidence_generations(on_disk, origins)
+
+    # Origin segregation (issue #160). Everything below this line pools **scanner** runs
+    # only, so every historical number is byte-identical to what it was before the harness
+    # module existed. Harness runs are a separate population with their own derivations —
+    # never summed into a scanner number, because whether the two agree is exactly the open
+    # question #162 asks, and pooling them would assume the answer.
+    harness_recs = [r for r in all_on_disk if record_origin(r, origins) != ORIGIN_SCANNER]
+    all_recs = [r for r in all_on_disk if record_origin(r, origins) == ORIGIN_SCANNER]
+    experiment_arms = _arm_groups(harness_recs, origins, pose_cache)
+    origin_populations = _origin_populations(all_on_disk, origins)
     # Issue #15 gate: quarantine non-conforming bundles (truth mis-tracking) from
     # every *pooled* derivation below. Issue #44: best-overlap loose pairings are
     # likewise held out of the trusted pool (their setupHash never matched the truth).
@@ -2368,12 +2530,6 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     evidence_trusted = _evidence_generation_summary(recs, "trusted pooled metrics")
     evidence_frames = _evidence_generation_summary(
         all_recs, "per-frame / attempt pools (all records)")
-    # One pose-file read per bundle for the whole trend build: the frame/joint rows, the
-    # per-frame quality pool, the Detection Error run table and the attempt funnel all
-    # draw from this cache.
-    pose_cache: PoseRunCache = {}
-    for rec in all_recs:
-        _pose_run(analysis_root, rec, pose_cache)
     build_ids = {
         (route, key, run_ts): (run.app_version, run.detector_code_hash)
         for (route, key), runs in pose_cache.items()
@@ -2463,6 +2619,14 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "eval_count_on_disk": len(on_disk),
         "superseded_records": superseded,
         "superseded_count": len(superseded),
+        # Issue #160: origin segregation, made checkable rather than asserted. Every pooled
+        # section above draws on the scanner population only; the arm table is the harness
+        # population, reported beside it and never summed into it.
+        "origin_populations": origin_populations,
+        "experiment_arms": experiment_arms,
+        "experiment_arm_count": int(experiment_arms["config_hash"].nunique())
+                                if not experiment_arms.empty else 0,
+        "experiment_run_count": int(len(experiment_arms)),
         "evidence_generation_trusted": evidence_trusted,
         "evidence_generation_frames": evidence_frames,
         "measurement_basis_trusted": basis_trusted,
@@ -2552,6 +2716,10 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_quarantined_bundles.csv": quarantined_df,
         "eval_truth_repair_worklist.csv": truth_repair_df,
         "eval_superseded_records.csv": superseded_df,
+        # Issue #160: the experiment arms, and the origin accounting that shows which
+        # population each pooled section drew on.
+        "eval_experiment_arms.csv": ctx.get("experiment_arms"),
+        "eval_origin_populations.csv": ctx.get("origin_populations"),
         "eval_frame_quality_classes.csv": ctx.get("frame_quality_classes"),
         "eval_frame_quality_absence_reasons.csv": ctx.get("frame_quality_absence_reasons"),
         "eval_stale_truth_worklist.csv": stale_truth_df,
