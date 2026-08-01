@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+import mediapipe_job
 import video_stats
 import vitpose_job
 from youtube_core import (
@@ -560,3 +561,105 @@ def compute_video_stats(payload: VideoStatsRequest) -> dict[str, object]:
         "regionStats": region_stats,
         "suggestions": suggestions,
     }
+
+
+# --------------------------------------------------------------------------- #
+# Harness MediaPipe batch (PRD #156, issue #159; see docs/adr/0012)
+# --------------------------------------------------------------------------- #
+
+class BundleRef(BaseModel):
+    route_folder: str = Field(..., min_length=1, alias="routeFolder")
+    video_key: str = Field(..., min_length=1, alias="videoKey")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class MediaPipeBatchRequest(BaseModel):
+    """One experimental sweep: an arm, a Bundle selection, and a repeat count.
+
+    Deliberately *not* a cross-program contract — nothing in the scanner calls this. It is
+    the analyst's handle on the experiment, mirroring ``POST /api/vitpose``'s shape so the
+    service has one job idiom rather than two.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    mode: int = Field(default=1, alias="mode")
+    crop: str = Field(default=mediapipe_job.CROP_NONE)
+    # Defaults to 1 because this detector is bit-deterministic — see DEFAULT_REPEATS.
+    repeats: int = Field(default=mediapipe_job.DEFAULT_REPEATS, ge=1, le=25)
+    # Omitted means "every eligible Bundle"; an explicit list is the smoke-batch path.
+    bundles: list[BundleRef] | None = None
+
+    @model_validator(mode="after")
+    def _check_arm(self) -> "MediaPipeBatchRequest":
+        if self.mode not in mediapipe_job.DETECTION_MODES:
+            raise ValueError(
+                f"mode must be one of {mediapipe_job.DETECTION_MODES} "
+                "(0 lite, 1 full, 2 heavy)."
+            )
+        if self.crop not in mediapipe_job.CROP_POLICIES:
+            raise ValueError(f"crop must be one of {mediapipe_job.CROP_POLICIES}.")
+        return self
+
+
+def _run_batch_safely(request: MediaPipeBatchRequest, job_id: str) -> None:
+    # Failures are already recorded to the batch sidecar inside run_batch; this only stops
+    # a daemon thread's traceback from going nowhere.
+    try:
+        mediapipe_job.run_batch(
+            ANALYSIS_DIR,
+            mediapipe_job.DetectionConfig(mode=request.mode, crop=request.crop),
+            mediapipe_job.default_detector_factory,
+            only=[(b.route_folder, b.video_key) for b in request.bundles]
+            if request.bundles is not None else None,
+            repeats=request.repeats,
+            job_id=job_id,
+        )
+    except Exception:  # noqa: BLE001 — surfaced via mediapipe-batch.status.json
+        pass
+
+
+@app.post("/api/mediapipe/batch")
+def start_mediapipe_batch(payload: MediaPipeBatchRequest) -> JSONResponse:
+    """Start a sweep; return 202 immediately and report through the batch sidecar."""
+
+    # Single-flight, refused synchronously (PRD #156 user story 40). Two batches would
+    # interleave writes into one Bundle and produce repeat sets whose members came from
+    # different arms. A 409 rather than a queue: the caller wants to be told no.
+    if mediapipe_job.batch_is_running(ANALYSIS_DIR):
+        raise HTTPException(
+            status_code=409,
+            detail="A MediaPipe batch is already running; refusing to start a second.",
+        )
+
+    selection = mediapipe_job.select_bundles(
+        ANALYSIS_DIR,
+        [(b.route_folder, b.video_key) for b in payload.bundles]
+        if payload.bundles is not None else None,
+    )
+    if not selection.included:
+        # A batch over nothing is a caller error, not a job — report it synchronously
+        # rather than leaving a poller waiting on a sweep that will do nothing.
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "No eligible bundles for this batch.",
+                "selection": selection.as_dict(),
+            },
+        )
+
+    job_id = uuid.uuid4().hex
+    threading.Thread(
+        target=_run_batch_safely, args=(payload, job_id), daemon=True
+    ).start()
+
+    return JSONResponse(status_code=202, content={
+        "jobId": job_id,
+        "status": "accepted",
+        "configHash": mediapipe_job.config_hash(
+            mediapipe_job.DetectionConfig(mode=payload.mode, crop=payload.crop)),
+        "repeats": payload.repeats,
+        "selection": selection.as_dict(),
+        "statusPath": str(mediapipe_job.batch_status_path(ANALYSIS_DIR)),
+    })

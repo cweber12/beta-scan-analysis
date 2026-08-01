@@ -1,0 +1,93 @@
+{
+  "jobId": "9396482f63514c60bfa616f7077e8884",
+  "status": "done",
+  "origin": "harness-mediapipe",
+  "config": {
+    "mode": 1,
+    "preprocess": [],
+    "crop": "tracked",
+    "moduleVersion": "1",
+    "origin": "harness-mediapipe"
+  },
+  "configHash": "3ca09063887f2bcb",
+  "repeats": 1,
+  "sampleCoefficient": 12,
+  "selection": {
+    "included": [
+      {
+        "route": "mandala-the",
+        "videoKey": "The_Mandala_20260711-141737"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "3aUyWQp010A_20260711-185754"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "DEDBeWcqxK8_20260711-185309"
+      }
+    ],
+    "includedCount": 3,
+    "excluded": [],
+    "excludedCount": 0
+  },
+  "requestedConfigHash": "3ca09063887f2bcb",
+  "armsWritten": [
+    "fbd1fcabfaff57fd"
+  ],
+  "armsMixed": false,
+  "bundles": [
+    {
+      "route": "mandala-the",
+      "videoKey": "The_Mandala_20260711-141737",
+      "truthFrames": 851,
+      "sampledFrames": 350,
+      "status": "done",
+      "runs": [
+        "exp-20260731-181255-fbd1fcab-p0"
+      ],
+      "framesDetected": [
+        293
+      ],
+      "armsWritten": [
+        "fbd1fcabfaff57fd"
+      ]
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "3aUyWQp010A_20260711-185754",
+      "truthFrames": 705,
+      "sampledFrames": 318,
+      "status": "done",
+      "runs": [
+        "exp-20260731-181329-fbd1fcab-p0"
+      ],
+      "framesDetected": [
+        265
+      ],
+      "armsWritten": [
+        "fbd1fcabfaff57fd"
+      ]
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "DEDBeWcqxK8_20260711-185309",
+      "truthFrames": 567,
+      "sampledFrames": 285,
+      "status": "done",
+      "runs": [
+        "exp-20260731-181405-fbd1fcab-p0"
+      ],
+      "framesDetected": [
+        255
+      ],
+      "armsWritten": [
+        "fbd1fcabfaff57fd"
+      ]
+    }
+  ],
+  "bundlesRun": 3,
+  "bundlesFailed": 0,
+  "runsWritten": 3,
+  "updated_at": "2026-07-31T18:14:25"
+}
