@@ -1,5 +1,5 @@
 {
-  "jobId": "7c65d7ff3f7b49f292267600f024d0c5",
+  "jobId": "dc8fe0a40d2d4cda912aa516f06133ef",
   "status": "done",
   "origin": "harness-mediapipe",
   "config": {
@@ -22,11 +22,19 @@
   "selection": {
     "included": [
       {
+        "route": "mandala-the",
+        "videoKey": "The_Mandala_20260711-141737"
+      },
+      {
         "route": "planet-x",
         "videoKey": "3aUyWQp010A_20260711-185754"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "DEDBeWcqxK8_20260711-185309"
       }
     ],
-    "includedCount": 1,
+    "includedCount": 3,
     "excluded": [],
     "excludedCount": 0
   },
@@ -37,13 +45,29 @@
   "armsMixed": false,
   "bundles": [
     {
+      "route": "mandala-the",
+      "videoKey": "The_Mandala_20260711-141737",
+      "truthFrames": 851,
+      "sampledFrames": 350,
+      "status": "done",
+      "runs": [
+        "exp-20260731-231221-cfde1f8c-p0"
+      ],
+      "framesDetected": [
+        293
+      ],
+      "armsWritten": [
+        "cfde1f8cc325b8d5"
+      ]
+    },
+    {
       "route": "planet-x",
       "videoKey": "3aUyWQp010A_20260711-185754",
       "truthFrames": 705,
       "sampledFrames": 318,
       "status": "done",
       "runs": [
-        "exp-20260731-193027-cfde1f8c-p0"
+        "exp-20260731-231246-cfde1f8c-p0"
       ],
       "framesDetected": [
         255
@@ -51,10 +75,26 @@
       "armsWritten": [
         "cfde1f8cc325b8d5"
       ]
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "DEDBeWcqxK8_20260711-185309",
+      "truthFrames": 567,
+      "sampledFrames": 285,
+      "status": "done",
+      "runs": [
+        "exp-20260731-231312-cfde1f8c-p0"
+      ],
+      "framesDetected": [
+        237
+      ],
+      "armsWritten": [
+        "cfde1f8cc325b8d5"
+      ]
     }
   ],
-  "bundlesRun": 1,
+  "bundlesRun": 3,
   "bundlesFailed": 0,
-  "runsWritten": 1,
-  "updated_at": "2026-07-31T19:30:53"
+  "runsWritten": 3,
+  "updated_at": "2026-07-31T23:13:28"
 }

@@ -1,0 +1,3452 @@
+{
+  "version": 1,
+  "cycleId": "cycle-20260731-225432",
+  "status": "certified",
+  "openedAt": "2026-08-01T05:55:15+00:00",
+  "openedRunTs": "20260731-225432",
+  "closedAt": "2026-08-01T06:14:14+00:00",
+  "closedRunTs": "20260731-231414",
+  "moduleVersion": "1",
+  "sampleCoefficient": 12,
+  "modelLocks": {
+    "pose_landmarker_full": "4eaa5eb7a98365221087693fcc286334cf0858e2eb6e15b506aa4a7ecdcec4ad",
+    "pose_landmarker_heavy": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+    "pose_landmarker_lite": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a"
+  },
+  "canary": {
+    "route": "planet-x",
+    "videoKey": "3aUyWQp010A_20260711-185754",
+    "minDetectionRate": 0.5,
+    "minDetectedFrames": 20,
+    "opened": {
+      "at": "2026-08-01T05:55:15+00:00",
+      "route": "planet-x",
+      "videoKey": "3aUyWQp010A_20260711-185754",
+      "config": {
+        "mode": 1,
+        "preprocess": [],
+        "crop": "tracked",
+        "moduleVersion": "1",
+        "origin": "harness-mediapipe",
+        "modelSha": "4eaa5eb7a98365221087693fcc286334cf0858e2eb6e15b506aa4a7ecdcec4ad",
+        "cropTrackHash": "b568a7265e0ed0bc"
+      },
+      "configHash": "fbd1fcabfaff57fd",
+      "setupHash": "4f783f73c827ee464968114cfab111fa0d3ec955ed08af80889ed67cb0f925ea",
+      "timestamps": [
+        0.0,
+        0.2,
+        0.4,
+        0.7,
+        0.9,
+        1.1,
+        1.3,
+        1.6,
+        1.8,
+        2.0,
+        2.2,
+        2.4,
+        2.7,
+        2.9,
+        3.1,
+        3.3,
+        3.6,
+        3.8,
+        4.0,
+        4.2,
+        4.4,
+        4.7,
+        4.9,
+        5.1,
+        5.3,
+        5.6,
+        5.8,
+        6.0,
+        6.2,
+        6.4,
+        6.7,
+        6.9,
+        7.1,
+        7.3,
+        7.6,
+        7.8,
+        8.0,
+        8.2,
+        8.4,
+        8.7,
+        8.9,
+        9.1,
+        9.3,
+        9.5,
+        9.8,
+        10.0,
+        10.2,
+        10.4,
+        10.7,
+        10.9,
+        11.1,
+        11.3,
+        11.5,
+        11.8,
+        12.0,
+        12.2,
+        12.4,
+        12.7,
+        12.9,
+        13.1,
+        13.3,
+        13.5,
+        13.8,
+        14.0,
+        14.2,
+        14.4,
+        14.7,
+        14.9,
+        15.1,
+        15.3,
+        15.5,
+        15.8,
+        16.0,
+        16.2,
+        16.4,
+        16.7,
+        16.9,
+        17.1,
+        17.3,
+        17.5,
+        17.8,
+        18.0,
+        18.2,
+        18.4,
+        18.7,
+        18.9,
+        19.1,
+        19.3,
+        19.5,
+        19.8,
+        20.0,
+        20.2,
+        20.4,
+        20.7,
+        20.9,
+        21.1,
+        21.3,
+        21.5,
+        21.8,
+        22.0,
+        22.2,
+        22.4,
+        22.7,
+        22.9,
+        23.1,
+        23.3,
+        23.5,
+        23.8,
+        24.0,
+        24.2,
+        24.4,
+        24.7,
+        24.9,
+        25.1,
+        25.3,
+        25.5,
+        25.8,
+        26.0,
+        26.2,
+        26.4,
+        26.6,
+        26.9,
+        27.1,
+        27.3,
+        27.5,
+        27.8,
+        28.0,
+        28.2,
+        28.4,
+        28.6,
+        28.9,
+        29.1,
+        29.3,
+        29.5,
+        29.8,
+        30.0,
+        30.2,
+        30.4,
+        30.6,
+        30.9,
+        31.1,
+        31.3,
+        31.5,
+        31.8,
+        32.0,
+        32.2,
+        32.4,
+        32.6,
+        32.9,
+        33.1,
+        33.3,
+        33.5,
+        33.8,
+        34.0,
+        34.2,
+        34.4,
+        34.6,
+        34.9,
+        35.1,
+        35.3,
+        35.5,
+        35.8,
+        36.0,
+        36.2,
+        36.4,
+        36.6,
+        36.9,
+        37.1,
+        37.3,
+        37.5,
+        37.8,
+        38.0,
+        38.2,
+        38.4,
+        38.6,
+        38.9,
+        39.1,
+        39.3,
+        39.5,
+        39.8,
+        40.0,
+        40.2,
+        40.4,
+        40.6,
+        40.9,
+        41.1,
+        41.3,
+        41.5,
+        41.8,
+        42.0,
+        42.2,
+        42.4,
+        42.6,
+        42.9,
+        43.1,
+        43.3,
+        43.5,
+        43.8,
+        44.0,
+        44.2,
+        44.4,
+        44.6,
+        44.9,
+        45.1,
+        45.3,
+        45.5,
+        45.7,
+        46.0,
+        46.2,
+        46.4,
+        46.6,
+        46.9,
+        47.1,
+        47.3,
+        47.5,
+        47.7,
+        48.0,
+        48.2,
+        48.4,
+        48.6,
+        48.9,
+        49.1,
+        49.3,
+        49.5,
+        49.7,
+        50.0,
+        50.2,
+        50.4,
+        50.6,
+        50.9,
+        51.1,
+        51.3,
+        51.5,
+        51.7,
+        52.0,
+        52.2,
+        52.4,
+        52.6,
+        52.9,
+        53.1,
+        53.3,
+        53.5,
+        53.7,
+        54.0,
+        54.2,
+        54.4,
+        54.6,
+        54.9,
+        55.1,
+        55.3,
+        55.5,
+        55.7,
+        56.0,
+        56.2,
+        56.4,
+        56.6,
+        56.9,
+        57.1,
+        57.3,
+        57.5,
+        57.7,
+        58.0,
+        58.2,
+        58.4,
+        58.6,
+        58.9,
+        59.1,
+        59.3,
+        59.5,
+        59.7,
+        60.0,
+        60.2,
+        60.4,
+        60.6,
+        60.9,
+        61.1,
+        61.3,
+        61.5,
+        61.7,
+        62.0,
+        62.2,
+        62.4,
+        62.6,
+        62.8,
+        63.1,
+        63.3,
+        63.5,
+        63.7,
+        64.0,
+        64.2,
+        64.4,
+        64.6,
+        64.8,
+        65.1,
+        65.3,
+        65.5,
+        65.7,
+        66.0,
+        66.2,
+        66.4,
+        66.6,
+        66.8,
+        67.1,
+        67.3,
+        67.5,
+        67.7,
+        68.0,
+        68.2,
+        68.4,
+        68.6,
+        68.8,
+        69.1,
+        69.3,
+        69.5,
+        69.7,
+        70.0,
+        70.2,
+        70.4
+      ],
+      "timestampsSha": "92d7d075ff0ff6c1",
+      "framesSha": "2e7ab0400bd3fb00f868f30967076e6925442e3bef47d99b35ba429810daf6f1",
+      "frameDigests": [
+        "e2061e458fe2c52f",
+        "c308585c407caaba",
+        "cd4bfbcf5f1fef28",
+        "3d7d977934a6dc35",
+        "006a2acc20e4d3f0",
+        "c6954e79d4226046",
+        "b0f980d2b4ec90e5",
+        "84ae87d09e786ae0",
+        "e03ac96daf3571be",
+        "3325be608f5e9f81",
+        "bef3d5dcf656d00c",
+        "759e97a36b2c99a3",
+        "9e3d4cb193cdd1a5",
+        "ec10dc69d92be521",
+        "b6c25330ee92cfdb",
+        "436f2d5ff99f2f2e",
+        "7f79ae455a763b6b",
+        "29a9b70470bc159b",
+        "708ffa0036ff31cc",
+        "60cd08e6aaa633ad",
+        "f5b1be9cb3a8f103",
+        "acb4cf6ff12e8ff7",
+        "305fe267a48dce63",
+        "ccbfa3473206a860",
+        "e2c1e870484733c3",
+        "4edc5df9af8fdf05",
+        "818f66935ecc4c21",
+        "62874d1005f2061b",
+        "7279067e17a99e75",
+        "6e5d4597c21ad69e",
+        "5def8cbb9556ede8",
+        "d515b6c0458127dc",
+        "5b73ed3950d7e5f2",
+        "658024001df4a769",
+        "898305c381b62e7d",
+        "0294e6a972300225",
+        "101eb6846a6d2e8c",
+        "777a917908dbb1f8",
+        "b4c4708ffa5425cf",
+        "f6e79980db3c7d51",
+        "841c0c2a55d16126",
+        "2c889272b293c069",
+        "fb57fd022d5f314e",
+        "3a19350853c011a9",
+        "4c3698756f505c17",
+        "62ff3b9a80089d6b",
+        "7b9b4e0c79c824b0",
+        "cc238594a68814c3",
+        "49b18974efceb856",
+        "0741e12dad08e576",
+        "14045671d29e229a",
+        "c3e8d94af8c6e222",
+        "e62ace81b8de6953",
+        "329c4ac30c0ca3f4",
+        "cb6e3c66dd0043d1",
+        "7d5c2e1101201681",
+        "8e0bec58d6b2f0bc",
+        "c093cc297b1d02b9",
+        "309ccbc1f995b93a",
+        "252b960965c43712",
+        "5194bb697cc1874f",
+        "62249b7b66ee6f67",
+        "4293eff4491ca246",
+        "42d9687ab97f36eb",
+        "e475b42388a16faf",
+        "2bed8f4c2ec16d97",
+        "e84227cffbf66578",
+        "8f4e417cccce9c5c",
+        "9d2eeb36b29e6467",
+        "3a1728c53fcf8f9a",
+        "0f26c31ac0a46882",
+        "a1fd59a910394cd0",
+        "4f8c636457b2a229",
+        "878f96428a3a8fd1",
+        "d4bc98f0be233183",
+        "421fcb821e09f2de",
+        "1deb12a8aa9a56c7",
+        "990ca65e643b27e8",
+        "50ef19558033604f",
+        "40ed167c9400935e",
+        "352bd104e4de3bb5",
+        "8084c8185e78576d",
+        "63ec7efbd7ee5a5b",
+        "a85f18bb5444ff70",
+        "e3300cd423791807",
+        "54b92dedf015aff7",
+        "7c0c9a14249d68db",
+        "65e70d8b29b36632",
+        "bdecceec355bb7e0",
+        "eb3e8281b28ffc72",
+        "27d8c5ae0974f827",
+        "f5fff216ce678ef4",
+        "9e3e656c0546c4a7",
+        "2bb8842b288949bb",
+        "3b9b4a395f3c1bc1",
+        "9f6d3eae5fe8d301",
+        "5a16ab1d38dcf38b",
+        "500bd2881450b127",
+        "4ff73e78736a4e82",
+        "5492c88479cf9dd8",
+        "6d695d0981db3e77",
+        "8c1043d65c044bd2",
+        "37b29ad3194e2072",
+        "630512d46254282b",
+        "4f0abde86471f6c0",
+        "709dc9ce2c0381e0",
+        "00e0968a0b4b3e78",
+        "03519cbe7d77039a",
+        "61303e2b5caa6bf1",
+        "3a07639d05c9d304",
+        "43659cbf7ae4a572",
+        "84e4c946d6357d13",
+        "182d504c72e944d4",
+        "1cb3b02fea2278ea",
+        "3ca762a6d668a569",
+        "6f9f7e77d7ed833e",
+        "3938b7df357c4ee7",
+        "25685834243e7e74",
+        "6d7952dfa4f284ec",
+        "ddbc737b2edecf8d",
+        "d4cd459619c551dc",
+        "f6bdf59b230ff6b7",
+        "72f6ad74824caa59",
+        "931213c867c1c12f",
+        "55308ed75dc551d8",
+        "2b3a55bd19a0b0ea",
+        "1c5b5f319123aca9",
+        "a367f5bb592199cc",
+        "7e7d5f9179d32b02",
+        "2e7ebda44d470f6f",
+        "afd43d947cb4521e",
+        "00f337d7b48279a7",
+        "4a797bdf222de9c3",
+        "d1bf0568f01f6159",
+        "3bda199520a5f717",
+        "b79069a97a4c2ed5",
+        "799823e70061d644",
+        "dff19bc192ef7915",
+        "786be7bf8c4f086b",
+        "f53ab5fea3bfb253",
+        "994ca794f97760bc",
+        "fae8d44bfde9e42d",
+        "f6c3699c04536cb9",
+        "210daa665c45c815",
+        "e73621f595649274",
+        "d6e280fac129f0b1",
+        "a3f4d2241bef1fc8",
+        "eb337127bb39e540",
+        "ae4150f84b25637b",
+        "7ca622cce28919c4",
+        "7c69b563d467740d",
+        "b718fe9ed0bb7a27",
+        "9330ecad74f777d5",
+        "77bcc353cc7e797d",
+        "7a05201a8d0332b0",
+        "8636248adaef18d1",
+        "8dd240168635d6ea",
+        "d4a059767b1a3704",
+        "53e8fa8eb8ee9a02",
+        "14ec6983f23037b3",
+        "822274c296f6ed92",
+        "06233114657f6925",
+        "7830d6670294c929",
+        "7ae66a78ea39f07e",
+        "fa9d4873f9a0bfd9",
+        "b36d19339557f046",
+        "5711b8313b99d113",
+        "86371bdf36e5120f",
+        "69560aad95fbd651",
+        "f840929b1de2efc9",
+        "b1b92d2f88f2936b",
+        "d487259b5d488a1b",
+        "9fdde24466ac35be",
+        "5e58e3a7b178ce15",
+        "70e9dc2b98bca364",
+        "e9c9a76c8cebd701",
+        "fd47a8725a5890bd",
+        "2ce782b3d5b16084",
+        "0bb9ed5f836e6a75",
+        "b397e6a9d29f3923",
+        "c5bed46c3d2351fd",
+        "63e5c098ec3e392e",
+        "05e213075fe5e70e",
+        "8714b6d46043e7b9",
+        "16e0264139429a84",
+        "ff7664772d223f41",
+        "3aef1bfdf4c23645",
+        "bfaf0c7d2b882ac9",
+        "9aa713b1f6ce997e",
+        "90ded5c1d71ff8ed",
+        "87b3b67d2fd9178f",
+        "f12eceda356f108c",
+        "a24f1830d22ee039",
+        "4e6e28f16d553dcb",
+        "9b7a796c99f5d16e",
+        "b1e61b6621d6b18e",
+        "fe102a85c456e4c9",
+        "daf40f4a6af6833f",
+        "5dbf83a0a1ba3271",
+        "53873cf60f873a60",
+        "13d45845ab06b9ab",
+        "106a7adb3fac353f",
+        "d72ac6924e77c09d",
+        "e44807064e01c49b",
+        "83c26c7a2cab1039",
+        "5b43fbd20556229f",
+        "522fbe978525f2ea",
+        "4829cdb712ea2bbe",
+        "e679b05b2913c121",
+        "7125d1e76ba202c9",
+        "6af2cb4d304d5e45",
+        "e6b8db10e2af77d3",
+        "3dc841878fec57d6",
+        "ae65dff95e8c8f51",
+        "27c5c5812d84c5ec",
+        "e06623515950a60d",
+        "797347f62d6d32e6",
+        "c85cb87c4c8e1469",
+        "81d8600f2e27998d",
+        "80736b446b216793",
+        "6e52e3977d55152c",
+        "ab680afd26e5a458",
+        "85c3c83cddd870ee",
+        "6cc79ff821f0947c",
+        "ad0c327050b65a9e",
+        "b731bfcf1558df72",
+        "016de71765bf81ea",
+        "a31cee60983735f6",
+        "21602ae6c0261b57",
+        "5b24dbaae3aa5f15",
+        "e5872b274b5a7d85",
+        "04df12d0a9e046e2",
+        "4c791445791a5cfd",
+        "eaf2a21b94dbed7d",
+        "352bc9eaf94a7f12",
+        "b940c2406b050a0d",
+        "f20277a3f7751033",
+        "2147fc1040d07db7",
+        "7cf31348b0d9137a",
+        "c2f77446f05ad63a",
+        "39f0bbd83f9a2a5a",
+        "9b7d0a1deb463058",
+        "fc89b5f54da211bc",
+        "095d89ce84fb54f5",
+        "61ac834ab932e818",
+        "d81a1e02a7a9df73",
+        "6f5f1a25dc8c18d5",
+        "11178b3a79668c2c",
+        "642145dab024717b",
+        "2e6e682327a771b2",
+        "5113af3a00c49073",
+        "255b8cf4e14a616a",
+        "74212fc03df3eff5",
+        "71635b185d48a2d4",
+        "421beb73cecd2e44",
+        "328fcf466ff14b8a",
+        "28b182f180bfac0f",
+        "520fca86c238ac0e",
+        "967f3badd3632549",
+        "9139a86ffdba8125",
+        "e8e869efc2bb068b",
+        "dd839114c6893781",
+        "76fe03b549fca07e",
+        "5ca60d194b0ddd5c",
+        "eb73cdebaba9a9d4",
+        "9e26ed6b58201343",
+        "236a0526807c69cb",
+        "22b49d15412b699d",
+        "087e97fceef71748",
+        "deea8cd1f26bdb35",
+        "cdc1b62bf2edb987",
+        "7d4c2c803ee12f25",
+        "44c89cb3effaf450",
+        "baad4b17331f880b",
+        "913ff68d231f1d48",
+        "6b760151077be4f6",
+        "c8a06ccb37521993",
+        "f01694c5f1c77fa3",
+        "0ad7842fdd042bd0",
+        "1a4532757d580afe",
+        "8be59a29b874b1ec",
+        "0efd9cea2cdf9658",
+        "716dfeeb2809a8d8",
+        "0792de76fc646dca",
+        "ba39a938050f094d",
+        "dc451e816f8bc51c",
+        "871825e0ea2cdd6b",
+        "12884c99f05f318f",
+        "8d54933dbbcf01be",
+        "da41bd10f2844364",
+        "576f784e82d49b75",
+        "28cba8f4fbbbdb4b",
+        "8f942c770dc65723",
+        "f190531fefd53937",
+        "e2b87682f9c902ed",
+        "5f141b9a9096f487",
+        "27cddfb0274d96c8",
+        "0171a2211cea38e6",
+        "be36c5563046c254",
+        "587bf27c7d690404",
+        "944704521ad9074d",
+        "d3fba5a6615e0309",
+        "d2bc937248738e5c",
+        "519417175384924d",
+        "2be59f177ca4ffb3",
+        "c447510f64e0de3b",
+        "0e8621592f3ea715",
+        "8e48695dcd2fd133",
+        "e2ce6aea22b3ee82",
+        "b3660a12dc34e76c",
+        "0f08362e05bf11a6",
+        "a4c3a90c86bf0e09",
+        "83794ce378a9184f",
+        "d1c73e9a9a7a2d59",
+        "ad31301f6782be96",
+        "d3d9cd11010e66e4",
+        "68bae2de0658a707",
+        "7e629244dcba133f"
+      ],
+      "sampledFrames": 318,
+      "framesDetected": 265,
+      "framesMissing": 53,
+      "framesUndecodable": 0,
+      "detectionRate": 0.8333,
+      "witnesses": true,
+      "cropTrackHash": "b568a7265e0ed0bc",
+      "cropTrackContentHash": "1f675957f7be83a4",
+      "seconds": 39.2
+    },
+    "closed": {
+      "at": "2026-08-01T06:14:11+00:00",
+      "route": "planet-x",
+      "videoKey": "3aUyWQp010A_20260711-185754",
+      "config": {
+        "mode": 1,
+        "preprocess": [],
+        "crop": "tracked",
+        "moduleVersion": "1",
+        "origin": "harness-mediapipe",
+        "modelSha": "4eaa5eb7a98365221087693fcc286334cf0858e2eb6e15b506aa4a7ecdcec4ad",
+        "cropTrackHash": "b568a7265e0ed0bc"
+      },
+      "configHash": "fbd1fcabfaff57fd",
+      "setupHash": "4f783f73c827ee464968114cfab111fa0d3ec955ed08af80889ed67cb0f925ea",
+      "timestamps": [
+        0.0,
+        0.2,
+        0.4,
+        0.7,
+        0.9,
+        1.1,
+        1.3,
+        1.6,
+        1.8,
+        2.0,
+        2.2,
+        2.4,
+        2.7,
+        2.9,
+        3.1,
+        3.3,
+        3.6,
+        3.8,
+        4.0,
+        4.2,
+        4.4,
+        4.7,
+        4.9,
+        5.1,
+        5.3,
+        5.6,
+        5.8,
+        6.0,
+        6.2,
+        6.4,
+        6.7,
+        6.9,
+        7.1,
+        7.3,
+        7.6,
+        7.8,
+        8.0,
+        8.2,
+        8.4,
+        8.7,
+        8.9,
+        9.1,
+        9.3,
+        9.5,
+        9.8,
+        10.0,
+        10.2,
+        10.4,
+        10.7,
+        10.9,
+        11.1,
+        11.3,
+        11.5,
+        11.8,
+        12.0,
+        12.2,
+        12.4,
+        12.7,
+        12.9,
+        13.1,
+        13.3,
+        13.5,
+        13.8,
+        14.0,
+        14.2,
+        14.4,
+        14.7,
+        14.9,
+        15.1,
+        15.3,
+        15.5,
+        15.8,
+        16.0,
+        16.2,
+        16.4,
+        16.7,
+        16.9,
+        17.1,
+        17.3,
+        17.5,
+        17.8,
+        18.0,
+        18.2,
+        18.4,
+        18.7,
+        18.9,
+        19.1,
+        19.3,
+        19.5,
+        19.8,
+        20.0,
+        20.2,
+        20.4,
+        20.7,
+        20.9,
+        21.1,
+        21.3,
+        21.5,
+        21.8,
+        22.0,
+        22.2,
+        22.4,
+        22.7,
+        22.9,
+        23.1,
+        23.3,
+        23.5,
+        23.8,
+        24.0,
+        24.2,
+        24.4,
+        24.7,
+        24.9,
+        25.1,
+        25.3,
+        25.5,
+        25.8,
+        26.0,
+        26.2,
+        26.4,
+        26.6,
+        26.9,
+        27.1,
+        27.3,
+        27.5,
+        27.8,
+        28.0,
+        28.2,
+        28.4,
+        28.6,
+        28.9,
+        29.1,
+        29.3,
+        29.5,
+        29.8,
+        30.0,
+        30.2,
+        30.4,
+        30.6,
+        30.9,
+        31.1,
+        31.3,
+        31.5,
+        31.8,
+        32.0,
+        32.2,
+        32.4,
+        32.6,
+        32.9,
+        33.1,
+        33.3,
+        33.5,
+        33.8,
+        34.0,
+        34.2,
+        34.4,
+        34.6,
+        34.9,
+        35.1,
+        35.3,
+        35.5,
+        35.8,
+        36.0,
+        36.2,
+        36.4,
+        36.6,
+        36.9,
+        37.1,
+        37.3,
+        37.5,
+        37.8,
+        38.0,
+        38.2,
+        38.4,
+        38.6,
+        38.9,
+        39.1,
+        39.3,
+        39.5,
+        39.8,
+        40.0,
+        40.2,
+        40.4,
+        40.6,
+        40.9,
+        41.1,
+        41.3,
+        41.5,
+        41.8,
+        42.0,
+        42.2,
+        42.4,
+        42.6,
+        42.9,
+        43.1,
+        43.3,
+        43.5,
+        43.8,
+        44.0,
+        44.2,
+        44.4,
+        44.6,
+        44.9,
+        45.1,
+        45.3,
+        45.5,
+        45.7,
+        46.0,
+        46.2,
+        46.4,
+        46.6,
+        46.9,
+        47.1,
+        47.3,
+        47.5,
+        47.7,
+        48.0,
+        48.2,
+        48.4,
+        48.6,
+        48.9,
+        49.1,
+        49.3,
+        49.5,
+        49.7,
+        50.0,
+        50.2,
+        50.4,
+        50.6,
+        50.9,
+        51.1,
+        51.3,
+        51.5,
+        51.7,
+        52.0,
+        52.2,
+        52.4,
+        52.6,
+        52.9,
+        53.1,
+        53.3,
+        53.5,
+        53.7,
+        54.0,
+        54.2,
+        54.4,
+        54.6,
+        54.9,
+        55.1,
+        55.3,
+        55.5,
+        55.7,
+        56.0,
+        56.2,
+        56.4,
+        56.6,
+        56.9,
+        57.1,
+        57.3,
+        57.5,
+        57.7,
+        58.0,
+        58.2,
+        58.4,
+        58.6,
+        58.9,
+        59.1,
+        59.3,
+        59.5,
+        59.7,
+        60.0,
+        60.2,
+        60.4,
+        60.6,
+        60.9,
+        61.1,
+        61.3,
+        61.5,
+        61.7,
+        62.0,
+        62.2,
+        62.4,
+        62.6,
+        62.8,
+        63.1,
+        63.3,
+        63.5,
+        63.7,
+        64.0,
+        64.2,
+        64.4,
+        64.6,
+        64.8,
+        65.1,
+        65.3,
+        65.5,
+        65.7,
+        66.0,
+        66.2,
+        66.4,
+        66.6,
+        66.8,
+        67.1,
+        67.3,
+        67.5,
+        67.7,
+        68.0,
+        68.2,
+        68.4,
+        68.6,
+        68.8,
+        69.1,
+        69.3,
+        69.5,
+        69.7,
+        70.0,
+        70.2,
+        70.4
+      ],
+      "timestampsSha": "92d7d075ff0ff6c1",
+      "framesSha": "2e7ab0400bd3fb00f868f30967076e6925442e3bef47d99b35ba429810daf6f1",
+      "frameDigests": [
+        "e2061e458fe2c52f",
+        "c308585c407caaba",
+        "cd4bfbcf5f1fef28",
+        "3d7d977934a6dc35",
+        "006a2acc20e4d3f0",
+        "c6954e79d4226046",
+        "b0f980d2b4ec90e5",
+        "84ae87d09e786ae0",
+        "e03ac96daf3571be",
+        "3325be608f5e9f81",
+        "bef3d5dcf656d00c",
+        "759e97a36b2c99a3",
+        "9e3d4cb193cdd1a5",
+        "ec10dc69d92be521",
+        "b6c25330ee92cfdb",
+        "436f2d5ff99f2f2e",
+        "7f79ae455a763b6b",
+        "29a9b70470bc159b",
+        "708ffa0036ff31cc",
+        "60cd08e6aaa633ad",
+        "f5b1be9cb3a8f103",
+        "acb4cf6ff12e8ff7",
+        "305fe267a48dce63",
+        "ccbfa3473206a860",
+        "e2c1e870484733c3",
+        "4edc5df9af8fdf05",
+        "818f66935ecc4c21",
+        "62874d1005f2061b",
+        "7279067e17a99e75",
+        "6e5d4597c21ad69e",
+        "5def8cbb9556ede8",
+        "d515b6c0458127dc",
+        "5b73ed3950d7e5f2",
+        "658024001df4a769",
+        "898305c381b62e7d",
+        "0294e6a972300225",
+        "101eb6846a6d2e8c",
+        "777a917908dbb1f8",
+        "b4c4708ffa5425cf",
+        "f6e79980db3c7d51",
+        "841c0c2a55d16126",
+        "2c889272b293c069",
+        "fb57fd022d5f314e",
+        "3a19350853c011a9",
+        "4c3698756f505c17",
+        "62ff3b9a80089d6b",
+        "7b9b4e0c79c824b0",
+        "cc238594a68814c3",
+        "49b18974efceb856",
+        "0741e12dad08e576",
+        "14045671d29e229a",
+        "c3e8d94af8c6e222",
+        "e62ace81b8de6953",
+        "329c4ac30c0ca3f4",
+        "cb6e3c66dd0043d1",
+        "7d5c2e1101201681",
+        "8e0bec58d6b2f0bc",
+        "c093cc297b1d02b9",
+        "309ccbc1f995b93a",
+        "252b960965c43712",
+        "5194bb697cc1874f",
+        "62249b7b66ee6f67",
+        "4293eff4491ca246",
+        "42d9687ab97f36eb",
+        "e475b42388a16faf",
+        "2bed8f4c2ec16d97",
+        "e84227cffbf66578",
+        "8f4e417cccce9c5c",
+        "9d2eeb36b29e6467",
+        "3a1728c53fcf8f9a",
+        "0f26c31ac0a46882",
+        "a1fd59a910394cd0",
+        "4f8c636457b2a229",
+        "878f96428a3a8fd1",
+        "d4bc98f0be233183",
+        "421fcb821e09f2de",
+        "1deb12a8aa9a56c7",
+        "990ca65e643b27e8",
+        "50ef19558033604f",
+        "40ed167c9400935e",
+        "352bd104e4de3bb5",
+        "8084c8185e78576d",
+        "63ec7efbd7ee5a5b",
+        "a85f18bb5444ff70",
+        "e3300cd423791807",
+        "54b92dedf015aff7",
+        "7c0c9a14249d68db",
+        "65e70d8b29b36632",
+        "bdecceec355bb7e0",
+        "eb3e8281b28ffc72",
+        "27d8c5ae0974f827",
+        "f5fff216ce678ef4",
+        "9e3e656c0546c4a7",
+        "2bb8842b288949bb",
+        "3b9b4a395f3c1bc1",
+        "9f6d3eae5fe8d301",
+        "5a16ab1d38dcf38b",
+        "500bd2881450b127",
+        "4ff73e78736a4e82",
+        "5492c88479cf9dd8",
+        "6d695d0981db3e77",
+        "8c1043d65c044bd2",
+        "37b29ad3194e2072",
+        "630512d46254282b",
+        "4f0abde86471f6c0",
+        "709dc9ce2c0381e0",
+        "00e0968a0b4b3e78",
+        "03519cbe7d77039a",
+        "61303e2b5caa6bf1",
+        "3a07639d05c9d304",
+        "43659cbf7ae4a572",
+        "84e4c946d6357d13",
+        "182d504c72e944d4",
+        "1cb3b02fea2278ea",
+        "3ca762a6d668a569",
+        "6f9f7e77d7ed833e",
+        "3938b7df357c4ee7",
+        "25685834243e7e74",
+        "6d7952dfa4f284ec",
+        "ddbc737b2edecf8d",
+        "d4cd459619c551dc",
+        "f6bdf59b230ff6b7",
+        "72f6ad74824caa59",
+        "931213c867c1c12f",
+        "55308ed75dc551d8",
+        "2b3a55bd19a0b0ea",
+        "1c5b5f319123aca9",
+        "a367f5bb592199cc",
+        "7e7d5f9179d32b02",
+        "2e7ebda44d470f6f",
+        "afd43d947cb4521e",
+        "00f337d7b48279a7",
+        "4a797bdf222de9c3",
+        "d1bf0568f01f6159",
+        "3bda199520a5f717",
+        "b79069a97a4c2ed5",
+        "799823e70061d644",
+        "dff19bc192ef7915",
+        "786be7bf8c4f086b",
+        "f53ab5fea3bfb253",
+        "994ca794f97760bc",
+        "fae8d44bfde9e42d",
+        "f6c3699c04536cb9",
+        "210daa665c45c815",
+        "e73621f595649274",
+        "d6e280fac129f0b1",
+        "a3f4d2241bef1fc8",
+        "eb337127bb39e540",
+        "ae4150f84b25637b",
+        "7ca622cce28919c4",
+        "7c69b563d467740d",
+        "b718fe9ed0bb7a27",
+        "9330ecad74f777d5",
+        "77bcc353cc7e797d",
+        "7a05201a8d0332b0",
+        "8636248adaef18d1",
+        "8dd240168635d6ea",
+        "d4a059767b1a3704",
+        "53e8fa8eb8ee9a02",
+        "14ec6983f23037b3",
+        "822274c296f6ed92",
+        "06233114657f6925",
+        "7830d6670294c929",
+        "7ae66a78ea39f07e",
+        "fa9d4873f9a0bfd9",
+        "b36d19339557f046",
+        "5711b8313b99d113",
+        "86371bdf36e5120f",
+        "69560aad95fbd651",
+        "f840929b1de2efc9",
+        "b1b92d2f88f2936b",
+        "d487259b5d488a1b",
+        "9fdde24466ac35be",
+        "5e58e3a7b178ce15",
+        "70e9dc2b98bca364",
+        "e9c9a76c8cebd701",
+        "fd47a8725a5890bd",
+        "2ce782b3d5b16084",
+        "0bb9ed5f836e6a75",
+        "b397e6a9d29f3923",
+        "c5bed46c3d2351fd",
+        "63e5c098ec3e392e",
+        "05e213075fe5e70e",
+        "8714b6d46043e7b9",
+        "16e0264139429a84",
+        "ff7664772d223f41",
+        "3aef1bfdf4c23645",
+        "bfaf0c7d2b882ac9",
+        "9aa713b1f6ce997e",
+        "90ded5c1d71ff8ed",
+        "87b3b67d2fd9178f",
+        "f12eceda356f108c",
+        "a24f1830d22ee039",
+        "4e6e28f16d553dcb",
+        "9b7a796c99f5d16e",
+        "b1e61b6621d6b18e",
+        "fe102a85c456e4c9",
+        "daf40f4a6af6833f",
+        "5dbf83a0a1ba3271",
+        "53873cf60f873a60",
+        "13d45845ab06b9ab",
+        "106a7adb3fac353f",
+        "d72ac6924e77c09d",
+        "e44807064e01c49b",
+        "83c26c7a2cab1039",
+        "5b43fbd20556229f",
+        "522fbe978525f2ea",
+        "4829cdb712ea2bbe",
+        "e679b05b2913c121",
+        "7125d1e76ba202c9",
+        "6af2cb4d304d5e45",
+        "e6b8db10e2af77d3",
+        "3dc841878fec57d6",
+        "ae65dff95e8c8f51",
+        "27c5c5812d84c5ec",
+        "e06623515950a60d",
+        "797347f62d6d32e6",
+        "c85cb87c4c8e1469",
+        "81d8600f2e27998d",
+        "80736b446b216793",
+        "6e52e3977d55152c",
+        "ab680afd26e5a458",
+        "85c3c83cddd870ee",
+        "6cc79ff821f0947c",
+        "ad0c327050b65a9e",
+        "b731bfcf1558df72",
+        "016de71765bf81ea",
+        "a31cee60983735f6",
+        "21602ae6c0261b57",
+        "5b24dbaae3aa5f15",
+        "e5872b274b5a7d85",
+        "04df12d0a9e046e2",
+        "4c791445791a5cfd",
+        "eaf2a21b94dbed7d",
+        "352bc9eaf94a7f12",
+        "b940c2406b050a0d",
+        "f20277a3f7751033",
+        "2147fc1040d07db7",
+        "7cf31348b0d9137a",
+        "c2f77446f05ad63a",
+        "39f0bbd83f9a2a5a",
+        "9b7d0a1deb463058",
+        "fc89b5f54da211bc",
+        "095d89ce84fb54f5",
+        "61ac834ab932e818",
+        "d81a1e02a7a9df73",
+        "6f5f1a25dc8c18d5",
+        "11178b3a79668c2c",
+        "642145dab024717b",
+        "2e6e682327a771b2",
+        "5113af3a00c49073",
+        "255b8cf4e14a616a",
+        "74212fc03df3eff5",
+        "71635b185d48a2d4",
+        "421beb73cecd2e44",
+        "328fcf466ff14b8a",
+        "28b182f180bfac0f",
+        "520fca86c238ac0e",
+        "967f3badd3632549",
+        "9139a86ffdba8125",
+        "e8e869efc2bb068b",
+        "dd839114c6893781",
+        "76fe03b549fca07e",
+        "5ca60d194b0ddd5c",
+        "eb73cdebaba9a9d4",
+        "9e26ed6b58201343",
+        "236a0526807c69cb",
+        "22b49d15412b699d",
+        "087e97fceef71748",
+        "deea8cd1f26bdb35",
+        "cdc1b62bf2edb987",
+        "7d4c2c803ee12f25",
+        "44c89cb3effaf450",
+        "baad4b17331f880b",
+        "913ff68d231f1d48",
+        "6b760151077be4f6",
+        "c8a06ccb37521993",
+        "f01694c5f1c77fa3",
+        "0ad7842fdd042bd0",
+        "1a4532757d580afe",
+        "8be59a29b874b1ec",
+        "0efd9cea2cdf9658",
+        "716dfeeb2809a8d8",
+        "0792de76fc646dca",
+        "ba39a938050f094d",
+        "dc451e816f8bc51c",
+        "871825e0ea2cdd6b",
+        "12884c99f05f318f",
+        "8d54933dbbcf01be",
+        "da41bd10f2844364",
+        "576f784e82d49b75",
+        "28cba8f4fbbbdb4b",
+        "8f942c770dc65723",
+        "f190531fefd53937",
+        "e2b87682f9c902ed",
+        "5f141b9a9096f487",
+        "27cddfb0274d96c8",
+        "0171a2211cea38e6",
+        "be36c5563046c254",
+        "587bf27c7d690404",
+        "944704521ad9074d",
+        "d3fba5a6615e0309",
+        "d2bc937248738e5c",
+        "519417175384924d",
+        "2be59f177ca4ffb3",
+        "c447510f64e0de3b",
+        "0e8621592f3ea715",
+        "8e48695dcd2fd133",
+        "e2ce6aea22b3ee82",
+        "b3660a12dc34e76c",
+        "0f08362e05bf11a6",
+        "a4c3a90c86bf0e09",
+        "83794ce378a9184f",
+        "d1c73e9a9a7a2d59",
+        "ad31301f6782be96",
+        "d3d9cd11010e66e4",
+        "68bae2de0658a707",
+        "7e629244dcba133f"
+      ],
+      "sampledFrames": 318,
+      "framesDetected": 265,
+      "framesMissing": 53,
+      "framesUndecodable": 0,
+      "detectionRate": 0.8333,
+      "witnesses": true,
+      "cropTrackHash": "b568a7265e0ed0bc",
+      "cropTrackContentHash": "1f675957f7be83a4",
+      "seconds": 24.18
+    },
+    "comparison": {
+      "identical": true,
+      "fields": [],
+      "framesCompared": 318,
+      "framesDiffering": 0,
+      "firstDivergence": null,
+      "differingFrames": [],
+      "differingFramesTruncated": 0
+    }
+  },
+  "manifest": {
+    "bundleCount": 84,
+    "bundles": [
+      {
+        "route": "atman",
+        "videoKey": "Nwrx6iwgcHg_20260722-060619",
+        "truthSource": "ground-truth",
+        "truthHash": "81586998526ae9c51d09e458a1852306988a4c61ec7faa20ccf42c76dfa9308d",
+        "truthContentHash": "6b4dd4c771c76b39c005ab1ebc758b8a771f5c0e54ace7120bd7190ae7270315",
+        "truthFrames": 933,
+        "setupHash": "752669328a534c025c045f12239606c8d6d00a6bbe1d97702368cdef066c47c3",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "5dcba36301bfc8f7",
+        "cropTrackFrames": 187
+      },
+      {
+        "route": "atman",
+        "videoKey": "rrpDE4OLMjQ_20260722-061834",
+        "truthSource": "ground-truth",
+        "truthHash": "074da756057302d713e53424e42b05bd22cb019e6567119078daa75ffd8291b2",
+        "truthContentHash": "51bfebe3fc19b5b36c59f0d140a4b24afe02d791a9cb073666033b33f8661e75",
+        "truthFrames": 1642,
+        "setupHash": "657dd389874f42e924c17949433b7fbe8378acce25d39700149a10da7c34cf62",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "CpO4rw3K8NM_20260721-224102",
+        "truthSource": "ground-truth",
+        "truthHash": "05227f686cddb37ebdaae54d2453ebe79f11303065ed932a1836cd1a241391b2",
+        "truthContentHash": "d2f82d387fd51e489f38684fe97326ba844f01af3084005c06943c31f26b2727",
+        "truthFrames": 400,
+        "setupHash": "4bd45f6b6fb7277185050c6d87e13e248e9e513234a723fe3fdd94e432eaa4e1",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "le3hfbyY3kg_20260721-224012",
+        "truthSource": "ground-truth",
+        "truthHash": "0903643a5ef0ae26cc69832df15e6458ae97ba3b9a384b7662690cdd16f5bf18",
+        "truthContentHash": "e422b4911603e3c5458c5610bd3ae2a8cdcd84e0d3818b7f426e3012e03d478d",
+        "truthFrames": 339,
+        "setupHash": "702ce8abcd291c96779fd57c5cf8174a0dd189a6ebf964309ba00c611003e2f3",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "a57841d2d7c18ee8",
+        "cropTrackFrames": 59
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "potxUnLl9pU_20260721-223711",
+        "truthSource": "ground-truth",
+        "truthHash": "192da5c77c3c140ea1a61a3f48775cff8bc0005811a0f548a08f5d6316cf8351",
+        "truthContentHash": "5561206aef03f608cab4a2ec7f1425be4d02a3415ca34b3bd672704c8899b0a9",
+        "truthFrames": 329,
+        "setupHash": "bd9269a0de9e9368c904ae36e67690c14467847b4ade3ba0d8b3e3e50e8c7ca3",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "w30e8umOfE4_20260721-223853",
+        "truthSource": "ground-truth",
+        "truthHash": "58c1dc8ef279241abfbc15c5794315a3ec4fb2a6ec6642667dbb4ff5129a8f9c",
+        "truthContentHash": "059d98ca0cacce46f85e5032993d0cd7d7e9cedc3352fb2f3cedd09dda3fee60",
+        "truthFrames": 579,
+        "setupHash": "effd8b4e0d7dcb810e8869a1cbd7270c8456e3098a47f14febd80f3c9118b163",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "xLOOGHF30io_20260721-223936",
+        "truthSource": "ground-truth",
+        "truthHash": "2479b15a24c92ef0c43a908b623a0be547de29c19efa208925a370909f68ce41",
+        "truthContentHash": "09821572c93b8b11cb85613bbe3c5aef4d008e3431d6ad77c6ecddb0e45fd5f2",
+        "truthFrames": 561,
+        "setupHash": "0f57056de6027e6073bead6beffa9dc2fbc37413781692b4ce7aaba50cf13b9c",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "aQUYgdLXY5w_20260722-185540",
+        "truthSource": "ground-truth",
+        "truthHash": "14f231b81fb9301306c24cffb7adad296a997217061364e05d182c8afeb5b249",
+        "truthContentHash": "527d19f5466ae62c68faafa0e03c9517316016a9193af9dc8fabff657d5fb6d6",
+        "truthFrames": 347,
+        "setupHash": "fe0862fe3dc440818df356315b2723ada29cb7e785dfb7e3511c8b3d059999b1",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "hSHSLvyjXRM_20260722-185511",
+        "truthSource": "ground-truth",
+        "truthHash": "d709a73a1d059d20e8e5a7d2082ee82f63a3a3681267a4c50048f768a7476949",
+        "truthContentHash": "0af2f0b5e72deba5df2a22f505bc9faf8ebaf0a4ab8d181308ed97d3f827406c",
+        "truthFrames": 259,
+        "setupHash": "1d5b9680f9887c6ae4b782eaa2da81f447d2731fa6230fe8896cf099d71d01da",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "o9St0ACvnns_20260722-185417",
+        "truthSource": "ground-truth",
+        "truthHash": "e3ba10de5e3678a857bdcc34caf774c444b5adc474517e13bc819cc12a7686cc",
+        "truthContentHash": "bebee1c9d4a65851d6705a3c40d4c318334bec16992517ffadb40cb5df60e2b2",
+        "truthFrames": 331,
+        "setupHash": "3c39e7932fb00e12ede48a4e81c341173311e630c290a1f835daeb28093f97ed",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "r1rc4PUQCxM_20260722-185611",
+        "truthSource": "ground-truth",
+        "truthHash": "ec82d7fce677e94cc53204029ba4fdda1a16089cf46322d9b2e74835bdfd3ea5",
+        "truthContentHash": "6b3c99b0bdcc3a0115dd895cdffe79fdff3b096ff4d7991ad0980ac38bcc9368",
+        "truthFrames": 597,
+        "setupHash": "290b5738eb4e6efcbc440562e4ae72581e1ffba9d10de7dd4975b407e258c453",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "xKeMBryIbEE_20260722-185705",
+        "truthSource": "ground-truth",
+        "truthHash": "a711ffea1130db2ce6996fc6cc6d8c7728e9f779b1c56d416dd8886cb2f79a23",
+        "truthContentHash": "a0f8f6a33277a0c62be8c33a3b4f029776936ca083b70b9b7a38b7fe00dc4fcf",
+        "truthFrames": 76,
+        "setupHash": "a0800f443b2dc539853e32244382de5a8cf982dbc0336ec02fd0554a22f26c41",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "dominator",
+        "videoKey": "FXbIF6_kKj0_20260722-053852",
+        "truthSource": "ground-truth",
+        "truthHash": "3c6b67859cc19a49463b27b42367c72ebb9aa9385129925396d91ee07301873e",
+        "truthContentHash": "73ad95034ae9d3f8c9137ea5490713fef45df678f0b5fdb7340f0dda580174e7",
+        "truthFrames": 381,
+        "setupHash": "562f23076fb12a4b01d4d839049ffea7b2c61371c12a53242dee7f036189e65c",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "get-carter",
+        "videoKey": "eYPR7JTRRMk_20260711-144114",
+        "truthSource": "ground-truth",
+        "truthHash": "23fc5b86efb69e5833480d6e5ea23ca9b0c6a68b80664ad88a93306d175eeff0",
+        "truthContentHash": "db92d86f8ba2672c1a6c87d993f69b46af8d25a270fdf23ea1098aeda95b8f92",
+        "truthFrames": 528,
+        "setupHash": "f182525e21bc363ec0cfdc43ac4b2f31e2e592b565b9a33d1c256fa2c03e8736",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "get-carter",
+        "videoKey": "f04-LTbJ01o_20260711-144150",
+        "truthSource": "ground-truth",
+        "truthHash": "cfc00a2f03663b6e31add580aaef163d992bbafc9b7ba9bb590bb488b55684c7",
+        "truthContentHash": "da5130e6d8d4c8a093321b64c3504ced54f5d6f96b5d1fd6a09be721ecb9dbfc",
+        "truthFrames": 987,
+        "setupHash": "4cb7a7e8a2de6a15cb2c66f6f4cec8e8b860117480b7f12caf4066cc92a8b955",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "get-carter",
+        "videoKey": "fKjfXtqLA1I_20260711-144356",
+        "truthSource": "ground-truth",
+        "truthHash": "c6a4a1faa16fbf11e5129c28394ada04fe3ba5344cc870695fcf218e25ee49c3",
+        "truthContentHash": "84fd9fa3059bb3d381c2858f06ff199458ddbeacc1bccbafcc551d483fe528b0",
+        "truthFrames": 1922,
+        "setupHash": "6e5a820698e3d9f77a0d2ceb5f67c8a42e32476ce922693ab2ba3f63f79113ca",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "get-carter",
+        "videoKey": "PC5eZ0Pys90_20260711-144440",
+        "truthSource": "ground-truth",
+        "truthHash": "92a18b805e957be4bcc43aaa9bf7b7aed4c1f2a8a438cc676d9bc8e363839d2f",
+        "truthContentHash": "a7ccb2d6b6da05d20d546c2c0bed97560e4fa7822cda8b7e8705a260c06e11fe",
+        "truthFrames": 790,
+        "setupHash": "63debea7b8c26877195b46f25e2ee2578f4cfa931a46d7224e78895ece05664c",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "gift-the",
+        "videoKey": "0JMnDzHoMm0_20260722-055854",
+        "truthSource": "ground-truth",
+        "truthHash": "13e2036f94a6177a887431d19a8ccbf39140ac739ab04d7d0b751294fcd67184",
+        "truthContentHash": "c813d55ffb5047030dd1079c1105e093f67532b672db5ec92713a758908bb4f6",
+        "truthFrames": 1166,
+        "setupHash": "6502f99319f2a2591e56f5383b5ff353244cba17175e61c406342d862bfe7723",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "gift-the",
+        "videoKey": "klkrpdk7zbo_20260722-055814",
+        "truthSource": "ground-truth",
+        "truthHash": "9051bb86d02a8ccce91a2e1ca18d4a403e837d427ad74e1b99e1d20aaa1e37e6",
+        "truthContentHash": "4e9f39925c30ea2b9bf09fda5d0131976b2846ba11a7f52e7afd8d146d33ef6d",
+        "truthFrames": 1971,
+        "setupHash": "4cf2097eafca8aeaf867018dd38b3a5f2236f78eae2633ece9c6419e1494acbb",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "a0ea2515e4402a55",
+        "cropTrackFrames": 314
+      },
+      {
+        "route": "j-wall-the",
+        "videoKey": "czLRYQBLA_o_20260722-055429",
+        "truthSource": "ground-truth",
+        "truthHash": "f4727f3dd6178b5bda3de89eeca226a2be5517cf5fd8e40166e5a38f6610a82b",
+        "truthContentHash": "f59177e187b0cd292c4aafc78ef97789490653750b73297eeb3a496fcc8d1db7",
+        "truthFrames": 2527,
+        "setupHash": "673c8d13037cb00cb9d635428ff455734a7ac1f32aab4c14f544227a20a6e5bb",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "j-wall-the",
+        "videoKey": "h3f_qq40GOA_20260722-055327",
+        "truthSource": "ground-truth",
+        "truthHash": "a069ed5644e2c8398c082e3cded72e986f8d62665cdbdb625ec410908d7ea9e7",
+        "truthContentHash": "54f9994e91d779ee6dfb4996790e9f43630a6ca3b65e8af1d13d9394a4d4158b",
+        "truthFrames": 1387,
+        "setupHash": "61bb54912ae1790b020dc4791da439790512a517b40be87e9f116b5bd0150ccd",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "c238e15d2435e67d",
+        "cropTrackFrames": 221
+      },
+      {
+        "route": "j-wall-the",
+        "videoKey": "iknfP7W_R_8_20260722-054834",
+        "truthSource": "ground-truth",
+        "truthHash": "eeb13901a3616dba2ac490680264aa99e3c2df3515315dd6b9fda8099a40296c",
+        "truthContentHash": "31ad7f160c8f47c522bc4d8c59ce7b5fa48fce504df769777088b002e331ad60",
+        "truthFrames": 1242,
+        "setupHash": "34d6f88d77edac47911dc47a54b6c616770c0550aa3ef1d97addd956de80dabd",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "lizard-therapy",
+        "videoKey": "3BkPS4iZYz8_20260711-143235",
+        "truthSource": "ground-truth",
+        "truthHash": "a83519c6e1cd60d203424abad3e32e4a1cbe0402777fdbaf9b72ae40eacaa760",
+        "truthContentHash": "dbb285cb66cc392f2c95953d08d6064c2aeefe9048c33d818e3cda12fafc8ba8",
+        "truthFrames": 451,
+        "setupHash": "f2405526a92dd0779e9e9a07e7de5dafc1586bc211f7b8ec58dc9a60a0ae57db",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "lizard-therapy",
+        "videoKey": "Bishop_Bouldering__Lizard_Therapy__V9__20260710-192620",
+        "truthSource": "ground-truth",
+        "truthHash": "ec0ef292fd855ce859dd13d8c13e95068bd9d8aa3e4d97a7e9177cb390d746e8",
+        "truthContentHash": "c6665b4a37de1765f755569e6e5a31006fe0627b2049986297edb72c6406160e",
+        "truthFrames": 305,
+        "setupHash": "477a2e8d83013e6f632a05ac6df323a223778e25f40e3ba48de845709b6325d0",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "Bishop_Bouldering__The_Mandala__V12__20260711-141930",
+        "truthSource": "ground-truth",
+        "truthHash": "c2e2a2604401cb1f95549eb42fdc530fbd9886e599a740f8664e6357dccfb8d9",
+        "truthContentHash": "52a6aa730671b37ddfcad0577af1987fa2803e1023af5b20b5198642621e102b",
+        "truthFrames": 719,
+        "setupHash": "66f12c7747723f0696ca9317525a8f21d81f92aba3ca88d1b0fda5c494557101",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "Bishop_The_Mandala_V12_20260710-142554",
+        "truthSource": "ground-truth",
+        "truthHash": "55308cbc27b90d121785382daa5fd4e02e3a6e047fd4fddeede07fbcc335c652",
+        "truthContentHash": "c72c4fe5b007743f1323a1eb20ea263c2346a7312ad89da077e315aeaaf93017",
+        "truthFrames": 770,
+        "setupHash": "cbde249e1b7f999ac27069e661cec37f34d5bb187e67e3fc95e137b7d9e02b63",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "06325df685363fdb",
+        "cropTrackFrames": 85
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "Mandala_v12__bishop__bouldering__climbing_20260711-142400",
+        "truthSource": "ground-truth",
+        "truthHash": "f96c3f6486c21f15afe864cf706d29b8a54ad899edab24475f4e3e614d5a4405",
+        "truthContentHash": "410e848902059f82c8cdf4db7998824ccbca8c2a60945200256d5c9132c2fa2a",
+        "truthFrames": 1235,
+        "setupHash": "7da084b685138ee6bc177e00aec5924cd66a87dd19e0371428038caecb863886",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "915cad7f1010637c",
+        "cropTrackFrames": 95
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "The_Mandala_20260711-141737",
+        "truthSource": "ground-truth",
+        "truthHash": "5c459a6ec99c66f0033829e916f50a4d5cf9cfdeae3eb436a1ee5a65960036aa",
+        "truthContentHash": "3bad7adc15654fe71e33772ab908526f0ea0341de7d38a90e7bcb9677fa16f9f",
+        "truthFrames": 851,
+        "setupHash": "fbb181c0a8683a438702b227e45869b05194889c8ad7ee42d93c837e92b9955c",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "1fcd11d5ccf9071b",
+        "cropTrackFrames": 133
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "The_Mandala__v12__Bishop__CA_20260711-141532",
+        "truthSource": "ground-truth",
+        "truthHash": "963b65c552cd6e09d4f01ab86f81691ae52ba6a380323c97bc386a006b9506b2",
+        "truthContentHash": "041cd367c816283c6b362ea3685111131713c4f872928dfa80ca1fd27a5ac7bd",
+        "truthFrames": 592,
+        "setupHash": "93a0ce14a2d9eb710a39843cbd37296c5336cce6ecd0fc3f418a83aa441e33b0",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "The_Mandala_V12_uncut_Bishop__CA__bouldering__cl_20260711-141635",
+        "truthSource": "ground-truth",
+        "truthHash": "9d78dcb3613ba89661a71a25349ea1c7b6cdd370424ad9c67b4e8af76f637999",
+        "truthContentHash": "9180941c455f739b46130cb23c6c7ba99bca68692839960d7c061c741dd1eaa3",
+        "truthFrames": 532,
+        "setupHash": "6afe2689e57dbfc41b619d2429fd5f7f30da07987417d6c7484de1c9bc3ff4fc",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "A_Maze_of_Death__v12__Bishop__CA_20260711-111914",
+        "truthSource": "ground-truth",
+        "truthHash": "bc70e2b65ec243667d759e04f5eacc84ee72497114ffac41c29e4fb307b72677",
+        "truthContentHash": "810831eddae77712c7ca1887489ff3dcfd445c5ab15d330824a67bb91a04ebba",
+        "truthFrames": 406,
+        "setupHash": "89aeb246e6d51c4f5aa90006afbd81cf55635d43c3e406380447ad62dbdfb89f",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "A_Maze_of_Death_V12_FLASH____-_Bishop__CA_20260710-192014",
+        "truthSource": "ground-truth",
+        "truthHash": "3b44bf090aa42fc7f80a8ef633d7c968f0ed50e289d3d68386692fcc34379127",
+        "truthContentHash": "1449a5ef7148c199eec64a9a31357c7775d2af60a70675bd0262d3145627a5b8",
+        "truthFrames": 425,
+        "setupHash": "8bcf01f32d7b0f709d7abf9f7e4437608ed98bf80bad71bcf7e6fbb9cb67eab6",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "Bishop_Bouldering__A_Maze_of_Death__V12___1__20260711-113258",
+        "truthSource": "ground-truth",
+        "truthHash": "6a99d4873a35aa19c13bf31b00d379c1adc346bd687cc32a8f56f47fa16199fb",
+        "truthContentHash": "c1e67927b3d2353d4af8c94c3511c62ba1e4d2c3f13ccbc14c816fbb7bcf3576",
+        "truthFrames": 479,
+        "setupHash": "a52614aeb0191e60c82a3f88c148bdac37a5680ab81fbaddbdce1078645c39e5",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "CIBoFkcRh2E_20260713-172319",
+        "truthSource": "ground-truth",
+        "truthHash": "5e64f932ba1cd473f29a6dab5704990686e8449a937357fc2d911920f39729bc",
+        "truthContentHash": "52ed17d06b48586a5623b4e225f10b7943a11af4b42310f88f1fe694822d42c8",
+        "truthFrames": 518,
+        "setupHash": "594012bda87dac62d3dd23380bd83b6499dabf385d1503382af559187c981f90",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "gwqdjiiPzHQ_20260713-172228",
+        "truthSource": "ground-truth",
+        "truthHash": "a182a08400b21c64b1a6d8b91963888a0b5164d3e5c11f17049d84214c54b81d",
+        "truthContentHash": "66c57518c5d96fa7d44d0fe23e8929e8286ecd069450f651acdec16ef9448816",
+        "truthFrames": 351,
+        "setupHash": "4bb1ff79e68da16c1ad914a54f603e058927785d3dfda71a7b154404c2332383",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "iewxlKJNhC8_20260713-171855",
+        "truthSource": "ground-truth",
+        "truthHash": "8550ea2e6c25ad98300fb6cb7a13967f6599b9ce61c570d54e7cc2c2f0ccae19",
+        "truthContentHash": "54f85518b4d834331537584a4df5bf832beb795e0e76eeafdafc562a58522226",
+        "truthFrames": 763,
+        "setupHash": "87ea0bb96524fdbb20f8f1a749890f86b70afff0a76e6c8185d4adbb9b4d02c7",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "maze_of_death1_20260711-113427",
+        "truthSource": "ground-truth",
+        "truthHash": "0a33213fa00d35ccae0ae6f24ef8125b5027b2d2e1f1fcaa6ab6cfb56d531478",
+        "truthContentHash": "1d58a9a1ddb377f9a9a3cb451f317fd86101f0d6f304fca813f2d2906a146d10",
+        "truthFrames": 669,
+        "setupHash": "5ad970320871fc1c6401acb97b46c1679a0c0c5a23309bc3b4f72c9b8bb2bfdb",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "Maze_of_Death_v12___Bishop__CA_20260711-112041",
+        "truthSource": "ground-truth",
+        "truthHash": "7eb408f3ea3925f9a6ed248cd9c8866d8d26dd70f9205239732b563bb0ea34cf",
+        "truthContentHash": "92937080363fcdbf211e06cbf1c103cadda8b107720f14ad100c7a6b611932de",
+        "truthFrames": 487,
+        "setupHash": "b7fc30dfda7b39899165c5e2df631b7337f274c4508e776e1f236baf863f4954",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "964d664e7cdd47ab",
+        "cropTrackFrames": 69
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Adam_Ondra_flashes_Midnight_Lightning_20260711-141243",
+        "truthSource": "ground-truth",
+        "truthHash": "d9e05830a23eece844512ee370f88b58937f8c4f3db49084dab0d95b6d6dbe92",
+        "truthContentHash": "09a4fb0c977bd9ad031ab788d1e29cf76c8a43df40a3e2722d861854e984c2b0",
+        "truthFrames": 1605,
+        "setupHash": "63d466e12897f4bc22913e4593c2dfc5689136823bf40a7d5c0dd5f2df163ab3",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning__V8_20260711-124902",
+        "truthSource": "ground-truth",
+        "truthHash": "af74a62a25750b3a7eeef0fa137a67c0ff3f292d214d7f137611ea24d7e04812",
+        "truthContentHash": "ceeaae617c7215ac0360000ab9bd8d3965f1f3e57f4fd13cc02b94c7b69df035",
+        "truthFrames": 577,
+        "setupHash": "0f028efb503052d2cb23e615834131aac0a36e0d141df75bb33ff30dbc1f22bf",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning__V8___Camp_4___Yosemite_NP_20260711-124745",
+        "truthSource": "ground-truth",
+        "truthHash": "85ccb65d83bc41ce1ba822c798d38ab3bf23d40c7026b8ce33696da936dec278",
+        "truthContentHash": "24c0681035feabd99deb6d76d22607477c8281d8dbf9096f6d4cf3413869e325",
+        "truthFrames": 508,
+        "setupHash": "a6687778309fa12b9450c9f29220f6f9986c9bd903c67b7ac73c1bb0760d3b9c",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning_V8_20260711-141126",
+        "truthSource": "ground-truth",
+        "truthHash": "92e1d802990c71c9ce977f5119e9d52d9ee47e1d224fa3db2824b6a53debc311",
+        "truthContentHash": "0cce517c619ae45288d544a9d3c300151a7fc11922efd3159a096791aa88a1a2",
+        "truthFrames": 940,
+        "setupHash": "e19c1ef705ca96596da84481d242d46c08fd269735113590b55861d8a65f3b71",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning_V8___Yosemite__CA_20260711-125003",
+        "truthSource": "ground-truth",
+        "truthHash": "7aebeed13bb9ac82162efc3323c8133404e64105eabe92ad9cce52f3cee7a235",
+        "truthContentHash": "9f967e2e4f67931aa3fa97b11d7cb8ef7f8c2f2a2cb95d6193294f0d846e0d86",
+        "truthFrames": 1041,
+        "setupHash": "170c41f329e0116f41f0d684029c2c9026145422244df434b06b450aefe6134b",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning_V8__Yosemite_bouldering__boul_20260711-132735",
+        "truthSource": "ground-truth",
+        "truthHash": "b5d2227c5fcb1e3ef8c5b6ec0c0451bf55ec4155c557e0f3e219d8642f6bc88a",
+        "truthContentHash": "e5696e8ebece9db0567f9d37da209b2515429f6dd61855e22beae1fb7a1a9c0a",
+        "truthFrames": 496,
+        "setupHash": "0e466a4d4875e0dea1e7f75545d9d06e0b72d597ce71e470f2a7d4a0691f815a",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "3aUyWQp010A_20260711-185754",
+        "truthSource": "ground-truth",
+        "truthHash": "36c27457ea6a86b17bf924b8e16b3a85eb67eee9ba8f5c43185bd974e179abcd",
+        "truthContentHash": "affe3e849b600810760071e3e1ac7adfa232b5c6f543f4414de98e9da808e973",
+        "truthFrames": 705,
+        "setupHash": "4f783f73c827ee464968114cfab111fa0d3ec955ed08af80889ed67cb0f925ea",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "1f675957f7be83a4",
+        "cropTrackFrames": 119
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "6Rubzj2Y7Wc_20260711-185424",
+        "truthSource": "ground-truth",
+        "truthHash": "effe28fa62dddfd63e82c0025ffc907170f1734d12ba0b80e0189e3ecbf0436a",
+        "truthContentHash": "975a086bd2c716646e87c39cfc6ffae91a72230322a9e86929afd409dbd35e4c",
+        "truthFrames": 276,
+        "setupHash": "641492202d8bc26d277fee049ab9575706053ab469f98e353adeafa44d4988cf",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "DEDBeWcqxK8_20260711-185309",
+        "truthSource": "ground-truth",
+        "truthHash": "af3281978f05c6c6a76fa5f7c985d93bfa7c672042b00fb07f172723f7b219d4",
+        "truthContentHash": "bbb3e382a1b118c5f34b1fe606ce4351d68b9f102ff3d5097d610d9a949c1ed2",
+        "truthFrames": 567,
+        "setupHash": "accf1628e214148f3d535ef3b092157c5e531506653a55ca6fdf6b02d3fe8bec",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "dda1e3cd190fb23f",
+        "cropTrackFrames": 68
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "IE4T94qX55g_20260711-145416",
+        "truthSource": "ground-truth",
+        "truthHash": "dfc37e0b5f26549351f6b540331238476854070bf5f6ce9f16ae726342feafee",
+        "truthContentHash": "797626e852b78094a84422f72a0112069d670ac452642f510b80068272aeb1c5",
+        "truthFrames": 828,
+        "setupHash": "9a13a735b5944b66cce4f4e51ec5a653c4c83f741e2120c0119c53aef0bae9dd",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "jGa4kCQkXaQ_20260711-185530",
+        "truthSource": "ground-truth",
+        "truthHash": "1f3aecc7c8adbd432c8b3e73736e5cc109e2ca841d3c311b91e08b4d5c25ace9",
+        "truthContentHash": "086af51481c0d961498fa02a6023bba93a3d938beb3d1726fc2d211c904aa920",
+        "truthFrames": 881,
+        "setupHash": "790b2eef4bdf19652960fa578dd8c21d3ff97b758859e732d13b831f78763531",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "Planet_X__V6._Joshua_Tree_20260711-142230",
+        "truthSource": "ground-truth",
+        "truthHash": "52f314e9e96993805302e2cda8ec7c541f7a522919638ecc871a7418cc6019e6",
+        "truthContentHash": "7ab07e268829d5faaedab8209ad225232eaadc0df6126164fbfb8220d1bdea91",
+        "truthFrames": 633,
+        "setupHash": "8876488b5cad95e261d5455e7dd8c0bbd2c7b167a725797767f577fd41c62628",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "9c52477fb4ad9015",
+        "cropTrackFrames": 117
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "Planet_X__V6____Joshua_Tree__CA_20260711-142049",
+        "truthSource": "ground-truth",
+        "truthHash": "7ac17855d5e3706b61c9488f15f65985ca772a3edfefe70bdedd75a8e50707ff",
+        "truthContentHash": "71c0f3cd3260909eaee1d84c48834173b0119f378ddee58bb6f5aa90abbb1dd6",
+        "truthFrames": 750,
+        "setupHash": "4a315a3133dcb2f66bb1f486ee0714ed357f0c45f3abf49dee36dd05165fa24a",
+        "cropTrackHash": "b568a7265e0ed0bc",
+        "cropTrackContentHash": "858bf2fde093de1a",
+        "cropTrackFrames": 98
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "pZSbnfXiKTM_20260711-145213",
+        "truthSource": "ground-truth",
+        "truthHash": "0801588af3eb0212948f127d8c94541a45830e4933cb5a9f65019fd5d3b51e11",
+        "truthContentHash": "3dd373c57d65650d8115ab2b72621a8b9d1ebe82b10b0fe62b99767e81de675d",
+        "truthFrames": 676,
+        "setupHash": "27af7a15259ab73807a2a060fea121cc045bea3bb87644691837535f2b84db12",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "R0Z6c1zlic0_20260711-145518",
+        "truthSource": "ground-truth",
+        "truthHash": "e1708ec11960d5d6d1bd053e82442e19ecb94f7bddb1757bf0dd04cdd7d14719",
+        "truthContentHash": "61a2c3983d7aef0ea52cf86d0fc11e261e6dc60ca8fa7d2518c3c4330a50d70c",
+        "truthFrames": 742,
+        "setupHash": "eacd5b782e5b7b08c2737ab25260890043ca2dd073294d43630692d9334180e2",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "xUDwq2I79R8_20260711-145057",
+        "truthSource": "ground-truth",
+        "truthHash": "5658bd9786da519e6c717452ad2228aee27d1f036ba0914263c89d9c0de42c96",
+        "truthContentHash": "a1c25dcc48f86d49416857ec44c5c396afd82efafdc79a16ed7f15ef5e8fe875",
+        "truthFrames": 922,
+        "setupHash": "9d76aee3a3f079525d6263dc0ead5f6901f03612c7d3962ca957428f5b3175c4",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "8mRWYEqBOx0_20260721-224454",
+        "truthSource": "ground-truth",
+        "truthHash": "e58cf530a49fdd912ba13a2ff587da4492fd1c5c426c966a5eda2691796dc318",
+        "truthContentHash": "a71145d07f31666d8d20f99b9aa9b5a0310358d0245e766a2e4da65f749bcaa9",
+        "truthFrames": 586,
+        "setupHash": "09d68b41e19a44120737bd860ec5bd2126915f7f1acbb35fd5693f859c2db3b2",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "BjV5zliwnzI_20260721-224726",
+        "truthSource": "ground-truth",
+        "truthHash": "21de0f1577cd15fbf04230b072970e4abcbb4d4bc3ea8bcef5b5a78b7d635d85",
+        "truthContentHash": "f7261e58e0df3bb10a49639713b2ff115ec9747be6ca4d0e3eeeddd9252123e7",
+        "truthFrames": 863,
+        "setupHash": "e9f1203fddc938f036b2cdcd98ecd3480677f7f3659b9217bf3313467e24961e",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "fGFg1rWVw9A_20260721-224223",
+        "truthSource": "ground-truth",
+        "truthHash": "bcf10ce7d871ddf914033f10c1c63dba21f13affd9384ba7a05a43e6945ce73e",
+        "truthContentHash": "9291327dace9cb17d1b208d08edeb0fa560b260b3d390908cab9651238109fa9",
+        "truthFrames": 841,
+        "setupHash": "136c71c355a1f2d55e357773e0c8198e2ad94ea3649522fed03b9d52f070d505",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "H4ZHP3-EoqA_20260721-224537",
+        "truthSource": "ground-truth",
+        "truthHash": "ff3f0043b6b4756c6bc61cadff5e65c7b35e6c999bbdab304a2c3f5ee75fe166",
+        "truthContentHash": "767cb4703504db9dfe7aefea2a6b0976839d6e9948c91b8403dd0cc7668b833e",
+        "truthFrames": 698,
+        "setupHash": "1175a5fe565068889d56f393608889f158292642366a9838b1213ed0b24f57a9",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "JvlaK82BUPA_20260721-224659",
+        "truthSource": "ground-truth",
+        "truthHash": "ec6bd63f55b52bfec67a30fe09e20dec4a1c220ae1b79c17eebd53f75d025a6d",
+        "truthContentHash": "08817d37a5ca01f58c143aae49b79203a61d4c0e8ab2107d19d62ee92de5b7b2",
+        "truthFrames": 829,
+        "setupHash": "f7e4bd6a983c4d064e1ba6b83001accd84bbd9d4e63c98f697382610d3161c01",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "lM3HeW74YTE_20260721-224404",
+        "truthSource": "ground-truth",
+        "truthHash": "d8064d7b74d2ea9ab286483aff216c2cafb6133090b08035fde4a00675c8dbf2",
+        "truthContentHash": "5721b9a15508bf7d47c054b99cdcbf3fe41cbbb45c0b58f708f04a71bb6ee36f",
+        "truthFrames": 806,
+        "setupHash": "c933939f0c68437fa2705dbee48b37a49c6015312873bd7cea369338a7dc63a2",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "S1DuKwn4AyY_20260721-224313",
+        "truthSource": "ground-truth",
+        "truthHash": "f02d7a2ef198db788edbee16a22ec4c97b072a12971763d4c1f6375af5220577",
+        "truthContentHash": "3519486eab7b6206cd5217461cdb2f49fe55afb825796b309524912b9b86075e",
+        "truthFrames": 572,
+        "setupHash": "98551c12f9a33d089b4f89164954e503d751b4386a2d37b03cf0c2b66894ef8f",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "SQn72roSR-Y_20260721-224620",
+        "truthSource": "ground-truth",
+        "truthHash": "a21f5d6e717130bace3ff4d3472c02ffccb828e7631c3884dd0eede603af7568",
+        "truthContentHash": "433e7def887655eeade19fcc4fe9867cdd347887d80da7f5fa8b3cc0a1a145e2",
+        "truthFrames": 663,
+        "setupHash": "33844a8aebfb19899aaf90485f11714a670af60c5987fa005e44f67d176d3864",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "StuNUz75LoQ_20260721-224253",
+        "truthSource": "ground-truth",
+        "truthHash": "a97d844edf7c40f15ecbfc2240e09101bce30b116c0a6dcb96c27dd5af2780e8",
+        "truthContentHash": "b6a7a0f12e585e3e000d8735c36f91e7c928916b2a785352fa5561bd0630ec3b",
+        "truthFrames": 691,
+        "setupHash": "2b0862257f7d92cd74836a7371fc650868965430d20ff8428085f5a82c4b6543",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "slashface",
+        "videoKey": "gyw85zyR0x8_20260722-191730",
+        "truthSource": "ground-truth",
+        "truthHash": "64f2153542f8db1d6a67096d0dc72fc3f66dc6144fcfc7780ad39dc7f3ef5625",
+        "truthContentHash": "f6190ba3313e3c30218d40557fd46924a57c46ccdf251e01233ee4395bcb18e9",
+        "truthFrames": 857,
+        "setupHash": "756a333dd98541e4e9c9cc3370ab15c90af8e0e085ccea86b1a7b9af811ceb45",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "slashface",
+        "videoKey": "HUzummOLcfo_20260722-185827",
+        "truthSource": "ground-truth",
+        "truthHash": "f9fb6b835527543d261a0a411f6e4a5f71d89c2ad82695d94303f5983e61da3e",
+        "truthContentHash": "b20411c025694d9b2e94546d6d59fb469cc1f1de2dc38ff469c2155a879ccce3",
+        "truthFrames": 823,
+        "setupHash": "49fac6f75ace7feaf80b993306ed5d180f25a870577ce8b094fafda4341f7c0a",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "slashface",
+        "videoKey": "kwhNOuYLvvM_20260722-190156",
+        "truthSource": "ground-truth",
+        "truthHash": "675a969dccf0bdce5845e5ffef9561ac85098d75eb68179fa42b8b420832e6f8",
+        "truthContentHash": "b4e07f2f938819dc995789fdcb43c57fd2f7b27e6e8b68a0772243b881e6bbfc",
+        "truthFrames": 852,
+        "setupHash": "e1dcc589b37d4912e51361f05c1feff4b90b0b0a58e7843f16d26a687af66378",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "slashface",
+        "videoKey": "pl8EGo-QXUw_20260722-190236",
+        "truthSource": "ground-truth",
+        "truthHash": "18d984e2315e93dc1507972889436b4f5f9f36c1a6dde06881135ceea87fe37a",
+        "truthContentHash": "d98bea8c1d078c89b657954630f56e71590ff6a543135a1c740473e0651f2616",
+        "truthFrames": 1197,
+        "setupHash": "4a1f4535f4862428762bdbeb3f0485b9c35031cda6dd02789c0c858547fada0d",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "slashface",
+        "videoKey": "QqPHFdyVC50_20260722-185919",
+        "truthSource": "ground-truth",
+        "truthHash": "fa64c59f668ca569e7309e830c7d2568631f231d43174b8f5419898ac94c7c94",
+        "truthContentHash": "839163219774dbad0b279f951803e3adc12e1d203f442210846af33a9e88bda0",
+        "truthFrames": 1485,
+        "setupHash": "95b1de5d30b55cd6acf247f8677d72a2de04ebf14ca76bf4c8e7964fb06e9d6d",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "slashface",
+        "videoKey": "R8m1yJ0c9xw_20260722-190020",
+        "truthSource": "ground-truth",
+        "truthHash": "8b47aaa6274ad44c0fef0f13e54b153c572134444465dfb49c1868286516a49e",
+        "truthContentHash": "15f44faa1a2fdc32a2d2dd67bfc88f44a255187a5e82b07cd1b05cda6d7ab487",
+        "truthFrames": 1466,
+        "setupHash": "7d4043cdfe114e5b7de36e55e2eeada87effb8fbc275205d75e14ca3db9c9fe4",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "slashface",
+        "videoKey": "ULvyFVQax9g_20260722-185949",
+        "truthSource": "ground-truth",
+        "truthHash": "862b4e49e1be5ae1503ed45391759580edb52dc192a9c81686cf2f5de30be958",
+        "truthContentHash": "0f2d0caf735dc0eb45fb599cab4ec90e5ad1e6c4b2143f115db0cdf4799ae330",
+        "truthFrames": 816,
+        "setupHash": "76a8efed9c0215098ac5767a297edbf7b25b6047ec0dc02ef9ae13fba123f6d3",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "6_dNwUSqEZY_20260712-194206",
+        "truthSource": "ground-truth",
+        "truthHash": "719d193da7354ed2173f766824cbd09541d47e9603f27da0aa10f911f43e6ccf",
+        "truthContentHash": "3c3eca3f1d6e22312c508c4ca6f6a4bacfbb9ccc89851bd5f039c6baca691428",
+        "truthFrames": 506,
+        "setupHash": "0a798e27e94d8243afbe23327c6a097fc2b33d7cef099f0ea9b506505d0226a8",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "7GtieZtyx4M_20260721-214445",
+        "truthSource": "ground-truth",
+        "truthHash": "23d912fed255be432f8761326d4ac18f40c17c762397b2716c7b88ee471fc835",
+        "truthContentHash": "072cadc989e4e79069918e58cbddf2bef905f3a32b425525b7d9c87dc308ae71",
+        "truthFrames": 1085,
+        "setupHash": "3be5da2ddaddb5a609a8364fd7e4dc269deae1c786f003297e97b08fbabf2b14",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "ABCSO9BtBus_20260721-213541",
+        "truthSource": "ground-truth",
+        "truthHash": "7be36a54362658a5f49296374fb3f9d0539762a15a5b5ed498587763e6c56131",
+        "truthContentHash": "5c35ca5c824c05a8a40ffdb6b3f725f87876798131b7bb67b65653e50d4afaa2",
+        "truthFrames": 867,
+        "setupHash": "c4434b26a1c1a74fb3b3605141fcc2e78a12fca2a7311f46c558fd0a8c7ba963",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "f0hsR3dD_ww_20260721-213439",
+        "truthSource": "ground-truth",
+        "truthHash": "dcc2662af7aa978e702bcae51c4057bf76b768fb47728fe56a3e90469920f038",
+        "truthContentHash": "a42985c7b38b3f8086c3f7674dcc3d165fb30bbeeb5910fa2f7d5e7a2deea274",
+        "truthFrames": 513,
+        "setupHash": "56fb027dc8a3019b391d07622f6871e5fdfc210450b2013ec7f9dbdf757190d0",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "g8P05nLChjY_20260721-213411",
+        "truthSource": "ground-truth",
+        "truthHash": "47298fd52913dfe193dc79ec8af33ebded60d1586c41db7291182073783a508f",
+        "truthContentHash": "ca4b4a6ad3f5e13502bd6e7d2ace8b271c219b4466d919e2829858a40fe1429b",
+        "truthFrames": 418,
+        "setupHash": "4d5279edbc7384da8b65ddc65c048871ca15a41d272f4216a844e821664d1cfa",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "mdESs9NYIc8_20260721-214621",
+        "truthSource": "ground-truth",
+        "truthHash": "e19f727756489b6f6670ec76468c3b4865165f6adfcff93ad978b89d1e898827",
+        "truthContentHash": "19fcf05ac1c1f620c4413ed7c0dfdc478a805aba364f38a3b0de4c6123cb4fe9",
+        "truthFrames": 516,
+        "setupHash": "01c40c3a2c02464fcbfd3e9d10f4ceef2534269a4a9a9362a48b9584bd6bfac1",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "O_dSHuXuMTU_20260721-213003",
+        "truthSource": "ground-truth",
+        "truthHash": "51f2a194ebb23cf0daa148c817f5cbdcfa85f777038aaf2440504db3a79449fe",
+        "truthContentHash": "5776ef9b1ebb0fada0d5e55cc39fc48631eb81172c3dac9c360dbc7e87244bfb",
+        "truthFrames": 583,
+        "setupHash": "752224e10c48b45cb9acc0170bb7cd805b219be43e7e1159bae58fb37a8f3ffd",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "PZCZy8AbJ-M_20260721-213237",
+        "truthSource": "ground-truth",
+        "truthHash": "8e4006b52faeabb64cce399d0870c557d6e8175e9420a5a76ca99401a65cfd6d",
+        "truthContentHash": "63682154aec1f96e03592d60e4008f6efb92929230d396792d3da0611dabcbf6",
+        "truthFrames": 601,
+        "setupHash": "6064d84db6e5265b64886795052be307c3dc25097ac8dcc4fb813bbc11bb160d",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "s0Od4NLVAzA_20260721-213318",
+        "truthSource": "ground-truth",
+        "truthHash": "c9c3c532861fcb13bf64c28f0c0239c6b1f40325c7cadc22188443a8857300a5",
+        "truthContentHash": "9bb6779ac685ba7ea888784458a1adba78e73b9676084ca4d4b8bc6b1850852d",
+        "truthFrames": 860,
+        "setupHash": "06c77f87d46ecfec5124252c8b029dc992cab5b28bc4842380f1156ad4a462b4",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "wskVHYZibB4_20260721-213506",
+        "truthSource": "ground-truth",
+        "truthHash": "a87776c69491429d6393abaf98a2d0dfa14df66088a8aa56833e6af4391f3fa3",
+        "truthContentHash": "0ef5f3110c2c15e66cc782261cb49eeeda5cfc8924a760cb5f023d68a67cb669",
+        "truthFrames": 449,
+        "setupHash": "86d25448976621db546ac9a5029c617b1ea421c91d9b0bcb88ef7197aef5427a",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "yin-yang",
+        "videoKey": "c7EHXjT3wl0_20260722-061342",
+        "truthSource": "ground-truth",
+        "truthHash": "6ecfd3592563e427125c332a4f8e848470810621c7fad100031a4ef98c58a29a",
+        "truthContentHash": "3359d68dfbde1d533697cd4c1f2463758be03b7db5bc65cbbdbb0f225238a035",
+        "truthFrames": 4504,
+        "setupHash": "217ceb64c131bbb6b1ab6bdda077ec08f1ce75b189f0e1d53196ae4bc90a3f25",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "yin-yang",
+        "videoKey": "cTEE-6F_0zs_20260722-061502",
+        "truthSource": "ground-truth",
+        "truthHash": "3f2eac2835f75dc4c01ad14eec475b434429d74b24f1fc0c1c73fe5b5a85f954",
+        "truthContentHash": "3c608679fe7f003d1dfee19315c48a7fc96f903498adecb23da0bc8425314086",
+        "truthFrames": 1199,
+        "setupHash": "0f02c2db09483ac728f6f0d46898e59d206d2f15ab05444f688ea13a73037349",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "yin-yang",
+        "videoKey": "k_bu2AOM8SY_20260722-061305",
+        "truthSource": "ground-truth",
+        "truthHash": "b062337a54dd92985c1f1fb5e57aadfc0169923b3e3034aa24fa6c2903cdbd53",
+        "truthContentHash": "ccef383b9718c75b1fb6872298c001f9740d933b96177a7ec4acba4bbf50c980",
+        "truthFrames": 5977,
+        "setupHash": "a786ae9d11210beffe35a70a4dc2f622a1c20d9d4d729968b49459847cf78c8b",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      },
+      {
+        "route": "yin-yang",
+        "videoKey": "rLUMNxsjalk_20260722-060922",
+        "truthSource": "ground-truth",
+        "truthHash": "26e5ab858d18d2de49b935c0ea335e90b60460f2f03d92f2800a2dc69dfde432",
+        "truthContentHash": "f2144a22223b7628038fffebcc52e026427ed15860bfc6ccc157e806daff020d",
+        "truthFrames": 2618,
+        "setupHash": "45d2a92944953859521f76cc8a3a5168f9fa44c7e4eba8fb1de0ee708bf984b6",
+        "cropTrackHash": "",
+        "cropTrackContentHash": "",
+        "cropTrackFrames": 0
+      }
+    ],
+    "selection": {
+      "included": [
+        {
+          "route": "atman",
+          "videoKey": "Nwrx6iwgcHg_20260722-060619"
+        },
+        {
+          "route": "atman",
+          "videoKey": "rrpDE4OLMjQ_20260722-061834"
+        },
+        {
+          "route": "brown-power",
+          "videoKey": "CpO4rw3K8NM_20260721-224102"
+        },
+        {
+          "route": "brown-power",
+          "videoKey": "le3hfbyY3kg_20260721-224012"
+        },
+        {
+          "route": "brown-power",
+          "videoKey": "potxUnLl9pU_20260721-223711"
+        },
+        {
+          "route": "brown-power",
+          "videoKey": "w30e8umOfE4_20260721-223853"
+        },
+        {
+          "route": "brown-power",
+          "videoKey": "xLOOGHF30io_20260721-223936"
+        },
+        {
+          "route": "burden-of-dreams",
+          "videoKey": "aQUYgdLXY5w_20260722-185540"
+        },
+        {
+          "route": "burden-of-dreams",
+          "videoKey": "hSHSLvyjXRM_20260722-185511"
+        },
+        {
+          "route": "burden-of-dreams",
+          "videoKey": "o9St0ACvnns_20260722-185417"
+        },
+        {
+          "route": "burden-of-dreams",
+          "videoKey": "r1rc4PUQCxM_20260722-185611"
+        },
+        {
+          "route": "burden-of-dreams",
+          "videoKey": "xKeMBryIbEE_20260722-185705"
+        },
+        {
+          "route": "dominator",
+          "videoKey": "FXbIF6_kKj0_20260722-053852"
+        },
+        {
+          "route": "get-carter",
+          "videoKey": "eYPR7JTRRMk_20260711-144114"
+        },
+        {
+          "route": "get-carter",
+          "videoKey": "f04-LTbJ01o_20260711-144150"
+        },
+        {
+          "route": "get-carter",
+          "videoKey": "fKjfXtqLA1I_20260711-144356"
+        },
+        {
+          "route": "get-carter",
+          "videoKey": "PC5eZ0Pys90_20260711-144440"
+        },
+        {
+          "route": "gift-the",
+          "videoKey": "0JMnDzHoMm0_20260722-055854"
+        },
+        {
+          "route": "gift-the",
+          "videoKey": "klkrpdk7zbo_20260722-055814"
+        },
+        {
+          "route": "j-wall-the",
+          "videoKey": "czLRYQBLA_o_20260722-055429"
+        },
+        {
+          "route": "j-wall-the",
+          "videoKey": "h3f_qq40GOA_20260722-055327"
+        },
+        {
+          "route": "j-wall-the",
+          "videoKey": "iknfP7W_R_8_20260722-054834"
+        },
+        {
+          "route": "lizard-therapy",
+          "videoKey": "3BkPS4iZYz8_20260711-143235"
+        },
+        {
+          "route": "lizard-therapy",
+          "videoKey": "Bishop_Bouldering__Lizard_Therapy__V9__20260710-192620"
+        },
+        {
+          "route": "mandala-the",
+          "videoKey": "Bishop_Bouldering__The_Mandala__V12__20260711-141930"
+        },
+        {
+          "route": "mandala-the",
+          "videoKey": "Bishop_The_Mandala_V12_20260710-142554"
+        },
+        {
+          "route": "mandala-the",
+          "videoKey": "Mandala_v12__bishop__bouldering__climbing_20260711-142400"
+        },
+        {
+          "route": "mandala-the",
+          "videoKey": "The_Mandala_20260711-141737"
+        },
+        {
+          "route": "mandala-the",
+          "videoKey": "The_Mandala__v12__Bishop__CA_20260711-141532"
+        },
+        {
+          "route": "mandala-the",
+          "videoKey": "The_Mandala_V12_uncut_Bishop__CA__bouldering__cl_20260711-141635"
+        },
+        {
+          "route": "maze-of-death",
+          "videoKey": "A_Maze_of_Death__v12__Bishop__CA_20260711-111914"
+        },
+        {
+          "route": "maze-of-death",
+          "videoKey": "A_Maze_of_Death_V12_FLASH____-_Bishop__CA_20260710-192014"
+        },
+        {
+          "route": "maze-of-death",
+          "videoKey": "Bishop_Bouldering__A_Maze_of_Death__V12___1__20260711-113258"
+        },
+        {
+          "route": "maze-of-death",
+          "videoKey": "CIBoFkcRh2E_20260713-172319"
+        },
+        {
+          "route": "maze-of-death",
+          "videoKey": "gwqdjiiPzHQ_20260713-172228"
+        },
+        {
+          "route": "maze-of-death",
+          "videoKey": "iewxlKJNhC8_20260713-171855"
+        },
+        {
+          "route": "maze-of-death",
+          "videoKey": "maze_of_death1_20260711-113427"
+        },
+        {
+          "route": "maze-of-death",
+          "videoKey": "Maze_of_Death_v12___Bishop__CA_20260711-112041"
+        },
+        {
+          "route": "midnight-lightning",
+          "videoKey": "Adam_Ondra_flashes_Midnight_Lightning_20260711-141243"
+        },
+        {
+          "route": "midnight-lightning",
+          "videoKey": "Midnight_Lightning__V8_20260711-124902"
+        },
+        {
+          "route": "midnight-lightning",
+          "videoKey": "Midnight_Lightning__V8___Camp_4___Yosemite_NP_20260711-124745"
+        },
+        {
+          "route": "midnight-lightning",
+          "videoKey": "Midnight_Lightning_V8_20260711-141126"
+        },
+        {
+          "route": "midnight-lightning",
+          "videoKey": "Midnight_Lightning_V8___Yosemite__CA_20260711-125003"
+        },
+        {
+          "route": "midnight-lightning",
+          "videoKey": "Midnight_Lightning_V8__Yosemite_bouldering__boul_20260711-132735"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "3aUyWQp010A_20260711-185754"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "6Rubzj2Y7Wc_20260711-185424"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "DEDBeWcqxK8_20260711-185309"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "IE4T94qX55g_20260711-145416"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "jGa4kCQkXaQ_20260711-185530"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "Planet_X__V6._Joshua_Tree_20260711-142230"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "Planet_X__V6____Joshua_Tree__CA_20260711-142049"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "pZSbnfXiKTM_20260711-145213"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "R0Z6c1zlic0_20260711-145518"
+        },
+        {
+          "route": "planet-x",
+          "videoKey": "xUDwq2I79R8_20260711-145057"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "8mRWYEqBOx0_20260721-224454"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "BjV5zliwnzI_20260721-224726"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "fGFg1rWVw9A_20260721-224223"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "H4ZHP3-EoqA_20260721-224537"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "JvlaK82BUPA_20260721-224659"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "lM3HeW74YTE_20260721-224404"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "S1DuKwn4AyY_20260721-224313"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "SQn72roSR-Y_20260721-224620"
+        },
+        {
+          "route": "rug-rat",
+          "videoKey": "StuNUz75LoQ_20260721-224253"
+        },
+        {
+          "route": "slashface",
+          "videoKey": "gyw85zyR0x8_20260722-191730"
+        },
+        {
+          "route": "slashface",
+          "videoKey": "HUzummOLcfo_20260722-185827"
+        },
+        {
+          "route": "slashface",
+          "videoKey": "kwhNOuYLvvM_20260722-190156"
+        },
+        {
+          "route": "slashface",
+          "videoKey": "pl8EGo-QXUw_20260722-190236"
+        },
+        {
+          "route": "slashface",
+          "videoKey": "QqPHFdyVC50_20260722-185919"
+        },
+        {
+          "route": "slashface",
+          "videoKey": "R8m1yJ0c9xw_20260722-190020"
+        },
+        {
+          "route": "slashface",
+          "videoKey": "ULvyFVQax9g_20260722-185949"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "6_dNwUSqEZY_20260712-194206"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "7GtieZtyx4M_20260721-214445"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "ABCSO9BtBus_20260721-213541"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "f0hsR3dD_ww_20260721-213439"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "g8P05nLChjY_20260721-213411"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "mdESs9NYIc8_20260721-214621"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "O_dSHuXuMTU_20260721-213003"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "PZCZy8AbJ-M_20260721-213237"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "s0Od4NLVAzA_20260721-213318"
+        },
+        {
+          "route": "worlds-best-boulder-problem-V4",
+          "videoKey": "wskVHYZibB4_20260721-213506"
+        },
+        {
+          "route": "yin-yang",
+          "videoKey": "c7EHXjT3wl0_20260722-061342"
+        },
+        {
+          "route": "yin-yang",
+          "videoKey": "cTEE-6F_0zs_20260722-061502"
+        },
+        {
+          "route": "yin-yang",
+          "videoKey": "k_bu2AOM8SY_20260722-061305"
+        },
+        {
+          "route": "yin-yang",
+          "videoKey": "rLUMNxsjalk_20260722-060922"
+        }
+      ],
+      "includedCount": 84,
+      "excluded": [
+        {
+          "route": "gift-the",
+          "videoKey": "_hqp1yoX088_20260722-055945",
+          "reason": "no-truth"
+        },
+        {
+          "route": "gift-the",
+          "videoKey": "kF6ZqPFIVM0_20260722-060140",
+          "reason": "wrong-person-truth",
+          "wrongShare": 0.6517
+        },
+        {
+          "route": "lizard-therapy",
+          "videoKey": "JbLnt-1MOkw_20260711-143153",
+          "reason": "wrong-person-truth",
+          "wrongShare": 0.3406
+        }
+      ],
+      "excludedCount": 3
+    }
+  },
+  "verification": {
+    "heldCount": 84,
+    "excludedCount": 0,
+    "held": [
+      {
+        "route": "atman",
+        "videoKey": "Nwrx6iwgcHg_20260722-060619"
+      },
+      {
+        "route": "atman",
+        "videoKey": "rrpDE4OLMjQ_20260722-061834"
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "CpO4rw3K8NM_20260721-224102"
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "le3hfbyY3kg_20260721-224012"
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "potxUnLl9pU_20260721-223711"
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "w30e8umOfE4_20260721-223853"
+      },
+      {
+        "route": "brown-power",
+        "videoKey": "xLOOGHF30io_20260721-223936"
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "aQUYgdLXY5w_20260722-185540"
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "hSHSLvyjXRM_20260722-185511"
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "o9St0ACvnns_20260722-185417"
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "r1rc4PUQCxM_20260722-185611"
+      },
+      {
+        "route": "burden-of-dreams",
+        "videoKey": "xKeMBryIbEE_20260722-185705"
+      },
+      {
+        "route": "dominator",
+        "videoKey": "FXbIF6_kKj0_20260722-053852"
+      },
+      {
+        "route": "get-carter",
+        "videoKey": "eYPR7JTRRMk_20260711-144114"
+      },
+      {
+        "route": "get-carter",
+        "videoKey": "f04-LTbJ01o_20260711-144150"
+      },
+      {
+        "route": "get-carter",
+        "videoKey": "fKjfXtqLA1I_20260711-144356"
+      },
+      {
+        "route": "get-carter",
+        "videoKey": "PC5eZ0Pys90_20260711-144440"
+      },
+      {
+        "route": "gift-the",
+        "videoKey": "0JMnDzHoMm0_20260722-055854"
+      },
+      {
+        "route": "gift-the",
+        "videoKey": "klkrpdk7zbo_20260722-055814"
+      },
+      {
+        "route": "j-wall-the",
+        "videoKey": "czLRYQBLA_o_20260722-055429"
+      },
+      {
+        "route": "j-wall-the",
+        "videoKey": "h3f_qq40GOA_20260722-055327"
+      },
+      {
+        "route": "j-wall-the",
+        "videoKey": "iknfP7W_R_8_20260722-054834"
+      },
+      {
+        "route": "lizard-therapy",
+        "videoKey": "3BkPS4iZYz8_20260711-143235"
+      },
+      {
+        "route": "lizard-therapy",
+        "videoKey": "Bishop_Bouldering__Lizard_Therapy__V9__20260710-192620"
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "Bishop_Bouldering__The_Mandala__V12__20260711-141930"
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "Bishop_The_Mandala_V12_20260710-142554"
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "Mandala_v12__bishop__bouldering__climbing_20260711-142400"
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "The_Mandala_20260711-141737"
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "The_Mandala__v12__Bishop__CA_20260711-141532"
+      },
+      {
+        "route": "mandala-the",
+        "videoKey": "The_Mandala_V12_uncut_Bishop__CA__bouldering__cl_20260711-141635"
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "A_Maze_of_Death__v12__Bishop__CA_20260711-111914"
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "A_Maze_of_Death_V12_FLASH____-_Bishop__CA_20260710-192014"
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "Bishop_Bouldering__A_Maze_of_Death__V12___1__20260711-113258"
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "CIBoFkcRh2E_20260713-172319"
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "gwqdjiiPzHQ_20260713-172228"
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "iewxlKJNhC8_20260713-171855"
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "maze_of_death1_20260711-113427"
+      },
+      {
+        "route": "maze-of-death",
+        "videoKey": "Maze_of_Death_v12___Bishop__CA_20260711-112041"
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Adam_Ondra_flashes_Midnight_Lightning_20260711-141243"
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning__V8_20260711-124902"
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning__V8___Camp_4___Yosemite_NP_20260711-124745"
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning_V8_20260711-141126"
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning_V8___Yosemite__CA_20260711-125003"
+      },
+      {
+        "route": "midnight-lightning",
+        "videoKey": "Midnight_Lightning_V8__Yosemite_bouldering__boul_20260711-132735"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "3aUyWQp010A_20260711-185754"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "6Rubzj2Y7Wc_20260711-185424"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "DEDBeWcqxK8_20260711-185309"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "IE4T94qX55g_20260711-145416"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "jGa4kCQkXaQ_20260711-185530"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "Planet_X__V6._Joshua_Tree_20260711-142230"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "Planet_X__V6____Joshua_Tree__CA_20260711-142049"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "pZSbnfXiKTM_20260711-145213"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "R0Z6c1zlic0_20260711-145518"
+      },
+      {
+        "route": "planet-x",
+        "videoKey": "xUDwq2I79R8_20260711-145057"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "8mRWYEqBOx0_20260721-224454"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "BjV5zliwnzI_20260721-224726"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "fGFg1rWVw9A_20260721-224223"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "H4ZHP3-EoqA_20260721-224537"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "JvlaK82BUPA_20260721-224659"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "lM3HeW74YTE_20260721-224404"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "S1DuKwn4AyY_20260721-224313"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "SQn72roSR-Y_20260721-224620"
+      },
+      {
+        "route": "rug-rat",
+        "videoKey": "StuNUz75LoQ_20260721-224253"
+      },
+      {
+        "route": "slashface",
+        "videoKey": "gyw85zyR0x8_20260722-191730"
+      },
+      {
+        "route": "slashface",
+        "videoKey": "HUzummOLcfo_20260722-185827"
+      },
+      {
+        "route": "slashface",
+        "videoKey": "kwhNOuYLvvM_20260722-190156"
+      },
+      {
+        "route": "slashface",
+        "videoKey": "pl8EGo-QXUw_20260722-190236"
+      },
+      {
+        "route": "slashface",
+        "videoKey": "QqPHFdyVC50_20260722-185919"
+      },
+      {
+        "route": "slashface",
+        "videoKey": "R8m1yJ0c9xw_20260722-190020"
+      },
+      {
+        "route": "slashface",
+        "videoKey": "ULvyFVQax9g_20260722-185949"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "6_dNwUSqEZY_20260712-194206"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "7GtieZtyx4M_20260721-214445"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "ABCSO9BtBus_20260721-213541"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "f0hsR3dD_ww_20260721-213439"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "g8P05nLChjY_20260721-213411"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "mdESs9NYIc8_20260721-214621"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "O_dSHuXuMTU_20260721-213003"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "PZCZy8AbJ-M_20260721-213237"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "s0Od4NLVAzA_20260721-213318"
+      },
+      {
+        "route": "worlds-best-boulder-problem-V4",
+        "videoKey": "wskVHYZibB4_20260721-213506"
+      },
+      {
+        "route": "yin-yang",
+        "videoKey": "c7EHXjT3wl0_20260722-061342"
+      },
+      {
+        "route": "yin-yang",
+        "videoKey": "cTEE-6F_0zs_20260722-061502"
+      },
+      {
+        "route": "yin-yang",
+        "videoKey": "k_bu2AOM8SY_20260722-061305"
+      },
+      {
+        "route": "yin-yang",
+        "videoKey": "rLUMNxsjalk_20260722-060922"
+      }
+    ],
+    "excluded": [],
+    "added": [],
+    "addedCount": 0
+  },
+  "runs": {
+    "windowStart": "20260731-225432",
+    "windowEnd": "20260731-231414",
+    "runCount": 15,
+    "bundlesWithRuns": 3,
+    "arms": {
+      "26f1333d": {
+        "runs": 3,
+        "bundles": 3
+      },
+      "7ae0c44a": {
+        "runs": 3,
+        "bundles": 3
+      },
+      "cfde1f8c": {
+        "runs": 3,
+        "bundles": 3
+      },
+      "e1ddb710": {
+        "runs": 3,
+        "bundles": 3
+      },
+      "fbd1fcab": {
+        "runs": 3,
+        "bundles": 3
+      }
+    }
+  },
+  "failures": [],
+  "certified": true,
+  "comparableBundles": [
+    {
+      "route": "atman",
+      "videoKey": "Nwrx6iwgcHg_20260722-060619"
+    },
+    {
+      "route": "atman",
+      "videoKey": "rrpDE4OLMjQ_20260722-061834"
+    },
+    {
+      "route": "brown-power",
+      "videoKey": "CpO4rw3K8NM_20260721-224102"
+    },
+    {
+      "route": "brown-power",
+      "videoKey": "le3hfbyY3kg_20260721-224012"
+    },
+    {
+      "route": "brown-power",
+      "videoKey": "potxUnLl9pU_20260721-223711"
+    },
+    {
+      "route": "brown-power",
+      "videoKey": "w30e8umOfE4_20260721-223853"
+    },
+    {
+      "route": "brown-power",
+      "videoKey": "xLOOGHF30io_20260721-223936"
+    },
+    {
+      "route": "burden-of-dreams",
+      "videoKey": "aQUYgdLXY5w_20260722-185540"
+    },
+    {
+      "route": "burden-of-dreams",
+      "videoKey": "hSHSLvyjXRM_20260722-185511"
+    },
+    {
+      "route": "burden-of-dreams",
+      "videoKey": "o9St0ACvnns_20260722-185417"
+    },
+    {
+      "route": "burden-of-dreams",
+      "videoKey": "r1rc4PUQCxM_20260722-185611"
+    },
+    {
+      "route": "burden-of-dreams",
+      "videoKey": "xKeMBryIbEE_20260722-185705"
+    },
+    {
+      "route": "dominator",
+      "videoKey": "FXbIF6_kKj0_20260722-053852"
+    },
+    {
+      "route": "get-carter",
+      "videoKey": "eYPR7JTRRMk_20260711-144114"
+    },
+    {
+      "route": "get-carter",
+      "videoKey": "f04-LTbJ01o_20260711-144150"
+    },
+    {
+      "route": "get-carter",
+      "videoKey": "fKjfXtqLA1I_20260711-144356"
+    },
+    {
+      "route": "get-carter",
+      "videoKey": "PC5eZ0Pys90_20260711-144440"
+    },
+    {
+      "route": "gift-the",
+      "videoKey": "0JMnDzHoMm0_20260722-055854"
+    },
+    {
+      "route": "gift-the",
+      "videoKey": "klkrpdk7zbo_20260722-055814"
+    },
+    {
+      "route": "j-wall-the",
+      "videoKey": "czLRYQBLA_o_20260722-055429"
+    },
+    {
+      "route": "j-wall-the",
+      "videoKey": "h3f_qq40GOA_20260722-055327"
+    },
+    {
+      "route": "j-wall-the",
+      "videoKey": "iknfP7W_R_8_20260722-054834"
+    },
+    {
+      "route": "lizard-therapy",
+      "videoKey": "3BkPS4iZYz8_20260711-143235"
+    },
+    {
+      "route": "lizard-therapy",
+      "videoKey": "Bishop_Bouldering__Lizard_Therapy__V9__20260710-192620"
+    },
+    {
+      "route": "mandala-the",
+      "videoKey": "Bishop_Bouldering__The_Mandala__V12__20260711-141930"
+    },
+    {
+      "route": "mandala-the",
+      "videoKey": "Bishop_The_Mandala_V12_20260710-142554"
+    },
+    {
+      "route": "mandala-the",
+      "videoKey": "Mandala_v12__bishop__bouldering__climbing_20260711-142400"
+    },
+    {
+      "route": "mandala-the",
+      "videoKey": "The_Mandala_20260711-141737"
+    },
+    {
+      "route": "mandala-the",
+      "videoKey": "The_Mandala__v12__Bishop__CA_20260711-141532"
+    },
+    {
+      "route": "mandala-the",
+      "videoKey": "The_Mandala_V12_uncut_Bishop__CA__bouldering__cl_20260711-141635"
+    },
+    {
+      "route": "maze-of-death",
+      "videoKey": "A_Maze_of_Death__v12__Bishop__CA_20260711-111914"
+    },
+    {
+      "route": "maze-of-death",
+      "videoKey": "A_Maze_of_Death_V12_FLASH____-_Bishop__CA_20260710-192014"
+    },
+    {
+      "route": "maze-of-death",
+      "videoKey": "Bishop_Bouldering__A_Maze_of_Death__V12___1__20260711-113258"
+    },
+    {
+      "route": "maze-of-death",
+      "videoKey": "CIBoFkcRh2E_20260713-172319"
+    },
+    {
+      "route": "maze-of-death",
+      "videoKey": "gwqdjiiPzHQ_20260713-172228"
+    },
+    {
+      "route": "maze-of-death",
+      "videoKey": "iewxlKJNhC8_20260713-171855"
+    },
+    {
+      "route": "maze-of-death",
+      "videoKey": "maze_of_death1_20260711-113427"
+    },
+    {
+      "route": "maze-of-death",
+      "videoKey": "Maze_of_Death_v12___Bishop__CA_20260711-112041"
+    },
+    {
+      "route": "midnight-lightning",
+      "videoKey": "Adam_Ondra_flashes_Midnight_Lightning_20260711-141243"
+    },
+    {
+      "route": "midnight-lightning",
+      "videoKey": "Midnight_Lightning__V8_20260711-124902"
+    },
+    {
+      "route": "midnight-lightning",
+      "videoKey": "Midnight_Lightning__V8___Camp_4___Yosemite_NP_20260711-124745"
+    },
+    {
+      "route": "midnight-lightning",
+      "videoKey": "Midnight_Lightning_V8_20260711-141126"
+    },
+    {
+      "route": "midnight-lightning",
+      "videoKey": "Midnight_Lightning_V8___Yosemite__CA_20260711-125003"
+    },
+    {
+      "route": "midnight-lightning",
+      "videoKey": "Midnight_Lightning_V8__Yosemite_bouldering__boul_20260711-132735"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "3aUyWQp010A_20260711-185754"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "6Rubzj2Y7Wc_20260711-185424"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "DEDBeWcqxK8_20260711-185309"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "IE4T94qX55g_20260711-145416"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "jGa4kCQkXaQ_20260711-185530"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "Planet_X__V6._Joshua_Tree_20260711-142230"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "Planet_X__V6____Joshua_Tree__CA_20260711-142049"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "pZSbnfXiKTM_20260711-145213"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "R0Z6c1zlic0_20260711-145518"
+    },
+    {
+      "route": "planet-x",
+      "videoKey": "xUDwq2I79R8_20260711-145057"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "8mRWYEqBOx0_20260721-224454"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "BjV5zliwnzI_20260721-224726"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "fGFg1rWVw9A_20260721-224223"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "H4ZHP3-EoqA_20260721-224537"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "JvlaK82BUPA_20260721-224659"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "lM3HeW74YTE_20260721-224404"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "S1DuKwn4AyY_20260721-224313"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "SQn72roSR-Y_20260721-224620"
+    },
+    {
+      "route": "rug-rat",
+      "videoKey": "StuNUz75LoQ_20260721-224253"
+    },
+    {
+      "route": "slashface",
+      "videoKey": "gyw85zyR0x8_20260722-191730"
+    },
+    {
+      "route": "slashface",
+      "videoKey": "HUzummOLcfo_20260722-185827"
+    },
+    {
+      "route": "slashface",
+      "videoKey": "kwhNOuYLvvM_20260722-190156"
+    },
+    {
+      "route": "slashface",
+      "videoKey": "pl8EGo-QXUw_20260722-190236"
+    },
+    {
+      "route": "slashface",
+      "videoKey": "QqPHFdyVC50_20260722-185919"
+    },
+    {
+      "route": "slashface",
+      "videoKey": "R8m1yJ0c9xw_20260722-190020"
+    },
+    {
+      "route": "slashface",
+      "videoKey": "ULvyFVQax9g_20260722-185949"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "6_dNwUSqEZY_20260712-194206"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "7GtieZtyx4M_20260721-214445"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "ABCSO9BtBus_20260721-213541"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "f0hsR3dD_ww_20260721-213439"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "g8P05nLChjY_20260721-213411"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "mdESs9NYIc8_20260721-214621"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "O_dSHuXuMTU_20260721-213003"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "PZCZy8AbJ-M_20260721-213237"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "s0Od4NLVAzA_20260721-213318"
+    },
+    {
+      "route": "worlds-best-boulder-problem-V4",
+      "videoKey": "wskVHYZibB4_20260721-213506"
+    },
+    {
+      "route": "yin-yang",
+      "videoKey": "c7EHXjT3wl0_20260722-061342"
+    },
+    {
+      "route": "yin-yang",
+      "videoKey": "cTEE-6F_0zs_20260722-061502"
+    },
+    {
+      "route": "yin-yang",
+      "videoKey": "k_bu2AOM8SY_20260722-061305"
+    },
+    {
+      "route": "yin-yang",
+      "videoKey": "rLUMNxsjalk_20260722-060922"
+    }
+  ]
+}
