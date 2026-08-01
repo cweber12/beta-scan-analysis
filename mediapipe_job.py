@@ -1004,6 +1004,7 @@ def run_batch(
     repeats: int = DEFAULT_REPEATS,
     job_id: str | None = None,
     coefficient: int = SAMPLE_COEFFICIENT,
+    cycle_id: str | None = None,
 ) -> dict[str, Any]:
     """Sweep one arm across many Bundles.
 
@@ -1015,6 +1016,12 @@ def run_batch(
       hours of work on the other eighty-five.
     - **Per-Bundle progress**, written to the batch sidecar as it goes, so a long sweep is
       observable while it runs rather than only at the end.
+
+    ``cycle_id`` is the enclosing Cycle (#168), passed in rather than resolved here because
+    ``cycle_integrity`` imports *this* module. Recorded, never gated — a batch outside a
+    Cycle is legitimate, it simply cannot be certified against drift afterwards. It was
+    previously reported only in the batch 202 response, which meant the association existed
+    nowhere an operator could read it while the sweep ran (issue #176).
 
     Raises ``RuntimeError`` immediately if a batch is already in flight.
     """
@@ -1036,6 +1043,7 @@ def run_batch(
             "configHash": config_hash(config),
             "repeats": repeats,
             "sampleCoefficient": coefficient,
+            "cycleId": cycle_id,
             "selection": selection.as_dict(),
         }
         results: list[dict[str, Any]] = []

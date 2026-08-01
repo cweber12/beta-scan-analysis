@@ -2771,16 +2771,22 @@ def _arm_frames(n_bad: int, n: int = 25) -> list:
             for i in range(1, n + 1)]
 
 
-def _arm_bundle(root: Path, name: str, arms: list[tuple]) -> Path:
+def _arm_bundle(root: Path, name: str, arms: list[tuple], base_ts: str | None = None,
+                route: str = "routeARM") -> Path:
     """One Bundle with truth and a set of harness Runs.
 
     ``arms`` is ``(config_hash, config, pass_index, n_bad, frame_count)`` per Run.
+
+    ``base_ts`` writes ``exp-<ts>-<arm8>-p<n>`` run ids — the #160 convention the Cycle
+    window join reads (issue #176). Left ``None`` the ids stay in the older shape, which is
+    exactly what an ``unplaceable`` run looks like to that join, so both cases are
+    reachable from this one fixture.
     """
 
-    vdir = root / "routeARM" / name
+    vdir = root / route / name
     vdir.mkdir(parents=True, exist_ok=True)
     (vdir / "metadata.json").write_text(json.dumps({
-        "route_folder": "routeARM", "video_key": name,
+        "route_folder": route, "video_key": name,
         # Phase-1 Video Stats source stats, stamped at import and never stale.
         "video_stats": {"luma": {"mean": 120.0}, "rmsContrast": 0.25,
                         "sharpness": {"mean": 900.0}, "frameDiff": {"mean": 0.02}},
@@ -2802,7 +2808,9 @@ def _arm_bundle(root: Path, name: str, arms: list[tuple]) -> Path:
     # test is *two runs of one arm at one passIndex*, which is exactly the pair that would
     # otherwise overwrite each other and make the fixture silently untestable.
     for i, (cfg_hash, config, pass_index, n_bad, frame_count) in enumerate(arms):
-        _write_pose_run(vdir, f"exp-{cfg_hash[:8]}-r{i}p{pass_index}", f"sh_{name}",
+        stem = (f"exp-{base_ts}-{cfg_hash[:8]}-p{pass_index}-{i}" if base_ts
+                else f"exp-{cfg_hash[:8]}-r{i}p{pass_index}")
+        _write_pose_run(vdir, stem, f"sh_{name}",
                         _arm_frames(n_bad), app_version="harness-mediapipe@1",
                         origin="harness-mediapipe", config_hash=cfg_hash,
                         pass_index=pass_index, arm_config=config,
@@ -3089,6 +3097,350 @@ def test_arm_factor_label_names_the_factor_not_the_digest():
     noisy = dict(_ARM_BASELINE_CONFIG, modelSha="deadbeef", cropTrackHash="cafe")
     assert trends._arm_factor_label(noisy) == trends._arm_factor_label(_ARM_BASELINE_CONFIG)
     assert trends._arm_factor_label(None) == ""
+
+
+# --------------------------------------------------------------------------- #
+# The Cycle gates the arm comparison (issue #176)
+# --------------------------------------------------------------------------- #
+
+# Hex-only digests: the ``exp-<ts>-<arm8>-p<n>`` run id the Cycle window join reads carries
+# the first 8 characters of the arm hash and matches ``[0-9a-f]{8}``, so a fixture digest
+# with a letter outside that range is unplaceable for a reason that has nothing to do with
+# what the test is about.
+_CYC_BASE_HASH = "ba5e0000fbd1fcab"
+_CYC_ARM_HASH = "c0f70000e1ddb710"
+_CYC_OPEN_TS = "20260801-120000"
+_CYC_CLOSE_TS = "20260801-130000"
+
+
+def _write_cycle(root: Path, *, status="certified", certified=True, comparable=(),
+                 excluded=(), added=(), snapshotted=None, failures=(),
+                 selection_excluded=(), opened=_CYC_OPEN_TS, closed=_CYC_CLOSE_TS,
+                 cycle_id="cycle-20260801-120000", canary_identical=True) -> Path:
+    """A Cycle artifact in the shape ``cycle_integrity.close_cycle`` writes.
+
+    Hand-built rather than produced by running the real guard, because the guard needs a
+    video binary and a detector and this suite has neither; ``test_cycle_integrity.py``
+    asserts that what the guard actually writes is what this reader reads.
+    """
+
+    def _b(names):
+        return [{"route": "routeARM", "videoKey": n} for n in names]
+
+    snap = list(comparable) + [e[0] if isinstance(e, tuple) else e for e in excluded] \
+        if snapshotted is None else list(snapshotted)
+    doc = {
+        "version": 1,
+        "cycleId": cycle_id,
+        "status": status,
+        "openedAt": "2026-08-01T12:00:00+00:00",
+        "openedRunTs": opened,
+        "closedAt": None if status == "open" else "2026-08-01T13:00:00+00:00",
+        "closedRunTs": None if status == "open" else closed,
+        "moduleVersion": "1",
+        "sampleCoefficient": 12,
+        "modelLocks": {"pose_landmarker_full": "4eaa5eb7" * 8},
+        "canary": {
+            "route": "routeARM", "videoKey": "canary", "minDetectionRate": 0.5,
+            "opened": {"detectionRate": 0.83, "witnesses": True, "configHash": "fbd1fcab"},
+            "closed": None if status == "open" else {
+                "detectionRate": 0.83, "witnesses": True},
+            "comparison": None if status == "open" else {
+                "identical": canary_identical, "fields": [] if canary_identical else [
+                    {"field": "config.modelSha", "opened": "aaa", "closed": "bbb"}],
+                "framesCompared": 318,
+                "framesDiffering": 0 if canary_identical else 12,
+                "firstDivergence": None if canary_identical else 4.2},
+        },
+        "manifest": {
+            "bundleCount": len(snap),
+            "bundles": [{"route": "routeARM", "videoKey": n} for n in snap],
+            "selection": {"excluded": [
+                {"route": "routeARM", "videoKey": n, "reason": r}
+                for n, r in selection_excluded]},
+        },
+        "failures": list(failures),
+        "certified": certified,
+    }
+    if status != "open":
+        doc["verification"] = {
+            "heldCount": len(comparable),
+            "excludedCount": len(excluded),
+            "held": _b(comparable),
+            "excluded": [
+                {"route": "routeARM", "videoKey": n, "status": "excluded",
+                 "reasons": [reason],
+                 "moved": [{"field": "truthHash", "reason": reason,
+                            "opened": "aaaa", "closed": "bbbb"}]}
+                for n, reason in excluded],
+            "added": _b(added),
+            "addedCount": len(added),
+        }
+        # Written on a failed cycle too — which is the trap this whole gate keys around.
+        doc["comparableBundles"] = _b(comparable)
+        doc["runs"] = {"windowStart": opened, "windowEnd": closed, "runCount": 0,
+                       "bundlesWithRuns": 0, "arms": {}}
+    path = root / "cycles" / f"{cycle_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    return path
+
+
+def _cycle_corpus(root: Path, base_ts: str = "20260801-123000") -> None:
+    """Two Bundles, two arms each, both inside the window unless told otherwise."""
+
+    for name, (base_bad, arm_bad) in (("vidHELD", (5, 2)), ("vidMOVED", (9, 3))):
+        _arm_bundle(root, name, [
+            (_CYC_BASE_HASH, _ARM_BASELINE_CONFIG, 0, base_bad, 25),
+            (_CYC_ARM_HASH, _ARM_CONTRAST_CONFIG, 0, arm_bad, 25),
+        ], base_ts=base_ts)
+
+
+def test_a_corpus_with_no_cycle_is_unchanged_and_says_it_is_not_drift_checked():
+    """The acceptance criterion that protects the entire pre-#168 corpus. There is nothing
+    to gate against, so the honest output is today's comparison plus an explicit marker —
+    never silence, and never something a reader could take for a certified result."""
+
+    from analysis_pipeline import cycles as cy
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _cycle_corpus(root)
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        assert ctx["cycle"].posture == cy.POSTURE_NONE
+        assert ctx["cycle"].gates is False and ctx["cycle"].refuses is False
+        # Nothing is scoped away and nothing is gated out: the numbers are the ones #164
+        # produced before this issue existed.
+        assert ctx["arm_scope_run_count"] == ctx["experiment_run_count"] == 4
+        assert ctx["arm_pooled_bundle_count"] == ctx["arm_bundle_count"] == 4
+        assert len(ctx["arm_deltas"]) == 2
+        assert not ctx["arm_runs_outside_cycle"]
+
+        html = report._experiment_arms_html(ctx)
+        assert "NOT DRIFT-CHECKED" in html
+        assert "label, don&#x27;t gate" in html or "label, don't gate" in html
+        assert "not established" in html      # the basis says so too
+
+
+def test_a_certified_cycle_gates_the_pooled_arms_and_keeps_every_bundle_visible():
+    """The settled rule, both halves at once. The pooled summary and the deltas are
+    **gated** to ``comparableBundles`` — they are truth-fit numbers, and a Bundle whose
+    truth moved mid-Cycle makes a delta that silently contains a truth change. The
+    per-Bundle table is a **covariate**: every Bundle stays, marked. A Bundle dropped from a
+    comparison is never silently dropped."""
+
+    from analysis_pipeline import cycles as cy
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _cycle_corpus(root)
+        _write_cycle(root, comparable=["vidHELD"],
+                     excluded=[("vidMOVED", "truth-hash-moved")])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        assert ctx["cycle"].posture == cy.POSTURE_CERTIFIED
+        assert ctx["cycle"].rule == "gate"
+        # Gated: only the held Bundle pools.
+        assert len(ctx["arm_deltas"]) == 1
+        assert ctx["arm_deltas"].iloc[0]["video_key"] == "vidHELD"
+        assert int(ctx["arm_delta_summary"].iloc[0]["shared_bundles"]) == 1
+        assert set(ctx["arm_overview"]["bundles"]) == {1}
+        # Covariate: both Bundles still in the per-Bundle table, comparability marked.
+        assert ctx["arm_bundle_count"] == 4
+        assert ctx["arm_pooled_bundle_count"] == 2
+        states = dict(zip(ctx["arm_bundles"]["video_key"], ctx["arm_bundles"]["cycle_state"]))
+        assert states == {"vidHELD": cy.BUNDLE_COMPARABLE, "vidMOVED": cy.BUNDLE_EXCLUDED}
+
+        html = report._experiment_arms_html(ctx)
+        assert "Rule applied: gate" in html
+        # What the gate did *here*, not only what the Cycle certified corpus-wide: a
+        # sentence naming 84 comparable Bundles over a table showing three is the quiet
+        # disagreement this issue is about.
+        assert ctx["arm_swept_bundles"] == 2 and ctx["arm_pooled_bundles"] == 1
+        assert "<strong>1 of the 2</strong> the arms actually ran" in html
+        assert "vidMOVED" in html and "truth-hash-moved" in html
+        assert "byte-identical" in html                  # the canary verdict is surfaced
+        # ...and the Bundle the gate dropped is still readable in the matrix.
+        matrix = report._arm_matrix_table(ctx["arm_bundles"], ctx["arm_reach"])
+        assert "vidMOVED" in matrix and "excluded" in matrix
+
+
+def test_a_failed_cycle_publishes_no_comparison_though_it_wrote_comparable_bundles():
+    """``close_cycle`` writes ``comparableBundles`` even when it fails, sets
+    ``certified: false``, and logs *"do not publish a comparison over them"*. Keying on the
+    presence of that list rather than on ``certified`` would publish precisely what the
+    artifact forbids — so the gate keys on ``certified``, and a failed Cycle gets neither
+    gate nor covariate but a refusal."""
+
+    from analysis_pipeline import cycles as cy
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _cycle_corpus(root)
+        _write_cycle(root, status="failed", certified=False, canary_identical=False,
+                     failures=["canary-drift"], comparable=["vidHELD", "vidMOVED"])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        assert ctx["cycle"].posture == cy.POSTURE_UNCERTIFIED
+        assert ctx["cycle"].refuses is True
+        # The list is on disk and populated; nothing reads it.
+        assert ctx["cycle"].comparable == frozenset()
+        assert ctx["arm_overview"].empty
+        assert ctx["arm_deltas"].empty and ctx["arm_delta_summary"].empty
+        assert ctx["arm_pooled_bundle_count"] == 0
+        # The runs are still recorded — an expensive sweep that produced no publishable
+        # result is a finding, and deleting it from the report would lose it.
+        assert ctx["arm_bundle_count"] == 4
+
+        html = report._experiment_arms_html(ctx)
+        assert "DID NOT CERTIFY" in html
+        assert "Rule applied: refuse" in html
+        assert "canary-drift" in html and "DRIFTED" in html
+        assert "not a comparison" in html.lower()
+        # No comparison layout at all: no baseline, no delta table, no arm ranking.
+        assert "Arm versus baseline" not in html
+        assert "ΔPCK median" not in html          # the delta table's own header
+        assert "Bundle × arm" not in html         # nor the matrix that invites differencing
+        assert "PCK min – max" not in html        # nor the per-arm ranking
+
+
+def test_an_open_cycle_renders_in_flight_and_never_as_certified():
+    """Mid-sweep. ``comparableBundles`` is written only at close, so there is nothing to
+    gate on — and the one thing the report must not do is let a provisional comparison read
+    as a certified one."""
+
+    from analysis_pipeline import cycles as cy
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _cycle_corpus(root)
+        _write_cycle(root, status="open", certified=False,
+                     snapshotted=["vidHELD", "vidMOVED"])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        assert ctx["cycle"].posture == cy.POSTURE_IN_FLIGHT
+        assert ctx["cycle"].gates is False and ctx["cycle"].refuses is False
+        # Not gated — there is no verdict yet — so the comparison still renders in full.
+        assert len(ctx["arm_deltas"]) == 2
+        assert set(ctx["arm_bundles"]["cycle_state"]) == {cy.BUNDLE_SNAPSHOTTED}
+        # ...but the open-ended window still applies: a run before the Cycle opened is out.
+        assert ctx["cycle"].place_run("exp-20260801-110000-ba5e0000-p0") == cy.RUN_BEFORE
+        assert ctx["cycle"].place_run("exp-20260801-190000-ba5e0000-p0") == cy.RUN_INSIDE
+
+        html = report._experiment_arms_html(ctx)
+        assert "IN FLIGHT" in html
+        assert "provisional" in html.lower()
+        assert "CERTIFIED" not in html
+
+
+def test_runs_outside_the_cycle_window_do_not_pool_and_are_named():
+    """The second facet of the seam: the arm comparison pooled every harness run on disk
+    regardless of when it ran, so a run predating the Cycle pooled with the Cycle's arms
+    with nothing to say so. Nothing durable stamps a run with its Cycle, so the base
+    timestamp in the run id is the join — a weaker join than a stamp, which is exactly why
+    every run it drops has to be named rather than merely subtracted from a count."""
+
+    from analysis_pipeline import cycles as cy
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _cycle_corpus(root)                                    # inside the window
+        _arm_bundle(root, "vidBEFORE", [                       # ran before it opened
+            (_CYC_BASE_HASH, _ARM_BASELINE_CONFIG, 0, 5, 25),
+            (_CYC_ARM_HASH, _ARM_CONTRAST_CONFIG, 0, 2, 25),
+        ], base_ts="20260801-090000")
+        _arm_bundle(root, "vidNOID", [                         # pre-#160 run id
+            (_CYC_BASE_HASH, _ARM_BASELINE_CONFIG, 0, 5, 25),
+        ])
+        _write_cycle(root, comparable=["vidHELD", "vidMOVED", "vidBEFORE", "vidNOID"])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        assert ctx["experiment_run_count"] == 7
+        assert ctx["arm_scope_run_count"] == 4
+        outside = {r["video_key"]: r["placement"] for r in ctx["arm_runs_outside_cycle"]}
+        assert outside == {"vidBEFORE": cy.RUN_BEFORE, "vidNOID": cy.RUN_UNPLACEABLE}
+        # Out-of-window Bundles leave the comparison entirely — they are not a comparability
+        # question, they are a different sweep — but they are listed.
+        assert set(ctx["arm_bundles"]["video_key"]) == {"vidHELD", "vidMOVED"}
+
+        html = report._experiment_arms_html(ctx)
+        assert "Harness runs outside the Cycle" in html
+        assert "vidBEFORE" in html and "vidNOID" in html
+        assert "unplaceable" in html
+
+
+def test_newly_eligible_bundles_are_distinguished_from_excluded_ones():
+    """A Bundle that appeared after the Cycle opened was never snapshotted, so it did not
+    fail anything — it was never in the Cycle rather than dropped from it. Letting it read
+    as an exclusion would put a Bundle on a repair worklist for the crime of existing."""
+
+    from analysis_pipeline import cycles as cy
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _cycle_corpus(root)
+        _write_cycle(root, comparable=["vidHELD"], added=["vidMOVED"],
+                     snapshotted=["vidHELD"])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        states = dict(zip(ctx["arm_bundles"]["video_key"], ctx["arm_bundles"]["cycle_state"]))
+        assert states["vidMOVED"] == cy.BUNDLE_NEWLY_ELIGIBLE
+        rows = {r["video_key"]: r["state"] for r in ctx["cycle_bundles"]}
+        assert rows == {"vidMOVED": cy.BUNDLE_NEWLY_ELIGIBLE}
+        # It does not pool — it was never certified comparable — but it is not an exclusion.
+        assert len(ctx["arm_deltas"]) == 1
+
+        html = report._cycle_bundle_table(ctx["cycle_bundles"])
+        assert "newly-eligible" in html
+        assert "not</em> a failure" in html or "not a failure" in html
+
+
+def test_the_cycles_harness_identity_reaches_the_measurement_basis():
+    """Issue #131. ``moduleVersion``, ``sampleCoefficient`` and the model locks sit outside
+    both the record stamp and the pose envelope, which is precisely why #168 stamps them on
+    the Cycle — and the basis line is where a reader should meet them."""
+
+    from analysis_pipeline import evaluate as ev
+    from analysis_pipeline import report, trends
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _cycle_corpus(root)
+        _write_cycle(root, comparable=["vidHELD", "vidMOVED"])
+        ev.evaluate(root)
+        ctx = trends.build_trend_context(root)
+
+        basis = ctx["measurement_basis_arms"]
+        assert basis["pool"] == "experiment arms"
+        assert basis["cycle"]["module_version"] == "1"
+        assert basis["cycle"]["sample_coefficient"] == 12
+        assert list(basis["cycle"]["model_locks"]) == ["pose_landmarker_full"]
+        # The scanner pools predate the instrument and must not grow a line implying one.
+        assert ctx["measurement_basis_trusted"]["cycle"] is None
+
+        html = report._measurement_basis_html(basis)
+        assert "cycle-20260801-120000" in html
+        assert "sample coefficient" in html and "12" in html
+        assert "pose_landmarker_full" in html
 
 
 def test_rate_mismatch_is_its_own_nonconformance_cause():
