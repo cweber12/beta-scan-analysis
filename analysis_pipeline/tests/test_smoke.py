@@ -3098,6 +3098,15 @@ def test_a_cli_driven_sweep_is_caught_by_its_stamps_not_by_a_collision():
             "an arm entirely off the rule is the dangerous shape — internally consistent "
             "and comparable to nothing else")
 
+        # ...and it reaches the reader. A check that derives correctly and renders nothing
+        # is indistinguishable from no check at all.
+        from analysis_pipeline import report
+        html = report._experiment_arms_html(ctx)
+        assert "Frame-set integrity" in html
+        assert "runs off the 12·√n rule" in html
+        assert "every run in this arm" in html
+        assert "base0000" in html
+
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "analysis"
         # The same sweep run properly: 240 of 400, which is what run_batch produces.
@@ -3109,6 +3118,11 @@ def test_a_cli_driven_sweep_is_caught_by_its_stamps_not_by_a_collision():
         assert summary["flagged"] == 0 and summary["matches"] == 1
         assert summary["arms_affected"] == []
         assert summary["coefficient"] == trends.HARNESS_SAMPLE_COEFFICIENT
+
+        from analysis_pipeline import report
+        html = report._experiment_arms_html(ctx)
+        assert "Every stamped run scored exactly the frame set" in html
+        assert "1 on the rule, 0 off it" in html
 
 
 def test_runs_predating_the_frame_count_stamp_are_unknown_not_mismatched():
