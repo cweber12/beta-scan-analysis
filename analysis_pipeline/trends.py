@@ -1136,6 +1136,226 @@ def _repeat_flag_cause(frame_sets: int) -> str:
             "ran over the same frames; re-run under the current module to find out")
 
 
+# --------------------------------------------------------------------------- #
+# Frame-set integrity (issue #178)
+#
+# ``_arm_repeat_checks`` above catches a frame-set mismatch only where a sampled run and a
+# full-grid run **collide on the same (arm, Bundle)** — it reads a nonzero PCK range between
+# runs that should be byte-identical. That leaves the case that costs a whole cycle: a sweep
+# driven from the CLI over Bundles with no prior sampled run produces runs that are
+# internally consistent, mutually comparable, and silently non-comparable to the rest of the
+# corpus. No collision, so nothing fires.
+#
+# This check reads the **stamps** instead of the results, so it does not need a collision. A
+# run's ``frameCount`` is compared against what its Bundle's truth grid prescribes, one run
+# at a time.
+# --------------------------------------------------------------------------- #
+
+# The sampling rule, mirrored from ``mediapipe_job.SAMPLE_COEFFICIENT``.
+#
+# Mirrored rather than imported: ``mediapipe_job`` drags ``youtube_core`` → ``yt_dlp`` and
+# ``vitpose_job`` in behind it, which ADR 0003 and ADR 0012 exist to keep out of this
+# package's import graph. Same trade ADR 0013 makes for the Cycle — the pipeline reads the
+# artifact rather than importing the writer, and the one test file that may import both
+# halves (``test_mediapipe_job.py``) asserts they still agree.
+#
+# The mirror is the **fallback only**: when a Cycle is resolved, the coefficient *it* stamped
+# wins, and that value came from the job module itself (``cycle_integrity`` writes it), so a
+# corpus under a Cycle is checked against the rule its runs were actually produced under
+# rather than against a copy. The no-Cycle case is what this constant covers, and the report
+# names which of the two it used.
+HARNESS_SAMPLE_COEFFICIENT = 12
+
+# What a run's stamped frame count turned out to be, relative to its Bundle's grid.
+#
+# ``UNSTAMPED`` and ``NO_GRID`` are deliberately not ``MISMATCH``. A run written before the
+# sweep recorded ``frameCount`` carries none, and a Bundle whose truth artifact cannot be
+# read yields no expectation — in both cases the stamps cannot say, which is a different
+# statement from saying the run is wrong. Collapsing either into "mismatch" would
+# manufacture findings out of the historical corpus.
+FRAME_SET_MATCHES = "matches"
+FRAME_SET_FULL_GRID = "full-grid"
+FRAME_SET_MISMATCH = "mismatch"
+FRAME_SET_UNSTAMPED = "unstamped"
+FRAME_SET_NO_GRID = "no-truth-grid"
+
+# Which statuses are a finding. ``MATCHES`` is the expected shape and is counted, not listed.
+FRAME_SET_FLAGGED = (FRAME_SET_FULL_GRID, FRAME_SET_MISMATCH)
+
+_FRAME_SET_COLUMNS = [
+    "origin", "config_hash", "arm", "route_folder", "video_key", "run_ts",
+    "truth_frames", "expected_frames", "frame_count", "status", "detail",
+]
+
+
+def expected_sample_size(truth_frames: int,
+                         coefficient: int = HARNESS_SAMPLE_COEFFICIENT) -> int:
+    """How many frames a run over this Bundle should have scored: ``min(n, ⌊c·√n⌋)``.
+
+    The keep count of ``mediapipe_job.sample_timestamps``, and only the count — *which*
+    frames it picks is not reconstructible from a run's stamp, so the count is the whole of
+    what this check can establish. That is enough for the failure it exists to catch: a
+    full-grid run and a sampled run differ in count on every Bundle where the rule bites.
+    """
+
+    if truth_frames <= 0:
+        return 0
+    return min(int(truth_frames), int(coefficient * math.sqrt(truth_frames)))
+
+
+def _truth_grid_size(video_dir: Path) -> int | None:
+    """How many frames the Bundle's truth grid holds — the ``n`` in ``12·√n``.
+
+    Same artifact preference ``mediapipe_job.truth_timestamps`` applies (human truth over
+    the scaffold), because that is the grid a run was sampled *from*. ``None`` when neither
+    artifact is readable, which the caller must keep distinct from a count of zero.
+    """
+
+    for name in ("ground-truth.json", "vitpose.json"):
+        path = video_dir / name
+        if not path.exists():
+            continue
+        try:
+            doc = _load_json(path)
+        except Exception:
+            continue
+        frames = doc.get("frames") if isinstance(doc, dict) else None
+        if isinstance(frames, list) and frames:
+            return sum(1 for f in frames if isinstance(f, dict))
+    return None
+
+
+def _frame_set_coefficient(cycle: Any) -> tuple[int, str]:
+    """The coefficient to check against, and where it came from.
+
+    The Cycle's stamp wins because it is a record of the rule the runs were produced under;
+    the mirrored constant is only what is left when there is no Cycle. Reported either way —
+    a checker that will not say which rule it applied is not much of a checker.
+    """
+
+    stamped = getattr(cycle, "sample_coefficient", None)
+    if isinstance(stamped, int) and stamped > 0:
+        cycle_id = str(getattr(cycle, "cycle_id", "") or "")
+        return stamped, f"cycle {cycle_id}" if cycle_id else "cycle"
+    return HARNESS_SAMPLE_COEFFICIENT, "pipeline default (no Cycle stamp)"
+
+
+def _arm_frame_sets(analysis_root: Path, arms: pd.DataFrame, cycle: Any) -> pd.DataFrame:
+    """One row per harness run: the frame set it scored, against the one its Bundle sets.
+
+    Per **run**, not per (arm, Bundle) group, and that is the whole point. A group-level
+    check can only compare a group's runs to each other, so a group holding one run — or a
+    whole sweep whose groups all hold one run — is silently unexaminable. Comparing each run
+    against the Bundle's prescription needs no second run to disagree with.
+    """
+
+    if arms.empty:
+        return pd.DataFrame(columns=_FRAME_SET_COLUMNS)
+    coefficient, _ = _frame_set_coefficient(cycle)
+    grids: dict[tuple[str, str], int | None] = {}
+    rows: list[dict[str, Any]] = []
+    for r in arms.itertuples():
+        vid = (str(r.route_folder), str(r.video_key))
+        if vid not in grids:
+            grids[vid] = _truth_grid_size(analysis_root / vid[0] / vid[1])
+        truth_frames = grids[vid]
+        stamped = r.sampled_frames
+        stamped = int(stamped) if isinstance(stamped, (int, float)) and pd.notna(
+            stamped) else None
+        expected = (expected_sample_size(truth_frames, coefficient)
+                    if truth_frames is not None else None)
+        status, detail = _frame_set_status(stamped, expected, truth_frames)
+        rows.append({
+            "origin": r.origin,
+            "config_hash": r.config_hash,
+            "arm": r.arm,
+            "route_folder": vid[0],
+            "video_key": vid[1],
+            "run_ts": r.run_ts,
+            "truth_frames": truth_frames,
+            "expected_frames": expected,
+            "frame_count": stamped,
+            "status": status,
+            "detail": detail,
+        })
+    return pd.DataFrame(rows, columns=_FRAME_SET_COLUMNS).sort_values(
+        ["origin", "config_hash", "route_folder", "video_key", "run_ts"]
+    ).reset_index(drop=True)
+
+
+def _frame_set_status(stamped: int | None, expected: int | None,
+                      truth_frames: int | None) -> tuple[str, str]:
+    """One run's frame set as a status plus the sentence a reader needs beside it."""
+
+    if truth_frames is None or expected is None:
+        return (FRAME_SET_NO_GRID,
+                "no readable truth artifact on this Bundle, so there is no prescribed "
+                "frame count to check against")
+    if stamped is None:
+        return (FRAME_SET_UNSTAMPED,
+                "written before the sweep stamped frameCount — the run's frame set is "
+                "unknown, not wrong; re-run under the current module to establish it")
+    if stamped == expected:
+        return (FRAME_SET_MATCHES, "")
+    if stamped == truth_frames:
+        return (FRAME_SET_FULL_GRID,
+                f"scored the full grid ({truth_frames}) where the arm prescribes "
+                f"{expected} — the CLI's pre-#178 default. Not comparable to a sampled run "
+                "of the same arm, which carries the same stamp")
+    return (FRAME_SET_MISMATCH,
+            f"scored {stamped} where the arm prescribes {expected} of {truth_frames} truth "
+            "frames — neither the sample nor the full grid, so this run measured a frame "
+            "set nothing else in the corpus shares")
+
+
+def _arm_frame_set_summary(frame_sets: pd.DataFrame, cycle: Any) -> dict[str, Any]:
+    """The headline: how many runs are off the rule, and which arms hold them.
+
+    Reported **by arm** as well as by run, because that is the level at which the damage
+    lands. One off-rule run does not merely make itself unreadable; it makes every delta
+    computed against the arm it sits in partly a frame-set artifact, and a reader needs to
+    know which hashes are affected before reading the delta table above.
+    """
+
+    coefficient, source = _frame_set_coefficient(cycle)
+    out: dict[str, Any] = {
+        "coefficient": coefficient,
+        "coefficient_source": source,
+        "runs": 0,
+        "matches": 0,
+        "flagged": 0,
+        "unstamped": 0,
+        "no_truth_grid": 0,
+        "flagged_runs": [],
+        "arms_affected": [],
+    }
+    if frame_sets.empty:
+        return out
+    counts = frame_sets["status"].value_counts().to_dict()
+    out["runs"] = int(len(frame_sets))
+    out["matches"] = int(counts.get(FRAME_SET_MATCHES, 0))
+    out["unstamped"] = int(counts.get(FRAME_SET_UNSTAMPED, 0))
+    out["no_truth_grid"] = int(counts.get(FRAME_SET_NO_GRID, 0))
+    flagged = frame_sets[frame_sets["status"].isin(FRAME_SET_FLAGGED)]
+    out["flagged"] = int(len(flagged))
+    out["flagged_runs"] = flagged.to_dict("records")
+    for cfg, g in flagged.groupby("config_hash", dropna=False):
+        total = int((frame_sets["config_hash"] == cfg).sum())
+        out["arms_affected"].append({
+            "config_hash": str(cfg),
+            "arm": str(g["arm"].iloc[0]),
+            "flagged_runs": int(len(g)),
+            "runs": total,
+            # An arm whose runs are *all* off the rule is internally consistent and
+            # externally incomparable — the sweep-from-the-CLI shape. An arm with only some
+            # runs off is internally inconsistent as well. Both are findings; they are not
+            # the same finding, and the counts are what tell them apart.
+            "whole_arm": bool(len(g) == total),
+        })
+    out["arms_affected"].sort(key=lambda a: (-a["flagged_runs"], a["config_hash"]))
+    return out
+
+
 # Video Stats source stats (issue #23) worth carrying into an arm comparison. Phase-1
 # whole-frame statistics out of ``metadata.json``, stamped at download and therefore
 # **never stale** — unlike the phase-2 region stats, which carry a ``setupHash`` and go
@@ -3123,6 +3343,12 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
     # suppressing it on a Bundle whose truth moved would hide a determinism failure behind
     # a truth failure.
     arm_repeat_flags = _arm_repeat_checks(arm_bundles)
+    # Frame-set integrity (issue #178), and ungated for the same reason. Read off the run
+    # scope rather than the per-Bundle frame, because the failure it catches needs no second
+    # run to collide with: each run's stamped frameCount is checked against what its own
+    # Bundle prescribes, so a whole sweep of single-run groups is still examinable.
+    arm_frame_sets = _arm_frame_sets(analysis_root, arm_scope, cycle)
+    arm_frame_set_summary = _arm_frame_set_summary(arm_frame_sets, cycle)
     arm_video_stats = _arm_video_stats(analysis_root, arm_bundles)
     arm_reach = _arm_comparison_reach(pooled_bundles, arm_overview, arm_delta_summary)
     cycle_bundles = cycles.cycle_bundle_rows(cycle)
@@ -3252,6 +3478,11 @@ def build_trend_context(analysis_root: Path) -> dict[str, Any]:
         "arm_deltas": arm_deltas,
         "arm_delta_summary": arm_delta_summary,
         "arm_repeat_flags": arm_repeat_flags,
+        # Issue #178: every harness run's frame set against the one its Bundle prescribes,
+        # so a CLI-driven sweep is caught by its stamps rather than by a coincidental
+        # same-Bundle collision with a sampled run.
+        "arm_frame_sets": arm_frame_sets,
+        "arm_frame_set_summary": arm_frame_set_summary,
         "arm_video_stats": arm_video_stats,
         "arm_bundle_count": int(len(arm_bundles)),
         "arm_reach": arm_reach,
@@ -3374,6 +3605,10 @@ def write_trend_tables(out_dir: Path, ctx: dict[str, Any]) -> dict[str, Path]:
         "eval_arm_deltas.csv": ctx.get("arm_deltas"),
         "eval_arm_delta_summary.csv": ctx.get("arm_delta_summary"),
         "eval_arm_video_stats.csv": ctx.get("arm_video_stats"),
+        # Issue #178: every run's frame set against the one its Bundle prescribes. Exported
+        # whole rather than only the flagged rows, because "which runs were checked and
+        # passed" is half of what makes a zero-finding check believable.
+        "eval_arm_frame_sets.csv": ctx.get("arm_frame_sets"),
         # Issue #176: the Cycle's verdict on the Bundles it dropped, and the harness runs
         # its window placed outside it. Both exported because both are exclusions, and an
         # exclusion this pipeline cannot re-read afterwards is one nobody can audit.
