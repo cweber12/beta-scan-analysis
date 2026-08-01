@@ -74,7 +74,7 @@ class StubDetector:
         self.empty = empty
         StubDetector.builds.append(self)
 
-    def detect(self, video_path, timestamps, config):
+    def detect(self, video_path, timestamps, config, crop_track=None):
         self.calls.append((video_path, tuple(timestamps)))
         out = {}
         for t in timestamps:
@@ -440,7 +440,7 @@ def test_a_failure_records_its_exception_type_and_traceback():
 
     class Exploding:
         def __init__(self, config): pass
-        def detect(self, video_path, timestamps, config):
+        def detect(self, video_path, timestamps, config, crop_track=None):
             raise RuntimeError("decoder went away")
 
     tmp = Path(tempfile.mkdtemp())
@@ -474,7 +474,7 @@ def test_a_mid_batch_failure_still_names_the_runs_that_reached_disk():
         def __init__(self, config):
             pass
 
-        def detect(self, video_path, timestamps, config):
+        def detect(self, video_path, timestamps, config, crop_track=None):
             FailsOnThirdPass.sweeps += 1
             if FailsOnThirdPass.sweeps == 3:
                 raise RuntimeError("pass 3 died")
@@ -676,6 +676,144 @@ def test_nothing_is_fetched_at_run_time():
         "mediapipe_job must not download; fetching lives in "
         "scripts/fetch_mediapipe_models.py so an arm is pinned before it runs"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Tracked crop (issue #169) — the arm, the coordinates, and the truth firewall
+# --------------------------------------------------------------------------- #
+
+class _Landmark:
+    def __init__(self, x, y, v=0.9):
+        self.x, self.y, self.visibility = x, y, v
+
+
+class _Landmarker:
+    def __init__(self, points): self._points = points
+    def detect(self, image): return type("R", (), {"pose_landmarks": [self._points]})()
+
+
+class _Mp:
+    ImageFormat = type("F", (), {"SRGB": 1})
+    class Image:
+        def __init__(self, **kw): pass
+
+
+class _Cv2:
+    COLOR_BGR2RGB = 0
+    def cvtColor(self, image, code): return image
+
+
+def test_cropped_keypoints_land_in_full_frame_coordinates():
+    """The load-bearing conversion. A cropped arm whose keypoints stayed in crop coordinates
+    would be silently uncomparable with every uncropped arm, and the error would read as a
+    detection-quality difference rather than a units bug."""
+
+    import numpy as np
+    detector = mj.MediaPipeDetector.__new__(mj.MediaPipeDetector)
+    frame = np.zeros((100, 200, 3), dtype=np.uint8)
+    landmarker = _Landmarker([_Landmark(0.5, 0.5)])       # dead centre of whatever it sees
+
+    # Crop spanning x 0.2-0.6 and y 0.4-0.8: the crop's centre is (0.4, 0.6) full-frame.
+    cropped = detector._pose_region(
+        landmarker, _Mp, _Cv2(), ["nose"], frame, (0.2, 0.4, 0.6, 0.8))
+    assert abs(cropped[0].x - 0.4) < 1e-9
+    assert abs(cropped[0].y - 0.6) < 1e-9
+
+    # Uncropped, the same landmark is simply the frame centre — same space, no conversion.
+    full = detector._pose_region(landmarker, _Mp, _Cv2(), ["nose"], frame, None)
+    assert (abs(full[0].x - 0.5), abs(full[0].y - 0.5)) < (1e-9, 1e-9)
+
+
+def test_a_degenerate_crop_returns_nothing_rather_than_garbage():
+    import numpy as np
+    detector = mj.MediaPipeDetector.__new__(mj.MediaPipeDetector)
+    frame = np.zeros((100, 200, 3), dtype=np.uint8)
+    landmarker = _Landmarker([_Landmark(0.5, 0.5)])
+    assert detector._pose_region(
+        landmarker, _Mp, _Cv2(), ["nose"], frame, (0.5, 0.5, 0.51, 0.51)) == []
+
+
+def test_the_crop_trajectory_joins_the_arm_identity():
+    """Two arms cropped by trajectories from different tracker settings are not comparable.
+    `crop` names a policy; the trajectory decides which pixels the detector actually saw."""
+
+    base = config_hash(_config(crop=mj.CROP_TRACKED))
+    assert config_hash(replace(_config(crop=mj.CROP_TRACKED), crop_track_hash="a" * 16)) != base
+    assert config_hash(replace(_config(crop=mj.CROP_TRACKED), crop_track_hash="a" * 16)) != \
+           config_hash(replace(_config(crop=mj.CROP_TRACKED), crop_track_hash="b" * 16))
+    # Omitted when absent, so uncropped arms hash exactly as they did before #169.
+    assert "cropTrackHash" not in _config().identity()
+
+
+def test_tracked_crop_without_a_trajectory_is_refused_not_silently_full_frame():
+    """Falling back to full frame would write runs stamped as a cropped arm that never saw a
+    crop — and on 24% of Bundles full frame detects nothing, so the arm would read as a
+    catastrophic regression that never happened."""
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        bundle = _bundle(tmp)
+        try:
+            run_mediapipe_job(
+                tmp / "analysis",
+                _job_request(config=_config(crop=mj.CROP_TRACKED)),
+                _stub_factory(),
+            )
+        except FileNotFoundError as exc:
+            assert "crop-track.json" in str(exc)
+        else:
+            raise AssertionError("a tracked arm with no trajectory must be refused")
+        assert json.loads((bundle / mj.STATUS_NAME).read_text())["status"] == "error"
+        assert not list((bundle / "detections").glob("*_pose.json"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_the_detector_refuses_a_tracked_config_with_no_track_handed_to_it():
+    detector = mj.MediaPipeDetector.__new__(mj.MediaPipeDetector)
+    detector._mode = 1
+    try:
+        detector.detect(Path("x.mp4"), (0.0,), _config(crop=mj.CROP_TRACKED))
+    except ValueError as exc:
+        assert "crop trajectory" in str(exc)
+    else:
+        raise AssertionError("tracked crop with no trajectory must not run full-frame")
+
+
+def test_the_crop_path_never_reads_truth():
+    """Seeding from ViTPose or Ground Truth hands the detector the answer: detection rate
+    would approach 100% and mean nothing. Asserted against the source, not left to
+    convention, because it is the path of least resistance and invisible in results."""
+
+    import ast
+
+    tree = ast.parse(Path("crop_track.py").read_text(encoding="utf-8"))
+    # Docstrings are excluded on purpose: this module's prose *explains* the prohibition, so
+    # a plain text search finds the very sentence forbidding the thing. Only executable
+    # string constants count.
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef))
+        and node.body and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+        and isinstance(node.body[0].value.value, str)
+    }
+    literals = [
+        node.value for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        and id(node) not in docstrings
+    ]
+    for text in literals:
+        low = text.lower()
+        assert "vitpose" not in low and "ground-truth" not in low and "groundtruth" not in low, \
+            f"crop_track must not reach for truth: {text!r}"
+    # The only artifact it names is its own.
+    assert "crop-track.json" in literals
+
+    # ...and the tracker seed in the job comes from calibration, by name.
+    job = Path("mediapipe_job.py").read_text(encoding="utf-8")
+    assert "climberPoint" in job, "the tracker must seed from the setup tap"
 
 
 def test_module_imports_and_runs_without_mediapipe_installed():

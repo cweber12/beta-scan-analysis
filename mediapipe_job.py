@@ -45,6 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol, Sequence
 
+import crop_track
 from vitpose_job import bundle_dir_for, resolve_video_path
 from youtube_core import generate_timestamp, save_detection_run
 
@@ -69,7 +70,11 @@ DEFAULT_REPEATS = 3
 
 CROP_NONE = "none"
 CROP_ADAPTIVE = "adaptive"
-CROP_POLICIES = (CROP_NONE, CROP_ADAPTIVE)
+# Crop at the Bundle's tracked trajectory (issue #169). This is the policy that makes the
+# corpus measurable at all: full-frame MediaPipe detects nothing on 24% of Bundles, where
+# the scanner — which crops — reaches a median 86.9%.
+CROP_TRACKED = "tracked"
+CROP_POLICIES = (CROP_NONE, CROP_ADAPTIVE, CROP_TRACKED)
 
 # The status sidecar, on the ``vitpose.status.json`` model (ADR 0003): a job that dies
 # after its caller has been handed control is otherwise indistinguishable from one still
@@ -151,6 +156,14 @@ class DetectionConfig:
     # under an unchanged stamp and two arms would pool as one. ``None`` means "no model
     # identity was reported" (every stub), which keeps stub-backed hashes stable.
     model_sha: str | None = None
+    # Identity of the crop trajectory this arm was cropped by (issue #169). **Derived, never
+    # caller-supplied**: stamped by the job from the trajectory it actually loaded.
+    #
+    # ``crop`` names a *policy*; the trajectory is what decides which pixels the detector
+    # saw. Two arms cropped by trajectories from different tracker settings are not
+    # comparable, so without this they would share a stamp and pool — the same gap
+    # ``model_sha`` closes for weights. ``None`` means no tracked crop was used.
+    crop_track_hash: str | None = None
 
     def identity(self) -> dict[str, Any]:
         """The canonical, order-stable description the hash is taken over.
@@ -170,6 +183,8 @@ class DetectionConfig:
         # what it was before model pinning existed and the pure-core tests stay meaningful.
         if self.model_sha is not None:
             identity["modelSha"] = self.model_sha
+        if self.crop_track_hash is not None:
+            identity["cropTrackHash"] = self.crop_track_hash
         return identity
 
 
@@ -204,6 +219,7 @@ class Detector(Protocol):
         video_path: Path,
         timestamps: Sequence[float],
         config: DetectionConfig,
+        crop_track: Any | None = None,
     ) -> dict[float, list[Keypoint]]:
         """Detect the pose on each requested timestamp. Keyed by the timestamp as given.
 
@@ -500,6 +516,15 @@ def run_mediapipe_job(
     # sidecar, the run ids and every written stamp must all name the same arm.
     request = stamp_model_identity(request, detector_factory)
 
+    # The crop trajectory is the third thing the arm is a function of (issue #169). Loaded
+    # here and stamped before any hash is taken, for the same reason: a run cropped by one
+    # trajectory and stamped as another is unattributable.
+    track = crop_track.load_crop_track(bundle_dir) if request.config.crop == CROP_TRACKED \
+        else None
+    if track is not None:
+        request = replace(request, config=replace(
+            request.config, crop_track_hash=crop_track.track_hash(track.config)))
+
     base = {
         "jobId": job_id,
         "route": request.route_folder,
@@ -533,6 +558,13 @@ def run_mediapipe_job(
             raise FileNotFoundError(f"Video not found: {video_path}")
         if not request.frames:
             raise ValueError("No timestamps requested; there is nothing to detect.")
+        if request.config.crop == CROP_TRACKED and track is None:
+            raise FileNotFoundError(
+                f"crop=tracked needs {crop_track.ARTIFACT_NAME} in "
+                f"{request.route_folder}/{request.video_key}, and none is present. Build it "
+                f"first — silently falling back to full frame would write runs stamped as a "
+                f"cropped arm that never saw a crop."
+            )
 
         base_ts = generate_timestamp()
         detections_dir = bundle_dir / "detections"
@@ -543,7 +575,7 @@ def run_mediapipe_job(
             # would describe the ordering, not the detector.
             detector = detector_factory(pass_request.config)
             detections = detector.detect(
-                video_path, pass_request.frames, pass_request.config
+                video_path, pass_request.frames, pass_request.config, crop_track=track
             )
             decoded = set(detections)
             pose = build_pose_payload(
@@ -731,26 +763,74 @@ class MediaPipeDetector:
                 "Refusing rather than running them as a no-op, which would report a "
                 "measured null for a transform that never ran."
             )
-        if config.crop != CROP_NONE:
+        if config.crop not in (CROP_NONE, CROP_TRACKED):
             raise NotImplementedError(
                 f"Crop policy {config.crop!r} is stamped into the arm identity but not "
-                f"implemented yet; only {CROP_NONE!r} runs today."
+                f"implemented; {CROP_NONE!r} and {CROP_TRACKED!r} run today."
             )
+
+    def _pose_region(self, landmarker, mp, cv2, names, frame_bgr,
+                     rect: tuple[float, float, float, float] | None) -> list[Keypoint]:
+        """Pose one frame, optionally restricted to ``rect``, in **full-frame** coordinates.
+
+        The mapping back out is the load-bearing part: a cropped arm whose keypoints stayed
+        in crop coordinates would be silently uncomparable with every uncropped arm, and the
+        error would look like a detection quality difference rather than a units bug.
+        """
+
+        height, width = frame_bgr.shape[:2]
+        x0f, y0f, x1f, y1f = rect if rect else (0.0, 0.0, 1.0, 1.0)
+        x0, y0 = int(x0f * width), int(y0f * height)
+        x1, y1 = int(x1f * width), int(y1f * height)
+        if x1 - x0 < 32 or y1 - y0 < 32:
+            return []
+        sub = frame_bgr[y0:y1, x0:x1]
+        image = mp.Image(image_format=mp.ImageFormat.SRGB,
+                         data=cv2.cvtColor(sub, cv2.COLOR_BGR2RGB))
+        poses = landmarker.detect(image).pose_landmarks or []
+        if not poses:
+            return []
+        span_x, span_y = (x1 - x0) / width, (y1 - y0) / height
+        return [
+            Keypoint(
+                name=names[i] if i < len(names) else f"landmark_{i}",
+                x=_clamp01(x0f + landmark.x * span_x),
+                y=_clamp01(y0f + landmark.y * span_y),
+                score=_clamp01(landmark.visibility),
+            )
+            for i, landmark in enumerate(poses[0])
+        ]
 
     def detect(
         self,
         video_path: Path,
         timestamps: Sequence[float],
         config: DetectionConfig,
+        crop_track: Any | None = None,
     ) -> dict[float, list[Keypoint]]:
-        """Decode the requested timestamps and pose each one. See ``Detector.detect``."""
+        """Decode the requested timestamps and pose each one. See ``Detector.detect``.
+
+        ``crop_track`` is the Bundle's crop trajectory (issue #169), required when
+        ``config.crop`` is ``tracked``. Each requested timestamp is posed inside the crop
+        recorded nearest to it, which is what lets a sparse experimental grid reuse a dense
+        tracking pass instead of needing frame-to-frame continuity of its own.
+        """
+
+        # Validate before importing anything heavy: a config this detector cannot honour is
+        # cheap to reject, and doing it first keeps the refusal reachable — and testable —
+        # on a machine with no MediaPipe installed.
+        self._require_supported(config)
+        if config.crop == CROP_TRACKED and crop_track is None:
+            raise ValueError(
+                "crop=tracked needs the Bundle's crop trajectory; running full-frame "
+                "instead would silently produce a different arm from the one stamped."
+            )
 
         import cv2  # lazy — a core dep, but this module is never imported for its purity
 
         import mediapipe as mp
         from mediapipe.tasks.python import vision
 
-        self._require_supported(config)
         landmarker = self._ensure_model()
         names = [landmark.name.lower() for landmark in vision.PoseLandmark]
 
@@ -775,26 +855,125 @@ class MediaPipeDetector:
                 ok, frame_bgr = capture.read()
                 if not ok or frame_bgr is None:
                     continue
-                image = mp.Image(
-                    image_format=mp.ImageFormat.SRGB,
-                    data=cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB),
-                )
-                result = landmarker.detect(image)
-                poses = result.pose_landmarks or []
+                rect = None
+                if config.crop == CROP_TRACKED:
+                    box = crop_track.nearest(timestamp)
+                    rect = box.rect() if box is not None else None
                 # A decoded frame always gets a key — an empty list here means "the model
                 # saw nobody", which is a measurement and must not look like a decode gap.
-                out[timestamp] = [
-                    Keypoint(
-                        name=names[i] if i < len(names) else f"landmark_{i}",
-                        x=_clamp01(landmark.x),
-                        y=_clamp01(landmark.y),
-                        score=_clamp01(landmark.visibility),
-                    )
-                    for i, landmark in enumerate(poses[0])
-                ] if poses else []
+                out[timestamp] = self._pose_region(
+                    landmarker, mp, cv2, names, frame_bgr, rect)
             return out
         finally:
             capture.release()
+
+    # ----------------------------------------------------------------------- #
+    # Stage A — build the trajectory the runs above crop by
+    # ----------------------------------------------------------------------- #
+
+    def build_crop_track(
+        self,
+        video_path: Path,
+        config: crop_track.CropTrackConfig,
+        seed_x: float,
+        seed_y: float,
+        seed_t: float = 0.0,
+        climb_end: float | None = None,
+    ) -> crop_track.CropTrack:
+        """Walk the video from the setup tap and return the crop trajectory.
+
+        The decode loop and the MediaPipe probe live here; every decision about *how* to
+        follow the climber lives in ``crop_track``, which is why that module is testable
+        with a stub and this one is not.
+        """
+
+        import cv2  # lazy
+
+        import mediapipe as mp
+        from mediapipe.tasks.python import vision
+
+        landmarker = self._ensure_model()
+        names = [landmark.name.lower() for landmark in vision.PoseLandmark]
+        capture = cv2.VideoCapture(str(video_path))
+        if not capture.isOpened():
+            raise RuntimeError(f"Could not open video for decoding: {video_path}")
+        try:
+            fps = capture.get(cv2.CAP_PROP_FPS) or 0.0
+            if fps <= 0.0:
+                raise RuntimeError(f"Video reports no frame rate, cannot seek: {video_path}")
+            duration = (capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0) / fps
+            end = min(duration, climb_end) if climb_end else duration
+
+            def frames():
+                t = float(seed_t)
+                while t < end:
+                    capture.set(cv2.CAP_PROP_POS_FRAMES, int(round(t * fps)))
+                    ok, frame = capture.read()
+                    if not ok or frame is None:
+                        break
+                    yield round(t, 3), frame
+                    t += config.step
+
+            def probe(timestamp, frame_bgr, cx, cy, half):
+                rect = (max(0.0, cx - half), max(0.0, cy - half),
+                        min(1.0, cx + half), min(1.0, cy + half))
+                points = self._pose_region(
+                    landmarker, mp, cv2, names, frame_bgr, rect)
+                if not points:
+                    return None
+                return crop_track.Probe(
+                    cx=sum(p.x for p in points) / len(points),
+                    cy=sum(p.y for p in points) / len(points),
+                    appearance=torso_appearance(cv2, frame_bgr, points),
+                )
+
+            # Try each candidate crop size and keep whichever tracked best. Crop size has no
+            # global optimum — measured across 12 Bundles where full-frame detects nothing,
+            # 0.15 and 0.20 tie on the median and win in *opposite* directions per video, so
+            # a single global size costs about ten points. Ties go to the smaller crop: a
+            # tighter box means the climber fills more of what the model sees.
+            best: crop_track.CropTrack | None = None
+            for half in sorted(config.half_candidates):
+                candidate = crop_track.track(
+                    frames(), probe, config, seed_x, seed_y, half=half)
+                _log(f"  half={half}: {candidate.detected}/{len(candidate.boxes)} "
+                     f"({candidate.rate():.0%})")
+                if best is None or candidate.rate() > best.rate():
+                    best = candidate
+            return best if best is not None else crop_track.CropTrack(config=config)
+        finally:
+            capture.release()
+
+
+def torso_appearance(cv2, frame_bgr, points: Sequence[Keypoint]) -> tuple[float, ...]:
+    """Clothing-colour signature of a detected pose's torso, as an HSV hue-sat histogram.
+
+    The guard that stops a widened recovery search adopting a belayer. Deliberately the same
+    measure ``vitpose_job`` uses for Climber Identity, where it was measured on the planet-x
+    pair separating the reappearing climber (0.35) from base bystanders (0.76–0.84).
+
+    Returns ``()`` when the torso region is degenerate, which reduces tracking to pure
+    geometry rather than failing — a featureless probe is a supported state.
+    """
+
+    named = {p.name: p for p in points}
+    corners = [named.get(n) for n in
+               ("left_shoulder", "right_shoulder", "left_hip", "right_hip")]
+    if any(c is None for c in corners):
+        return ()
+    height, width = frame_bgr.shape[:2]
+    xs = [c.x for c in corners]
+    ys = [c.y for c in corners]
+    x0, x1 = int(min(xs) * width), int(max(xs) * width)
+    y0, y1 = int(min(ys) * height), int(max(ys) * height)
+    if x1 - x0 < 4 or y1 - y0 < 4:
+        return ()
+    hsv = cv2.cvtColor(frame_bgr[y0:y1, x0:x1], cv2.COLOR_BGR2HSV)
+    hist = cv2.calcHist([hsv], [0, 1], None, [16, 8], [0, 180, 0, 256])
+    total = float(hist.sum())
+    if total <= 0.0:
+        return ()
+    return tuple(round(float(v) / total, 5) for v in hist.flatten())
 
 
 def default_detector_factory(config: DetectionConfig) -> Detector:
@@ -819,6 +998,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     parser.add_argument("--limit", type=int, default=None,
                         help="Sample only the first N truth timestamps (smoke runs).")
+    parser.add_argument("--crop", default=CROP_NONE, choices=list(CROP_POLICIES))
+    parser.add_argument("--track", action="store_true",
+                        help="Stage A: build the crop trajectory and exit.")
+    parser.add_argument("--crop-half", type=float, default=None)
+    parser.add_argument("--crop-step", type=float, default=None)
     args = parser.parse_args(argv)
 
     analysis_root = args.analysis_root.resolve()
@@ -826,6 +1010,32 @@ def main(argv: Sequence[str] | None = None) -> int:
     video = resolve_bundle_video(bundle_dir)
     if video is None:
         parser.error(f"No video binary in {bundle_dir}")
+
+    if args.track:
+        overrides = {k: v for k, v in
+                     (("half", args.crop_half), ("step", args.crop_step)) if v is not None}
+        config = replace(crop_track.CropTrackConfig(), **overrides)
+        setup = _read_json(bundle_dir / SETUP_NAME)
+        tap = setup.get("climberPoint") or {}
+        if not isinstance(tap, dict) or tap.get("x") is None:
+            parser.error(
+                f"No setup tap (setup.json climberPoint) in {bundle_dir}. Tracking is seeded "
+                "from calibration, never from truth — there is no valid fallback.")
+        detector = MediaPipeDetector(mode=args.mode)
+        track = detector.build_crop_track(
+            video, config,
+            seed_x=float(tap["x"]), seed_y=float(tap["y"]),
+            seed_t=float(tap.get("t") or 0.0),
+            climb_end=setup.get("climbEnd"),
+        )
+        track.setup_hash = read_setup_hash(bundle_dir)
+        track.seed = {"x": tap.get("x"), "y": tap.get("y"), "t": tap.get("t"),
+                      "source": "setup.json climberPoint"}
+        path = crop_track.write_crop_track(bundle_dir, track)
+        print(f"{track.detected}/{len(track.boxes)} tracked ({track.rate():.0%})  "
+              f"arm {crop_track.track_hash(config)[:8]}  -> {path}")
+        return 0
+
     frames = truth_timestamps(bundle_dir)
     if not frames:
         parser.error(f"No truth artifact to take a timestamp grid from in {bundle_dir}")
@@ -839,7 +1049,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             route_folder=args.route_folder,
             video_key=args.video_key,
             frames=frames,
-            config=DetectionConfig(mode=args.mode),
+            config=DetectionConfig(mode=args.mode, crop=args.crop),
             repeats=args.repeats,
         ),
         default_detector_factory,
