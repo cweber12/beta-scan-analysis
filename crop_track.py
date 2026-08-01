@@ -222,6 +222,33 @@ class CropTrack:
                    selected_half=doc.get("selectedHalf"))
 
 
+def content_hash(track: CropTrack) -> str:
+    """Identity of the *trajectory itself* — where the crops actually sit.
+
+    ``track_hash`` names the tracker **settings**, which is what an arm is a function of:
+    two Bundles tracked under one config belong to one arm. That is deliberately not
+    enough to notice a trajectory being **rebuilt** under the same settings — a different
+    seed, a re-encoded video, a re-run that landed differently on a lost stretch — because
+    the config hash would be identical and the pixels the detector saw would not.
+
+    So a cycle snapshots this alongside it (issue #168). Taken over the boxes and the
+    selected crop size, not the file bytes: whitespace and key order are not the
+    trajectory, and hashing them would fire on a re-serialize that changed nothing.
+    """
+
+    blob = json.dumps(
+        {
+            "selectedHalf": track.selected_half,
+            "frames": [
+                [b.timestamp, round(b.cx, 6), round(b.cy, 6), round(b.half, 6), b.source]
+                for b in track.boxes
+            ],
+        },
+        sort_keys=True, separators=(",", ":"),
+    )
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
 def load_crop_track(bundle_dir: Path) -> CropTrack | None:
     try:
         doc = json.loads((bundle_dir / ARTIFACT_NAME).read_text(encoding="utf-8"))

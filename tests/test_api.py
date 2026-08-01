@@ -613,6 +613,7 @@ def _run_all():
         test_video_stats_decode_failure_maps_500,
         test_schema_validation_rejects_bad_payloads,
         test_mediapipe_batch_returns_202_with_its_selection,
+        test_mediapipe_batch_names_the_cycle_it_falls_inside,
         test_mediapipe_batch_refuses_a_second_batch_while_one_runs,
         test_mediapipe_batch_rejects_an_impossible_arm,
         test_mediapipe_batch_with_no_eligible_bundles_fails_synchronously,
@@ -662,6 +663,26 @@ def test_mediapipe_batch_returns_202_with_its_selection():
         excluded = body["selection"]["excluded"][0]
         assert excluded["videoKey"] == "badly"
         assert excluded["reason"] == "wrong-person-truth"
+        # Issue #168: which cycle this sweep falls inside. Null here, and null is the
+        # answer worth having — a batch outside a cycle cannot be certified against drift.
+        assert body["cycle"] is None
+
+
+def test_mediapipe_batch_names_the_cycle_it_falls_inside():
+    """Reported, never gated. The link is what lets a published comparison be checked
+    against the cycle whose manifest certified it."""
+
+    import cycle_integrity
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "analysis"
+        _mp_bundle(root, "a")
+        cycle_integrity.write_cycle(root, {
+            "cycleId": "cycle-20260731-000000", "status": cycle_integrity.STATUS_OPEN})
+        with patch.object(app_module, "ANALYSIS_DIR", root):
+            with patch.object(app_module.threading, "Thread"):
+                response = start_mediapipe_batch(MediaPipeBatchRequest(mode=1))
+        assert json.loads(response.body)["cycle"] == "cycle-20260731-000000"
 
 
 def test_mediapipe_batch_refuses_a_second_batch_while_one_runs():
